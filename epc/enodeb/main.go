@@ -13,8 +13,6 @@ import (
 	"log"
 	"math/big"
 	"net"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -23,9 +21,11 @@ import (
 )
 
 var (
-	ueSerConn, mmeConn, pgwConn *net.UDPConn
-	wg                          *sync.WaitGroup
-	scanTime                    int
+	pkgConn          net.PacketConn
+	mmeConn, pgwConn *net.UDPConn
+	ueBroadcastAddr  *net.UDPAddr
+	wg               *sync.WaitGroup
+	scanTime         int
 )
 
 type Msg struct {
@@ -39,7 +39,7 @@ func main() {
 	msgChan := make(chan *Msg, 2)
 	wg.Add(1)
 	// 开启与ue通信的协程
-	go exchangeWithUe(wg, ueSerConn, msgChan, scanTime)
+	go exchangeWithUe(wg, pkgConn, ueBroadcastAddr, msgChan, scanTime)
 	// 开启与mme通信的协程
 
 	// 开启与pgw通信的协程
@@ -57,42 +57,30 @@ func init() {
 	}
 	host := viper.GetString("eNodeB.host")
 	enodebBroadcastNet := viper.GetString("eNodeB.broadcast.net")
-	ueListenPort := viper.GetInt("eNodeB.listen.port")
 	scanTime = viper.GetInt("eNodeB.scan.time")
-	// ueListenPort = viper.GetInt("eNodeB.ue.listen.port")
 	logger.Info("配置文件读取成功", "")
 	// 启动与ue连接的服务器
-	ueSerConn = initUeServer(host, ueListenPort, enodebBroadcastNet)
+	pkgConn, ueBroadcastAddr = initUeServer(host, enodebBroadcastNet)
 	// 作为客户端与epc网络连接
 
 	// 创建于MME的UDP连接
-	mme := viper.GetString("EPC.mme")
-	mmeConn = connectEPC(mme)
+	//mme := viper.GetString("EPC.mme")
+	//mmeConn = connectEPC(mme)
 	// TODO 创建于PGW的UDP连接
-	pgw := viper.GetString("EPC.pgw")
-	pgwConn = connectEPC(pgw)
+	//pgw := viper.GetString("EPC.pgw")
+	//pgwConn = connectEPC(pgw)
 }
 
 // 与ue连接的UDP服务端
-func initUeServer(host string, port int, broadcast string) *net.UDPConn {
-	la, err := net.ResolveUDPAddr("udp4", host)
+func initUeServer(host string, broadcast string) (net.PacketConn, *net.UDPAddr) {
+	pkconn, err := net.ListenPacket("udp4", host)
 	if err != nil {
 		log.Panicln("eNodeB host配置解析失败")
 	}
-	_, sub, e := net.ParseCIDR(broadcast)
-	if e != nil {
-		log.Panicln("广播子网配置解析失败", e)
-	}
-	// 构造子网
-	subNetIP := getSubBroadcastIP(sub)
-	// 和广播子网建立连接
-	conn, err := net.DialUDP("udp4", la, &net.UDPAddr{IP: subNetIP, Port: port})
-	if err != nil {
-		log.Panicln("与广播子网连接建立失败", err)
-	}
-	logger.Info("ue UDP广播服务器启动成功 [%v:%v]", la.IP, la.Port)
-	logger.Info("UDP广播子网 [%v:%v]", sub.IP, port)
-	return conn
+	ra, err := net.ResolveUDPAddr("udp4", broadcast)
+	logger.Info("ue UDP广播服务器启动成功 [%v]", host)
+	logger.Info("UDP广播子网 [%v]", broadcast)
+	return pkconn, ra
 }
 
 func getSubBroadcastIP(addr *net.IPNet) net.IP {
@@ -107,17 +95,11 @@ func getSubBroadcastIP(addr *net.IPNet) net.IP {
 }
 
 func connectEPC(dest string) *net.UDPConn {
-	tmp := strings.Split(dest, ":")
-	ip := net.ParseIP(tmp[0])
-	port, err := strconv.Atoi(tmp[1])
+	addr, err := net.ResolveUDPAddr("udp4", dest)
 	if err != nil {
-		log.Panicln("epc UDP服务端端口配置解析失败", err)
+		logger.Error("地址解析错误 %v", err)
 	}
-	addr := net.UDPAddr{
-		IP:   ip,
-		Port: port,
-	}
-	conn, err := net.DialUDP("udp4", nil, &addr)
+	conn, err := net.DialUDP("udp4", nil, addr)
 	if err != nil {
 		log.Panicln("epc UDP客户端启动失败", err)
 	}
@@ -125,21 +107,28 @@ func connectEPC(dest string) *net.UDPConn {
 	return conn
 }
 
-func exchangeWithUe(wg *sync.WaitGroup, conn *net.UDPConn, c chan *Msg, scan int) {
+func exchangeWithUe(wg *sync.WaitGroup, conn net.PacketConn, raddr *net.UDPAddr, c chan *Msg, scan int) {
 	defer wg.Done()
-	// 广播基站开始工作消息
-	_, err := conn.Write([]byte("Broadcast to Ue"))
-	if err != nil {
-		logger.Error("广播开始工作消息失败......")
-		return
-	}
 	// 使用context管理多个用户连接的写入
 	ctx, cancel := context.WithCancel(context.Background())
+	// 广播基站工作消息
+	go func(ctx context.Context) {
+		for {
+			_, err := conn.WriteTo([]byte("Broadcast to Ue"), raddr)
+			if err != nil {
+				logger.Error("广播开始工作消息失败......  %v", err)
+			}
+			time.Sleep(time.Duration(scan) * time.Second)
+		}
+	}(ctx)
+	// 启动写协程
+	go writeToUe(ctx, conn, raddr, c)
+
 	buf := make([]byte, 1024)
 	buffer := bytes.NewBuffer(buf)
 	for {
 		buffer.Reset()
-		n, raddr, err := conn.ReadFromUDP(buffer.Bytes())
+		n, r, err := conn.ReadFrom(buffer.Bytes())
 		if err != nil {
 			logger.Error("Ue Server读取UDP数据错误 %v", err)
 			break
@@ -148,12 +137,13 @@ func exchangeWithUe(wg *sync.WaitGroup, conn *net.UDPConn, c chan *Msg, scan int
 			time.Sleep(time.Duration(scan) * time.Second)
 			continue
 		}
-		logger.Info("Read From Ue[%v:%v] Len: %v Data: %v", raddr.IP, raddr.Port, n, buffer.Bytes())
+		if n == 0 {
+			time.Sleep(time.Duration(scan) * time.Second)
+			continue
+		}
+		logger.Info("Read From Ue[%v] Len: %v Data: %v", r, n, buffer.Bytes())
 		// 分发消息给订阅通道
 		distribute(buffer.Bytes(), c)
-		// 启动写协程
-
-		go writeToUe(ctx, conn, c)
 	}
 	// 退出所有的ue端写协程
 	cancel()
@@ -177,7 +167,7 @@ func distribute(data []byte, c chan *Msg) {
 	}
 }
 
-func writeToUe(c context.Context, conn *net.UDPConn, ch chan *Msg) {
+func writeToUe(c context.Context, conn net.PacketConn, raddr *net.UDPAddr, ch chan *Msg) {
 	// 创建write buffer
 	buf := make([]byte, 1024)
 	buffer := bytes.NewBuffer(buf)
@@ -188,7 +178,7 @@ func writeToUe(c context.Context, conn *net.UDPConn, ch chan *Msg) {
 			if err != nil {
 				logger.Error("EpcMsg转化[]byte失败 %v", err)
 			}
-			_, err = conn.Write(buffer.Bytes())
+			_, err = conn.WriteTo(buffer.Bytes(), raddr)
 			if err != nil {
 				logger.Error("EpcMsg广播消息发送失败 %v %v", err, buffer.Bytes())
 			}
@@ -197,7 +187,7 @@ func writeToUe(c context.Context, conn *net.UDPConn, ch chan *Msg) {
 			if err != nil {
 				logger.Error("SipMsg转化[]byte失败 %v", err)
 			}
-			_, err = conn.Write(buffer.Bytes())
+			_, err = conn.WriteTo(buffer.Bytes(), raddr)
 			if err != nil {
 				logger.Error("SipMsg广播消息发送失败 %v %v", err, buffer.Bytes())
 			}
