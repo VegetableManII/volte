@@ -1,4 +1,4 @@
-module github.com/VegetableManII/volte/epc
+module epc
 
 go 1.17
 
