@@ -10,6 +10,9 @@ import (
 	. "epc/common"
 	"log"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/spf13/viper"
@@ -27,6 +30,8 @@ func main() {
 	ctx = context.WithValue(ctx, "Entity", "eNodeB")
 	producer := make(chan *Msg, 2)
 	consumer := make(chan *Msg, 2)
+	quit := make(chan os.Signal)
+	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGSTOP, syscall.SIGSTOP)
 	// 开启广播工作消息
 	go broadWorkingMessage(ctx, loConn, ueBroadcastAddr)
 	// 开启与ue通信的协程
@@ -34,8 +39,19 @@ func main() {
 	// 开启与mme通信的协程
 
 	// 开启与pgw通信的协程
+
+	<-quit
+	logger.Warn("[eNodeB] eNodeB 功能实体退出...")
 	cancel()
-	loConn.Close()
+	err1 := loConn.Close()
+	err2 := mmeConn.Close()
+	err3 := pgwConn.Close()
+	if err1 != nil || err2 != nil || err3 != nil {
+		logger.Fatal("[eNodeB] eNodeB socket资源关闭错误 ueSock:%v mmeSock:%v pgwSock:%v", err1, err2, err3)
+	}
+	time.Sleep(2 * time.Second)
+	logger.Warn("[eNodeB] eNodeB 资源释放完成...")
+
 }
 
 // 读取配置文件

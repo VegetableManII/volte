@@ -11,6 +11,11 @@ import (
 	"github.com/wonderivan/logger"
 )
 
+/*
+并发安全集合用来保存客户端连接
+新连接接入之后保存对方的IP到集合中
+当连接断开时没有从集合中删除???如何判断已经断开
+*/
 var clientMap *sync.Map
 
 func ExchangeWithClient(ctx context.Context, conn *net.UDPConn, producerC, consumerC chan *Msg) {
