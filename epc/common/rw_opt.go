@@ -91,11 +91,7 @@ func writeToClient(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, 
 func distribute(data []byte, c chan *Msg) {
 	if data[0] == 0x01 { // epc电路域协议
 		msg := new(EpcMsg)
-		size := [2]byte{}
-		copy(size[:], data[2:4])
-		length := [4]byte{}
-		copy(length[:], data[4:8])
-		msg.Init(data[0], data[1], size, length, data[8:])
+		msg.Init(data)
 		c <- &Msg{
 			Type:  0x01,
 			Data1: msg,

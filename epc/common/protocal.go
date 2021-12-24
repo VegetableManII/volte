@@ -26,14 +26,18 @@ type EpcMsg struct {
 	_data [24]byte
 }
 
-func (e *EpcMsg) Init(_type byte, msg byte, size [2]byte, imsi [4]byte, data []byte) {
-	e._type = _type
-	e._msg = msg
-	e._size = size
-	e._imsi = imsi
-	copy(e._data[:24], data)
+func (e *EpcMsg) Init(data []byte) {
+	e._type = 0x01
+	e._msg = data[1]
+	copy(e._size[:], data[2:4])
+	copy(e._imsi[:], data[4:8])
+	copy(e._data[:24], data[8:])
 }
 
 // todo 定义sip消息结构
 type SipMsg struct {
+}
+
+func (s *SipMsg) Init() {
+
 }
