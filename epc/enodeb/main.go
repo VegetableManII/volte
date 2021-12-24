@@ -28,14 +28,18 @@ var (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	ctx = context.WithValue(ctx, "Entity", "eNodeB")
-	producer := make(chan *Msg, 2)
-	consumer := make(chan *Msg, 2)
+	preParseC := make(chan *Msg, 2)
+	/*
+		读协程读消息->解析前管道->协议解析->解析后管道->写协程写消息
+			readGoroutine --->> chan *Msg --->> parser --->> chan *Msg --->> writeGoroutine
+	*/
+	postParseC := make(chan *Msg, 2)
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGSTOP, syscall.SIGSTOP)
 	// 开启广播工作消息
-	go broadWorkingMessage(ctx, loConn, ueBroadcastAddr)
+	go broadWorkingMessage(ctx, loConn, ueBroadcastAddr, scanTime)
 	// 开启与ue通信的协程
-	go common.ExchangeWithClient(ctx, loConn, producer, consumer)
+	go common.ExchangeWithClient(ctx, loConn, preParseC, postParseC)
 	// 开启与mme通信的协程
 
 	// 开启与pgw通信的协程
@@ -43,13 +47,6 @@ func main() {
 	<-quit
 	logger.Warn("[eNodeB] eNodeB 功能实体退出...")
 	cancel()
-	err1 := loConn.Close()
-	err2 := mmeConn.Close()
-	err3 := pgwConn.Close()
-	if err1 != nil || err2 != nil || err3 != nil {
-		logger.Fatal("[eNodeB] eNodeB socket资源关闭错误 ueSock:%v mmeSock:%v pgwSock:%v", err1, err2, err3)
-	}
-	time.Sleep(2 * time.Second)
 	logger.Warn("[eNodeB] eNodeB 资源释放完成...")
 
 }
@@ -101,13 +98,13 @@ func initUeServer(host string, broadcast string) (*net.UDPConn, *net.UDPAddr) {
 }
 
 // 广播基站工作消息
-func broadWorkingMessage(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr) {
+func broadWorkingMessage(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, scan int) {
 	for {
 		n, err := conn.WriteToUDP([]byte("Broadcast to Ue"), remote)
 		if err != nil {
-			logger.Error("[%v] 广播开始工作消息失败...... %v", ctx.Value("Entity"), err)
+			logger.Error("[%v] 广播开始工作消息失败... %v", ctx.Value("Entity"), err)
 		}
-		time.Sleep(1 * time.Second)
-		logger.Info("[%v] 广播工作消息...... [%v]", ctx.Value("Entity"), n)
+		time.Sleep(time.Duration(scan) * time.Second)
+		logger.Info("[%v] 广播工作消息... [%v]", ctx.Value("Entity"), n)
 	}
 }

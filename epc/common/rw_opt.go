@@ -18,34 +18,34 @@ import (
 */
 var clientMap *sync.Map
 
-func ExchangeWithClient(ctx context.Context, conn *net.UDPConn, producerC, consumerC chan *Msg) {
+func ExchangeWithClient(ctx context.Context, conn *net.UDPConn, pre, post chan *Msg) {
 	clientMap = new(sync.Map)
 	data := make([]byte, 1024)
 	for {
 		select {
 		case <-ctx.Done():
 			// 释放资源
-			close(producerC) // 关闭生产者通道
+			close(pre) // 关闭生产者通道
 			logger.Warn("[%v] 信令交互协程退出", ctx.Value("Entity"))
 		default:
-		}
-		n, remote, err := conn.ReadFromUDP(data)
-		if err != nil {
-			logger.Error("[%v] Server读取数据错误 %v", ctx.Value("Entity"), err)
-		}
-		if remote != nil || n != 0 {
-			clientMap.Store(remote, ctx.Value("Entity"))
-			logger.Warn("[%v] Read[%v] Data: %v", ctx.Value("Entity"), n, data[:n])
-			distribute(data, producerC)
-			go writeToClient(ctx, conn, remote, consumerC)
-		} else {
-			logger.Info("[%v] Remote[%v] Len[%v]", ctx.Value("Entity"), remote, n)
-			time.Sleep(500 * time.Millisecond)
+			n, remote, err := conn.ReadFromUDP(data)
+			if err != nil {
+				logger.Error("[%v] Server读取数据错误 %v", ctx.Value("Entity"), err)
+			}
+			if remote != nil || n != 0 {
+				clientMap.Store(remote, ctx.Value("Entity"))
+				logger.Warn("[%v] Read[%v] Data: %v", ctx.Value("Entity"), n, data[:n])
+				distribute(data, pre)
+				go writeToClient(ctx, conn, remote, post)
+			} else {
+				logger.Info("[%v] Remote[%v] Len[%v]", ctx.Value("Entity"), remote, n)
+				time.Sleep(500 * time.Millisecond)
+			}
 		}
 	}
 }
 
-func writeToClient(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, consumerC chan *Msg) {
+func writeToClient(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, postConsumerC chan *Msg) {
 	// 检查该客户端是否已经开启线程服务
 	if _, ok := clientMap.Load(remote); ok {
 		logger.Info("[%v] Client[%v]服务协程已开启", ctx.Value("Entity"), remote)
@@ -58,9 +58,8 @@ func writeToClient(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, 
 		select {
 		case <-ctx.Done():
 			// 释放资源
-			close(consumerC) // 关闭消费者通道
 			logger.Warn("[%v] 发送信令至客户端协程退出", ctx.Value("Entity"))
-		case msg := <-consumerC:
+		case msg := <-postConsumerC:
 			if msg.Type == 0x01 {
 				err := binary.Write(&buffer, binary.BigEndian, msg.Data1)
 				if err != nil {
