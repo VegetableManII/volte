@@ -77,7 +77,7 @@ func initUeServer(host string, broadcast string) (*net.UDPConn, *net.UDPAddr) {
 	if err != nil {
 		log.Panicln("eNodeB host配置解析失败", err)
 	}
-	ra, err := net.ResolveUDPAddr("udp4", "255.255.255.255:12345")
+	ra, err := net.ResolveUDPAddr("udp4", broadcast)
 	if err != nil {
 		log.Panicln("eNodeB 广播地址配置解析失败", err)
 	}
@@ -85,8 +85,6 @@ func initUeServer(host string, broadcast string) (*net.UDPConn, *net.UDPAddr) {
 	if err != nil {
 		log.Panicln("eNodeB host监听失败", err)
 	}
-	// 设置读超时
-	err = conn.SetDeadline(time.Time{})
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -116,17 +114,16 @@ func exchangeWithUe(wg *sync.WaitGroup, conn *net.UDPConn, raddr *net.UDPAddr, r
 	go func(ctx context.Context) {
 		_ = ctx
 		for {
-			n, err := conn.WriteToUDP([]byte("Broadcast to Ue"), raddr)
+			_, err := conn.WriteToUDP([]byte("Broadcast to Ue"), raddr)
 			if err != nil {
 				logger.Error("广播开始工作消息失败......  %v", err)
 			}
-			logger.Info("Write to %v Len:%v", raddr, n)
 			time.Sleep(1 * time.Second)
 		}
 	}(ctx)
 	// 启动写协程
 	// go writeToUe(ctx, conn, raddr, send)
-	// go writeToUe(ctx, conn, raddr, recv) // debug
+	go writeToUe(ctx, conn, raddr, recv) // debug
 
 	buf := make([]byte, 32)
 	for {
@@ -171,28 +168,30 @@ func writeToUe(c context.Context, conn *net.UDPConn, raddr *net.UDPAddr, ch chan
 	// 创建write buffer
 	var buffer bytes.Buffer
 	var n int
-	select {
-	case msg := <-ch:
-		if msg.Type == 0x01 {
-			err := binary.Write(&buffer, binary.BigEndian, msg.Data1)
-			if err != nil {
-				logger.Error("EpcMsg转化[]byte失败 %v", err)
+	for {
+		select {
+		case msg := <-ch:
+			if msg.Type == 0x01 {
+				err := binary.Write(&buffer, binary.BigEndian, msg.Data1)
+				if err != nil {
+					logger.Error("EpcMsg转化[]byte失败 %v", err)
+				}
+				n, err = conn.WriteTo(buffer.Bytes(), raddr)
+				if err != nil {
+					logger.Error("EpcMsg广播消息发送失败 %v %v", err, buffer.Bytes())
+				}
+			} else {
+				err := binary.Write(&buffer, binary.BigEndian, msg.Data2)
+				if err != nil {
+					logger.Error("SipMsg转化[]byte失败 %v", err)
+				}
+				n, err = conn.WriteTo(buffer.Bytes(), raddr)
+				if err != nil {
+					logger.Error("SipMsg广播消息发送失败 %v %v", err, buffer.Bytes())
+				}
 			}
-			n, err = conn.WriteTo([]byte("wdnmdwdnmd"), raddr)
-			if err != nil {
-				logger.Error("EpcMsg广播消息发送失败 %v %v", err, buffer.Bytes())
-			}
-		} else {
-			err := binary.Write(&buffer, binary.BigEndian, msg.Data2)
-			if err != nil {
-				logger.Error("SipMsg转化[]byte失败 %v", err)
-			}
-			n, err = conn.WriteTo(buffer.Bytes(), raddr)
-			if err != nil {
-				logger.Error("SipMsg广播消息发送失败 %v %v", err, buffer.Bytes())
-			}
+			logger.Info("Write to Ue[%v] Len: %v Data: %v", raddr, n, buffer.Bytes())
+			buffer.Reset()
 		}
-		logger.Info("Write to Ue[%v] Len: %v Data: %v", raddr, n, buffer.Bytes())
-		buffer.Reset()
 	}
 }
