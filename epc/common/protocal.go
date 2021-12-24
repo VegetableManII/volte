@@ -1,6 +1,11 @@
-package service
+package common
 
-// enodb 代码实现
+type Msg struct {
+	Type  byte // 0x01 epc 0x00 ims
+	Data1 *EpcMsg
+	Data2 *SipMsg
+}
+
 // epc网络电路协议消息结构
 type EpcMsg struct {
 	_type byte // 0x01 表示电路域协议
