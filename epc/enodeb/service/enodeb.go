@@ -18,7 +18,7 @@ type EpcMsg struct {
 	// 0x0A Attach Accept
 	_size [2]byte // data字段的长度
 	_imsi [4]byte // IMSI
-	_data []byte
+	_data [24]byte
 }
 
 func (e *EpcMsg) Init(_type byte, msg byte, size [2]byte, imsi [4]byte, data []byte) {
@@ -26,7 +26,7 @@ func (e *EpcMsg) Init(_type byte, msg byte, size [2]byte, imsi [4]byte, data []b
 	e._msg = msg
 	e._size = size
 	e._imsi = imsi
-	e._data = data
+	copy(e._data[:24], data)
 }
 
 // todo 定义sip消息结构
