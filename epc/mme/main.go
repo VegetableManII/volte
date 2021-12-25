@@ -18,15 +18,20 @@ var (
 	mmeConn, hssConn *net.UDPConn
 )
 
+/*
+	读协程读消息->解析前管道->协议解析->解析后管道->写协程写消息
+		readGoroutine --->> chan *Msg --->> parser --->> chan *Msg --->> writeGoroutine
+*/
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	ctx = context.WithValue(ctx, "Entity", "MME")
 	preParseC := make(chan *Msg, 2)
-	postParseC := make(chan *Msg, 2)
+	// postParseC := make(chan *Msg, 2)
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGSTOP, syscall.SIGSTOP)
 	// 开启与eNodeB交互的协程
-	go common.ExchangeWithClient(ctx, mmeConn, preParseC, postParseC)
+	// go common.ExchangeWithClient(ctx, mmeConn, preParseC, postParseC)
+	go common.ExchangeWithClient(ctx, mmeConn, preParseC, preParseC) // debug
 	// 开启与HSS交互的协程
 
 	<-quit
@@ -43,10 +48,10 @@ func init() {
 		log.Panicln("配置文件读取失败", e)
 	}
 	host := viper.GetString("EPC.mme.host")
-	hssHost := viper.GetString("EPC.hss.host")
+	// hssHost := viper.GetString("EPC.hss.host")
 	logger.Info("配置文件读取成功", "")
 	// 启动 MME 的UDP服务器
 	mmeConn = common.InitServer(host)
 	// 创建连接 HSS 的客户端
-	hssConn = common.ConnectEPC(hssHost)
+	// hssConn = common.ConnectEPC(hssHost)
 }

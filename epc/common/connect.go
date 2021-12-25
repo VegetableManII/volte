@@ -29,5 +29,6 @@ func InitServer(host string) *net.UDPConn {
 	if err != nil {
 		log.Panicln("udp server 监听失败", err)
 	}
+	logger.Info("服务器启动成功[%v]", lo)
 	return conn
 }

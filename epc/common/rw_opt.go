@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"io"
 	"net"
 	"sync"
 	"time"
@@ -25,18 +26,24 @@ func ExchangeWithClient(ctx context.Context, conn *net.UDPConn, pre, post chan *
 		select {
 		case <-ctx.Done():
 			// 释放资源
-			close(pre) // 关闭生产者通道
+			// close(pre) // 关闭生产者通道
 			logger.Warn("[%v] 信令交互协程退出", ctx.Value("Entity"))
+			return
 		default:
 			n, remote, err := conn.ReadFromUDP(data)
 			if err != nil {
 				logger.Error("[%v] Server读取数据错误 %v", ctx.Value("Entity"), err)
 			}
 			if remote != nil || n != 0 {
-				clientMap.Store(remote, ctx.Value("Entity"))
-				logger.Warn("[%v] Read[%v] Data: %v", ctx.Value("Entity"), n, data[:n])
-				distribute(data, pre)
-				go writeToClient(ctx, conn, remote, post)
+				logger.Info("[%v] Read[%v] Data: %v", ctx.Value("Entity"), n, data[:n])
+				distribute(data[:n], pre)
+				// 检查该客户端是否已经开启线程服务
+				if _, ok := clientMap.Load(remote); ok {
+					continue
+				} else {
+					clientMap.Store(remote, ctx.Value("Entity"))
+					go writeToClient(ctx, conn, remote, post)
+				}
 			} else {
 				logger.Info("[%v] Remote[%v] Len[%v]", ctx.Value("Entity"), remote, n)
 				time.Sleep(500 * time.Millisecond)
@@ -46,11 +53,6 @@ func ExchangeWithClient(ctx context.Context, conn *net.UDPConn, pre, post chan *
 }
 
 func writeToClient(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, postConsumerC chan *Msg) {
-	// 检查该客户端是否已经开启线程服务
-	if _, ok := clientMap.Load(remote); ok {
-		logger.Info("[%v] Client[%v]服务协程已开启", ctx.Value("Entity"), remote)
-		return
-	}
 	// 创建write buffer
 	var buffer bytes.Buffer
 	var n int
@@ -59,6 +61,7 @@ func writeToClient(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, 
 		case <-ctx.Done():
 			// 释放资源
 			logger.Warn("[%v] 发送信令至客户端协程退出", ctx.Value("Entity"))
+			return
 		case msg := <-postConsumerC:
 			if msg.Type == 0x01 {
 				err := binary.Write(&buffer, binary.BigEndian, msg.Data1)
@@ -96,7 +99,24 @@ func distribute(data []byte, c chan *Msg) {
 			Type:  0x01,
 			Data1: msg,
 		}
-	} else { // ims协议
+	} else { // ims网络域sip协议
 		// todo
+	}
+}
+
+// 主要用于基站和PGW实现消息的代理转发
+func EnodebProxyMessage(ctx context.Context, src, dest *net.UDPConn) {
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Warn("[%v] 基站转发协程退出...", ctx.Value("Entity"))
+			return
+		default:
+			// 循环代理转发用户侧到网络侧消息
+			n, err := io.Copy(dest, src) // 阻塞式,copy有deadline,如果src传输数据过快copy会一直进行复制
+			if err != nil {
+				logger.Error("[%v] 基站转发消息失败 %v %v", ctx.Value("Entity"), n, err)
+			}
+		}
 	}
 }

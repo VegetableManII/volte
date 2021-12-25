@@ -6,7 +6,6 @@ package main
 
 import (
 	"context"
-	"epc/common"
 	. "epc/common"
 	"log"
 	"net"
@@ -28,22 +27,16 @@ var (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	ctx = context.WithValue(ctx, "Entity", "eNodeB")
-	preParseC := make(chan *Msg, 2)
-	/*
-		读协程读消息->解析前管道->协议解析->解析后管道->写协程写消息
-			readGoroutine --->> chan *Msg --->> parser --->> chan *Msg --->> writeGoroutine
-	*/
-	postParseC := make(chan *Msg, 2)
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGSTOP, syscall.SIGSTOP)
 	// 开启广播工作消息
-	go broadWorkingMessage(ctx, loConn, ueBroadcastAddr, scanTime)
-	// 开启与ue通信的协程
-	go common.ExchangeWithClient(ctx, loConn, preParseC, postParseC)
-	// 开启与mme通信的协程
-
-	// 开启与pgw通信的协程
-
+	go broadWorkingMessage(ctx, loConn, ueBroadcastAddr, scanTime, []byte("Broadcast to Ue"))
+	// 开启ue和mme的转发协程
+	go EnodebProxyMessage(ctx, loConn, mmeConn)
+	go broadMessageFromNet(ctx, mmeConn, loConn, ueBroadcastAddr)
+	// 开启ue和pgw的转发协程
+	// go EnodebProxyMessage(ctx, loConn, pgwConn)
+	// go EnodebProxyMessage(ctx, pgwConn, loConn)
 	<-quit
 	logger.Warn("[eNodeB] eNodeB 功能实体退出...")
 	cancel()
@@ -66,10 +59,9 @@ func init() {
 	// 启动与ue连接的服务器
 	loConn, ueBroadcastAddr = initUeServer(host, enodebBroadcastNet)
 	// 作为客户端与epc网络连接
-
 	// 创建于MME的UDP连接
-	//mme := viper.GetString("EPC.mme")
-	//mmeConn = connectEPC(mme)
+	mme := viper.GetString("EPC.mme.host")
+	mmeConn = ConnectEPC(mme)
 	// TODO 创建于PGW的UDP连接
 	//pgw := viper.GetString("EPC.pgw")
 	//pgwConn = connectEPC(pgw)
@@ -98,13 +90,48 @@ func initUeServer(host string, broadcast string) (*net.UDPConn, *net.UDPAddr) {
 }
 
 // 广播基站工作消息
-func broadWorkingMessage(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, scan int) {
+// scan = 0, 广播网络侧消息
+func broadWorkingMessage(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, scan int, msg []byte) {
 	for {
-		n, err := conn.WriteToUDP([]byte("Broadcast to Ue"), remote)
-		if err != nil {
-			logger.Error("[%v] 广播开始工作消息失败... %v", ctx.Value("Entity"), err)
+		select {
+		case <-ctx.Done():
+			logger.Warn("[%v] 基站工作广播协程退出...", ctx.Value("Entity"))
+			return
+		default:
+			n, err := conn.WriteToUDP(msg, remote)
+			if err != nil {
+				logger.Error("[%v] 广播开始工作消息失败... %v", ctx.Value("Entity"), err)
+			}
+			if scan == 0 {
+				logger.Info("[%v] 广播网络侧消息... [%v]", ctx.Value("Entity"), n)
+				return
+			}
+			time.Sleep(time.Duration(scan) * time.Second)
+			logger.Info("[%v] 广播工作消息... [%v]", ctx.Value("Entity"), n)
 		}
-		time.Sleep(time.Duration(scan) * time.Second)
-		logger.Info("[%v] 广播工作消息... [%v]", ctx.Value("Entity"), n)
+	}
+}
+
+func broadMessageFromNet(ctx context.Context, from *net.UDPConn, to *net.UDPConn, baddr *net.UDPAddr) {
+	data := make([]byte, 1024)
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Warn("[%v] 基站转发广播网络侧消息协程退出...", ctx.Value("Entity"))
+			return
+		default:
+			n, remote, err := from.ReadFromUDP(data)
+			if err != nil {
+				logger.Error("[%v] 读取网络侧数据错误 %v", ctx.Value("Entity"), err)
+			}
+			logger.Info("[%v] 读取网络侧数据 %v", ctx.Value("Entity"), data[:n])
+			if n != 0 && remote != nil {
+				// 将收到的消息广播出去
+				broadWorkingMessage(ctx, to, baddr, 0, data[:n])
+			} else {
+				logger.Info("[%v] Remote[%v] Len[%v]", ctx.Value("Entity"), remote, n)
+				time.Sleep(500 * time.Millisecond)
+			}
+		}
 	}
 }
