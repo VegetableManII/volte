@@ -27,7 +27,7 @@ var (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	ctx = context.WithValue(ctx, "Entity", "eNodeB")
-	quit := make(chan os.Signal)
+	quit := make(chan os.Signal, 6)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGSTOP, syscall.SIGSTOP)
 	// 开启广播工作消息
 	go broadWorkingMessage(ctx, loConn, ueBroadcastAddr, scanTime, []byte("Broadcast to Ue"))
@@ -61,7 +61,7 @@ func init() {
 	// 作为客户端与epc网络连接
 	// 创建于MME的UDP连接
 	mme := viper.GetString("EPC.mme.host")
-	mmeConn = ConnectEPC(mme)
+	mmeConn = ConnectServer(mme)
 	// TODO 创建于PGW的UDP连接
 	//pgw := viper.GetString("EPC.pgw")
 	//pgwConn = connectEPC(pgw)
@@ -130,7 +130,7 @@ func broadMessageFromNet(ctx context.Context, from *net.UDPConn, to *net.UDPConn
 				broadWorkingMessage(ctx, to, baddr, 0, data[:n])
 			} else {
 				logger.Info("[%v] Remote[%v] Len[%v]", ctx.Value("Entity"), remote, n)
-				time.Sleep(500 * time.Millisecond)
+				time.Sleep(2 * time.Second)
 			}
 		}
 	}

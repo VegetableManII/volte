@@ -7,16 +7,16 @@ import (
 	"github.com/wonderivan/logger"
 )
 
-func ConnectEPC(dest string) *net.UDPConn {
+func ConnectServer(dest string) *net.UDPConn {
 	addr, err := net.ResolveUDPAddr("udp4", dest)
 	if err != nil {
 		logger.Error("地址解析错误 %v", err)
 	}
 	conn, err := net.DialUDP("udp4", nil, addr)
 	if err != nil {
-		log.Panicln("epc UDP客户端启动失败", err)
+		log.Panicln("UDP客户端启动失败", err)
 	}
-	logger.Info("epc UDP客户端启动成功 %v %v", conn.LocalAddr().String(), conn.LocalAddr().Network())
+	logger.Info("UDP客户端启动成功 %v %v", conn.LocalAddr().String(), conn.LocalAddr().Network())
 	return conn
 }
 
