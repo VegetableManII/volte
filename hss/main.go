@@ -2,20 +2,20 @@ package main
 
 import (
 	"context"
-	"epc/common"
-	. "epc/common"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
+	"volte/common"
+	. "volte/common"
 
 	"github.com/spf13/viper"
 	"github.com/wonderivan/logger"
 )
 
 var (
-	eNodeBConn, hssConn *net.UDPConn
+	mmeConn *net.UDPConn
 )
 
 /*
@@ -24,20 +24,19 @@ var (
 */
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
-	ctx = context.WithValue(ctx, "Entity", "MME")
+	ctx = context.WithValue(ctx, "Entity", "HSS")
 	preParseC := make(chan *Msg, 2)
 	// postParseC := make(chan *Msg, 2)
 	quit := make(chan os.Signal, 6)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGSTOP, syscall.SIGSTOP)
-	// 开启与eNodeB交互的协程
+	// 开启与mme交互的协程
 	// go common.ExchangeWithClient(ctx, mmeConn, preParseC, postParseC)
-	go common.ExchangeWithClient(ctx, eNodeBConn, preParseC, preParseC) // debug
-	// 开启与HSS交互的协程
+	go common.ExchangeWithClient(ctx, mmeConn, preParseC, preParseC) // debug
 
 	<-quit
-	logger.Warn("[MME] mme 功能实体退出...")
+	logger.Warn("[HSS] hss 功能实体退出...")
 	cancel()
-	logger.Warn("[MME] mme 子协程退出完成...")
+	logger.Warn("[HSS] hss 子协程退出完成...")
 }
 
 func init() {
@@ -47,11 +46,10 @@ func init() {
 	if e := viper.ReadInConfig(); e != nil {
 		log.Panicln("配置文件读取失败", e)
 	}
-	host := viper.GetString("EPC.mme.host")
-	hssHost := viper.GetString("EPC.hss.host")
+	host := viper.GetString("EPC.hss.host")
 	logger.Info("配置文件读取成功", "")
-	// 启动 MME 的UDP服务器
-	eNodeBConn = common.InitServer(host)
+	// 启动 HSS 的UDP服务器
+	mmeConn = common.InitServer(host)
 	// 创建连接 HSS 的客户端
-	hssConn = common.ConnectServer(hssHost)
+	// hssConn = common.ConnectEPC(hssHost)
 }
