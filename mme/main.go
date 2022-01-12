@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"volte/common"
 	. "volte/common"
 
 	"github.com/spf13/viper"
@@ -16,6 +15,7 @@ import (
 
 var (
 	eNodeBConn, hssConn *net.UDPConn
+	hssAddr             *net.UDPAddr
 )
 
 /*
@@ -24,15 +24,16 @@ var (
 */
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
-	ctx = context.WithValue(ctx, "Entity", "MME")
-	preParseC := make(chan *Msg, 2)
-	// postParseC := make(chan *Msg, 2)
+	ctx = context.WithValue(ctx, CtxString("Entity"), "MME")
+	coreIC := make(chan *Msg, 2)
+	coreOC := make(chan *Msg, 2)
 	quit := make(chan os.Signal, 6)
-	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGSTOP, syscall.SIGSTOP)
+	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	// 开启与eNodeB交互的协程
-	// go common.ExchangeWithClient(ctx, mmeConn, preParseC, postParseC)
-	go common.ExchangeWithClient(ctx, eNodeBConn, preParseC, preParseC) // debug
+	go TransaportWithClient(ctx, eNodeBConn, coreIC, coreOC)
+	// go common.ExchangeWithClient(ctx, eNodeBConn, preParseC, preParseC) // debug
 	// 开启与HSS交互的协程
+	go TransportWithServer(ctx, hssConn, hssAddr, coreIC, coreOC)
 
 	<-quit
 	logger.Warn("[MME] mme 功能实体退出...")
@@ -51,7 +52,7 @@ func init() {
 	hssHost := viper.GetString("EPC.hss.host")
 	logger.Info("配置文件读取成功", "")
 	// 启动 MME 的UDP服务器
-	eNodeBConn = common.InitServer(host)
+	eNodeBConn = InitServer(host)
 	// 创建连接 HSS 的客户端
-	hssConn = common.ConnectServer(hssHost)
+	hssConn, hssAddr = ConnectServer(hssHost)
 }

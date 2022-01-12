@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"volte/common"
 	. "volte/common"
 
 	"github.com/spf13/viper"
@@ -24,14 +23,14 @@ var (
 */
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
-	ctx = context.WithValue(ctx, "Entity", "HSS")
-	preParseC := make(chan *Msg, 2)
-	// postParseC := make(chan *Msg, 2)
+	ctx = context.WithValue(ctx, CtxString("Entity"), "HSS")
+	coreIC := make(chan *Msg, 2) // 原生数据输入
+	coreOC := make(chan *Msg, 2) // 解析后的数据输出
 	quit := make(chan os.Signal, 6)
-	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGSTOP, syscall.SIGSTOP)
+	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	// 开启与mme交互的协程
-	// go common.ExchangeWithClient(ctx, mmeConn, preParseC, postParseC)
-	go common.ExchangeWithClient(ctx, mmeConn, preParseC, preParseC) // debug
+	go TransaportWithClient(ctx, mmeConn, coreIC, coreOC)
+	// go common.ExchangeWithClient(ctx, mmeConn, preParseC, preParseC) // debug
 
 	<-quit
 	logger.Warn("[HSS] hss 功能实体退出...")
@@ -49,7 +48,7 @@ func init() {
 	host := viper.GetString("EPC.hss.host")
 	logger.Info("配置文件读取成功", "")
 	// 启动 HSS 的UDP服务器
-	mmeConn = common.InitServer(host)
+	mmeConn = InitServer(host)
 	// 创建连接 HSS 的客户端
 	// hssConn = common.ConnectEPC(hssHost)
 }

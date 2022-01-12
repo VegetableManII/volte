@@ -19,7 +19,7 @@ import (
 */
 var clientMap *sync.Map
 
-func ExchangeWithClient(ctx context.Context, conn *net.UDPConn, pre, post chan *Msg) {
+func TransaportWithClient(ctx context.Context, conn *net.UDPConn, pre, post chan *Msg) {
 	clientMap = new(sync.Map)
 	data := make([]byte, 1024)
 	for {
@@ -27,7 +27,7 @@ func ExchangeWithClient(ctx context.Context, conn *net.UDPConn, pre, post chan *
 		case <-ctx.Done():
 			// 释放资源
 			// close(pre) // 关闭生产者通道
-			logger.Warn("[%v] 信令交互协程退出", ctx.Value("Entity"))
+			logger.Warn("[%v] 与下级节点通信协程退出", ctx.Value("Entity"))
 			return
 		default:
 			n, remote, err := conn.ReadFromUDP(data)
@@ -42,7 +42,7 @@ func ExchangeWithClient(ctx context.Context, conn *net.UDPConn, pre, post chan *
 					continue
 				} else {
 					clientMap.Store(remote, ctx.Value("Entity"))
-					go writeToClient(ctx, conn, remote, post)
+					go writeToRemote(ctx, conn, remote, post)
 				}
 			} else {
 				logger.Info("[%v] Remote[%v] Len[%v]", ctx.Value("Entity"), remote, n)
@@ -52,7 +52,7 @@ func ExchangeWithClient(ctx context.Context, conn *net.UDPConn, pre, post chan *
 	}
 }
 
-func writeToClient(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, postConsumerC chan *Msg) {
+func writeToRemote(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, postConsumerC chan *Msg) {
 	// 创建write buffer
 	var buffer bytes.Buffer
 	var n int
@@ -104,7 +104,7 @@ func distribute(data []byte, c chan *Msg) {
 	}
 }
 
-// 主要用于基站和PGW实现消息的代理转发
+// 主要用于基站实现消息的代理转发, 将ue消息转发至网络侧
 func EnodebProxyMessage(ctx context.Context, src, dest *net.UDPConn) {
 	for {
 		select {
@@ -116,6 +116,33 @@ func EnodebProxyMessage(ctx context.Context, src, dest *net.UDPConn) {
 			n, err := io.Copy(dest, src) // 阻塞式,copy有deadline,如果src传输数据过快copy会一直进行复制
 			if err != nil {
 				logger.Error("[%v] 基站转发消息失败 %v %v", ctx.Value("Entity"), n, err)
+			}
+		}
+	}
+}
+
+// 功能实体作为客户端与其上层服务端交互
+func TransportWithServer(ctx context.Context, lo *net.UDPConn, remote *net.UDPAddr, coreIn, coreOut chan *Msg) {
+	// 开启协程向服务端写数据
+	go writeToRemote(ctx, lo, remote, coreOut)
+	// 循环读取服务端消息
+	data := make([]byte, 1024)
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Warn("[%v] 与上级节点通信协程退出...", ctx.Value("Entity"))
+			return
+		default:
+			n, _, err := lo.ReadFromUDP(data)
+			if err != nil {
+				logger.Error("[%v] Client读取数据错误 %v", ctx.Value("Entity"), err)
+			}
+			if n != 0 {
+				logger.Info("[%v] Read[%v] Data: %v", ctx.Value("Entity"), n, data[:n])
+				distribute(data[:n], coreIn)
+			} else {
+				logger.Info("[%v] Remote[%v] Len[%v]", ctx.Value("Entity"), remote, n)
+				time.Sleep(500 * time.Millisecond)
 			}
 		}
 	}

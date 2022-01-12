@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"volte/common"
 	. "volte/common"
 
 	"github.com/spf13/viper"
@@ -24,14 +23,14 @@ var (
 */
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
-	ctx = context.WithValue(ctx, "Entity", "PGW")
-	preParseC := make(chan *Msg, 2)
-	// postParseC := make(chan *Msg, 2)
+	ctx = context.WithValue(ctx, CtxString("Entity"), "PGW")
+	coreIC := make(chan *Msg, 2)
+	coreOC := make(chan *Msg, 2)
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	// 开启与eNodeB交互的协程
-	// go common.ExchangeWithClient(ctx, mmeConn, preParseC, postParseC)
-	go common.ExchangeWithClient(ctx, eNodeBConn, preParseC, preParseC) // debug
+	go TransaportWithClient(ctx, eNodeBConn, coreIC, coreOC)
+	// go common.ExchangeWithClient(ctx, eNodeBConn, coreIC, coreOC) // debug
 	// 开启与IMS p-cscf交互的协程
 
 	<-quit
@@ -51,7 +50,7 @@ func init() {
 	// cscf := viper.GetString("IMS.p-cscf.host")
 	logger.Info("配置文件读取成功", "")
 	// 启动 PGW 的UDP服务器
-	eNodeBConn = common.InitServer(host)
+	eNodeBConn = InitServer(host)
 	// 创建连接 CSCF 的客户端
-	// cscfConn = common.ConnectServer(cscf)
+	// cscfConn = ConnectServer(cscf)
 }

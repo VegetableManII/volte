@@ -26,17 +26,17 @@ var (
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
-	ctx = context.WithValue(ctx, "Entity", "eNodeB")
+	ctx = context.WithValue(ctx, CtxString("Entity"), "eNodeB")
 	quit := make(chan os.Signal, 6)
-	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGSTOP, syscall.SIGSTOP)
+	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	// 开启广播工作消息
 	go broadWorkingMessage(ctx, loConn, ueBroadcastAddr, scanTime, []byte("Broadcast to Ue"))
 	// 开启ue和mme的转发协程
 	go EnodebProxyMessage(ctx, loConn, mmeConn)
 	go broadMessageFromNet(ctx, mmeConn, loConn, ueBroadcastAddr)
 	// 开启ue和pgw的转发协程
-	// go EnodebProxyMessage(ctx, loConn, pgwConn)
-	// go EnodebProxyMessage(ctx, pgwConn, loConn)
+	go EnodebProxyMessage(ctx, loConn, pgwConn)
+	go broadMessageFromNet(ctx, pgwConn, loConn, ueBroadcastAddr)
 	<-quit
 	logger.Warn("[eNodeB] eNodeB 功能实体退出...")
 	cancel()
@@ -61,7 +61,7 @@ func init() {
 	// 作为客户端与epc网络连接
 	// 创建于MME的UDP连接
 	mme := viper.GetString("EPC.mme.host")
-	mmeConn = ConnectServer(mme)
+	mmeConn, _ = ConnectServer(mme)
 	// TODO 创建于PGW的UDP连接
 	//pgw := viper.GetString("EPC.pgw")
 	//pgwConn = connectEPC(pgw)

@@ -7,7 +7,7 @@ import (
 	"github.com/wonderivan/logger"
 )
 
-func ConnectServer(dest string) *net.UDPConn {
+func ConnectServer(dest string) (*net.UDPConn, *net.UDPAddr) {
 	addr, err := net.ResolveUDPAddr("udp4", dest)
 	if err != nil {
 		logger.Error("地址解析错误 %v", err)
@@ -17,7 +17,7 @@ func ConnectServer(dest string) *net.UDPConn {
 		log.Panicln("UDP客户端启动失败", err)
 	}
 	logger.Info("UDP客户端启动成功 %v %v", conn.LocalAddr().String(), conn.LocalAddr().Network())
-	return conn
+	return conn, addr
 }
 
 func InitServer(host string) *net.UDPConn {
