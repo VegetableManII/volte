@@ -42,6 +42,10 @@ func (this *MmeEntity) CoreProcessor(ctx context.Context, in, out chan *common.M
 			if err != nil {
 				logger.Error("[%v] MME消息处理失败 %v %v", ctx.Value("Entity"), msg, err)
 			}
+		case <-ctx.Done():
+			// 释放资源
+			logger.Warn("[%v] MME逻辑核心退出", ctx.Value("Entity"))
+			return
 		}
 	}
 }
@@ -51,13 +55,7 @@ func (this *MmeEntity) AttachRequestF(ctx context.Context, m *common.Msg, out ch
 	imsi := m.Data1.GetIMSI()
 	// TODO ue携带自身支持的加密算法方式
 	// 组装请求内容
-	req := new(common.EpsMsg)
-	req.Construct(common.EPSPROTOCAL, common.AuthenticationInformatRequest,
-		[2]byte{0}, imsi, []byte{})
-	wrap := new(common.Msg)
-	wrap.Type = common.EPSPROTOCAL
-	wrap.Data1 = req
-	out <- wrap
+	common.WrapOutEPS(common.EPSPROTOCAL, common.AuthenticationInformatRequest, imsi, nil, out)
 	return nil
 }
 

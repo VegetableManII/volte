@@ -1,6 +1,7 @@
 package common
 
 import (
+	"encoding/binary"
 	"strings"
 )
 
@@ -23,8 +24,30 @@ func StrLineUnmarshal(d []byte) map[string]string {
 // 将kv关系转换为按行分割的字符串内容
 func StrLineMarshal(m map[string]string) string {
 	line := ""
+	if m == nil {
+		return line
+	}
 	for k, v := range m {
 		line += k + "=" + v + "\r\n"
 	}
 	return line
+}
+
+// EPS 网络通用发送消息方法
+func WrapOutEPS(protocal, method byte, imsi [4]byte, data map[string]string, out chan *Msg) {
+	down := new(EpsMsg)
+	res := StrLineMarshal(data)
+	if res != "" {
+		size := [2]byte{}
+		l := len([]byte(res))
+		binary.BigEndian.PutUint16(size[:], uint16(l))
+		down.Construct(protocal, method, size, imsi, []byte(res))
+	} else {
+		size := [2]byte{0, 0}
+		down.Construct(protocal, method, size, imsi, []byte{0})
+	}
+	wrap := new(Msg)
+	wrap.Type = EPSPROTOCAL
+	wrap.Data1 = down
+	out <- wrap
 }

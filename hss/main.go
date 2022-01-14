@@ -45,10 +45,10 @@ func init() {
 	if e := viper.ReadInConfig(); e != nil {
 		log.Panicln("配置文件读取失败", e)
 	}
-	host := viper.GetString("EPC.hss.host")
+	host := viper.GetString("EPS.hss.host")
 	logger.Info("配置文件读取成功", "")
 	// 启动 HSS 的UDP服务器
 	mmeConn = InitServer(host)
 	// 创建连接 HSS 的客户端
-	// hssConn = common.ConnectEPC(hssHost)
+	// hssConn = common.ConnectEPS(hssHost)
 }
