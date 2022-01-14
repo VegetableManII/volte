@@ -8,12 +8,14 @@ import (
 	"os/signal"
 	"syscall"
 	. "volte/common"
+	"volte/controller"
 
 	"github.com/spf13/viper"
 	"github.com/wonderivan/logger"
 )
 
 var (
+	self    *controller.HssEntity
 	mmeConn *net.UDPConn
 )
 
@@ -51,4 +53,11 @@ func init() {
 	mmeConn = InitServer(host)
 	// 创建连接 HSS 的客户端
 	// hssConn = common.ConnectEPS(hssHost)
+	self = new(controller.HssEntity)
+	self.Init()
+
+}
+
+func RegistRouter() {
+	self.Regist([2]byte{EPSPROTOCAL, AuthenticationInformatRequest}, self.AuthenticationInformatRequestF)
 }
