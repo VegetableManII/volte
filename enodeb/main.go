@@ -1,6 +1,6 @@
 /*
 eNodeB主要功能：消息转发
-根据不同的消息类型转发到EPC网络还是IMS网络
+根据不同的消息类型转发到EPS网络还是IMS网络
 */
 package main
 
@@ -58,13 +58,13 @@ func init() {
 	logger.Info("配置文件读取成功", "")
 	// 启动与ue连接的服务器
 	loConn, ueBroadcastAddr = initUeServer(host, enodebBroadcastNet)
-	// 作为客户端与epc网络连接
+	// 作为客户端与eps网络连接
 	// 创建于MME的UDP连接
-	mme := viper.GetString("EPC.mme.host")
+	mme := viper.GetString("EPS.mme.host")
 	mmeConn, _ = ConnectServer(mme)
 	// TODO 创建于PGW的UDP连接
-	//pgw := viper.GetString("EPC.pgw")
-	//pgwConn = connectEPC(pgw)
+	//pgw := viper.GetString("EPS.pgw")
+	//pgwConn = connectEPS(pgw)
 }
 
 // 与ue连接的UDP服务端

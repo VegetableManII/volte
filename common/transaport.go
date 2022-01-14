@@ -90,13 +90,13 @@ func writeToRemote(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, 
 	}
 }
 
-// 采用分发订阅模式分发epc网络信令和sip信令
+// 采用分发订阅模式分发eps网络信令和sip信令
 func distribute(data []byte, c chan *Msg) {
-	if data[0] == EPCPROTOCAL { // epc电路域协议
-		msg := new(EpcMsg)
+	if data[0] == EPSPROTOCAL { // eps电路域协议
+		msg := new(EpsMsg)
 		msg.Init(data)
 		c <- &Msg{
-			Type:  EPCPROTOCAL,
+			Type:  EPSPROTOCAL,
 			Data1: msg,
 		}
 	} else { // ims网络域sip协议
