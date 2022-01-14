@@ -32,10 +32,10 @@ func main() {
 	// 开启广播工作消息
 	go broadWorkingMessage(ctx, loConn, ueBroadcastAddr, scanTime, []byte("Broadcast to Ue"))
 	// 开启ue和mme的转发协程
-	go EnodebProxyMessage(ctx, loConn, mmeConn)
+	go EnodebProxyMessage(ctx, loConn, mmeConn) // 转发用户上行数据
 	go broadMessageFromNet(ctx, mmeConn, loConn, ueBroadcastAddr)
 	// 开启ue和pgw的转发协程
-	go EnodebProxyMessage(ctx, loConn, pgwConn)
+	go EnodebProxyMessage(ctx, loConn, pgwConn) // 转发用户上行数据
 	go broadMessageFromNet(ctx, pgwConn, loConn, ueBroadcastAddr)
 	<-quit
 	logger.Warn("[eNodeB] eNodeB 功能实体退出...")

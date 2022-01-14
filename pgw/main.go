@@ -46,7 +46,7 @@ func init() {
 	if e := viper.ReadInConfig(); e != nil {
 		log.Panicln("配置文件读取失败", e)
 	}
-	host := viper.GetString("EPC.pgw.host")
+	host := viper.GetString("EPS.pgw.host")
 	// cscf := viper.GetString("IMS.p-cscf.host")
 	logger.Info("配置文件读取成功", "")
 	// 启动 PGW 的UDP服务器

@@ -19,7 +19,7 @@ import (
 */
 var clientMap *sync.Map
 
-func TransaportWithClient(ctx context.Context, conn *net.UDPConn, pre, post chan *Msg) {
+func TransaportWithClient(ctx context.Context, conn *net.UDPConn, coreIn, coreOut chan *Msg) {
 	clientMap = new(sync.Map)
 	data := make([]byte, 1024)
 	for {
@@ -36,13 +36,13 @@ func TransaportWithClient(ctx context.Context, conn *net.UDPConn, pre, post chan
 			}
 			if remote != nil || n != 0 {
 				logger.Info("[%v] Read[%v] Data: %v", ctx.Value("Entity"), n, data[:n])
-				distribute(data[:n], pre)
+				distribute(data[:n], coreIn)
 				// 检查该客户端是否已经开启线程服务
 				if _, ok := clientMap.Load(remote); ok {
 					continue
 				} else {
 					clientMap.Store(remote, ctx.Value("Entity"))
-					go writeToRemote(ctx, conn, remote, post)
+					go writeToRemote(ctx, conn, remote, coreOut)
 				}
 			} else {
 				logger.Info("[%v] Remote[%v] Len[%v]", ctx.Value("Entity"), remote, n)
@@ -66,12 +66,12 @@ func writeToRemote(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, 
 			if msg.Type == 0x01 {
 				err := binary.Write(&buffer, binary.BigEndian, msg.Data1)
 				if err != nil {
-					logger.Error("[%v] EpcMsg转化[]byte失败 %v", ctx.Value("Entity"), err)
+					logger.Error("[%v] EpsMsg转化[]byte失败 %v", ctx.Value("Entity"), err)
 					continue
 				}
 				n, err = conn.WriteToUDP(buffer.Bytes(), remote)
 				if err != nil {
-					logger.Error("[%v] EpcMsg广播消息发送失败 %v %v", ctx.Value("Entity"), err, buffer.Bytes())
+					logger.Error("[%v] EpsMsg广播消息发送失败 %v %v", ctx.Value("Entity"), err, buffer.Bytes())
 				}
 			} else {
 				err := binary.Write(&buffer, binary.BigEndian, msg.Data2)
@@ -92,11 +92,11 @@ func writeToRemote(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, 
 
 // 采用分发订阅模式分发epc网络信令和sip信令
 func distribute(data []byte, c chan *Msg) {
-	if data[0] == 0x01 { // epc电路域协议
+	if data[0] == EPCPROTOCAL { // epc电路域协议
 		msg := new(EpcMsg)
 		msg.Init(data)
 		c <- &Msg{
-			Type:  0x01,
+			Type:  EPCPROTOCAL,
 			Data1: msg,
 		}
 	} else { // ims网络域sip协议

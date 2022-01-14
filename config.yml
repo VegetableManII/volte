@@ -6,8 +6,8 @@ eNodeB:
 # 广播扫描参数
   scan.time: 10
 
-# epc 网络功能实体
-EPC: 
+# eps 网络功能实体
+EPS: 
   mme.host: 127.0.0.1:12346
   pgw.host: 127.0.0.1:12347
   hss.host: 127.0.0.1:12348
