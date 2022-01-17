@@ -26,14 +26,15 @@ var (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	ctx = context.WithValue(ctx, CtxString("Entity"), "HSS")
-	coreIC := make(chan *Msg, 2) // 原生数据输入
-	coreOC := make(chan *Msg, 2) // 解析后的数据输出
+	coreIChan := make(chan *Msg, 2) // 原生数据输入
+	coreOChan := make(chan *Msg, 2) // 解析后的数据输出
 	quit := make(chan os.Signal, 6)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	// 开启与mme交互的协程
-	go TransaportWithClient(ctx, mmeConn, coreIC, coreOC)
+	go TransaportWithClient(ctx, mmeConn, coreIChan, coreOChan)
 	// go common.ExchangeWithClient(ctx, mmeConn, preParseC, preParseC) // debug
 
+	go self.CoreProcessor(ctx, coreIChan, coreOChan)
 	<-quit
 	logger.Warn("[HSS] hss 功能实体退出...")
 	cancel()

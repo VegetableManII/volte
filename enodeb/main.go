@@ -35,8 +35,8 @@ func main() {
 	go EnodebProxyMessage(ctx, loConn, mmeConn) // 转发用户上行数据
 	go broadMessageFromNet(ctx, mmeConn, loConn, ueBroadcastAddr)
 	// 开启ue和pgw的转发协程
-	go EnodebProxyMessage(ctx, loConn, pgwConn) // 转发用户上行数据
-	go broadMessageFromNet(ctx, pgwConn, loConn, ueBroadcastAddr)
+	//go EnodebProxyMessage(ctx, loConn, pgwConn) // 转发用户上行数据
+	//go broadMessageFromNet(ctx, pgwConn, loConn, ueBroadcastAddr)
 	<-quit
 	logger.Warn("[eNodeB] eNodeB 功能实体退出...")
 	cancel()
@@ -73,7 +73,7 @@ func initUeServer(host string, broadcast string) (*net.UDPConn, *net.UDPAddr) {
 	if err != nil {
 		log.Panicln("eNodeB host配置解析失败", err)
 	}
-	ra, err := net.ResolveUDPAddr("udp4", broadcast)
+	ra, err := net.ResolveUDPAddr("udp4", net.IPv4bcast.String()+":65533")
 	if err != nil {
 		log.Panicln("eNodeB 广播地址配置解析失败", err)
 	}

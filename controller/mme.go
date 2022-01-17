@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"encoding/binary"
 	"sync"
 	"volte/common"
 
@@ -37,7 +36,11 @@ func (this *MmeEntity) CoreProcessor(ctx context.Context, in, out chan *common.M
 			if msg.Type == common.SIPPROTOCAL { // 不处理SIP协议
 				continue
 			}
-			f := this.router[msg.GetUniqueMethod()]
+			logger.Error("[%v] Debug %v %v", ctx.Value("Entity"), msg.GetUniqueMethod(), this.router)
+			f, ok := this.router[msg.GetUniqueMethod()]
+			if !ok {
+				logger.Error("[%v] MME不支持的消息类型数据 %v", ctx.Value("Entity"), msg)
+			}
 			err = f(ctx, msg, out)
 			if err != nil {
 				logger.Error("[%v] MME消息处理失败 %v %v", ctx.Value("Entity"), msg, err)
@@ -53,6 +56,7 @@ func (this *MmeEntity) CoreProcessor(ctx context.Context, in, out chan *common.M
 // 附着请求，携带IMSI，和客户端支持的加密方法，拿到IMSI向HSS发起Authentication Informat Request请求
 func (this *MmeEntity) AttachRequestF(ctx context.Context, m *common.Msg, out chan *common.Msg) error {
 	imsi := m.Data1.GetIMSI()
+	logger.Warn("[%v] MME读取到ismi %v", ctx.Value("Entity"), imsi)
 	// TODO ue携带自身支持的加密算法方式
 	// 组装请求内容
 	common.WrapOutEPS(common.EPSPROTOCAL, common.AuthenticationInformatRequest, imsi, nil, out)
@@ -71,16 +75,7 @@ func (this *MmeEntity) AuthenticationInformatResponseF(ctx context.Context, m *c
 	this.ue.mu.Unlock()
 	// 下行发送给ue三项，HSS服务器的Auth信息、随机数nonce和加密方法Kasme
 	// 组装下行数据内容
-	down := new(common.EpsMsg)
 	delete(resp, HSS_RESP_XRES) // 删除XRES项s
-	ext := common.StrLineMarshal(resp)
-	len := len([]byte(ext))
-	size := [2]byte{}
-	binary.BigEndian.PutUint16(size[:], uint16(len))
-	down.Construct(common.EPSPROTOCAL, common.AuthenticationRequest, size, imsi, []byte(ext))
-	wrap := new(common.Msg)
-	wrap.Type = common.EPSPROTOCAL
-	wrap.Data1 = down
-	out <- wrap
+	common.WrapOutEPS(common.EPSPROTOCAL, common.AuthenticationInformatRequest, imsi, resp, out)
 	return nil
 }

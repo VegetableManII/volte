@@ -59,9 +59,9 @@ func (m *Msg) GetUniqueMethod() [2]byte {
 type EpsMsg struct {
 	_type byte // 0x01 表示电路域协议
 	_msg  byte
-	_size [2]byte    // data字段的长度
-	_imsi [4]byte    // IMSI
-	_data [1016]byte // 最大65535字节大小
+	_size [2]byte  // data字段的长度
+	_imsi [4]byte  // IMSI
+	_data [24]byte // 最大65535字节大小
 }
 
 func (e *EpsMsg) Init(data []byte) {
@@ -91,8 +91,8 @@ func (e *EpsMsg) GetData() []byte {
 type SipMsg struct {
 	_type byte // 0x01 表示电路域协议
 	_msg  byte
-	_size [2]byte    // data字段的长度
-	_data [1020]byte // 最大65535字节大小
+	_size [2]byte  // data字段的长度
+	_data [28]byte // 最大65535字节大小
 }
 
 func (s *SipMsg) Init(data []byte) {

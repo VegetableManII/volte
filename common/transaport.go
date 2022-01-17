@@ -21,7 +21,7 @@ var clientMap *sync.Map
 
 func TransaportWithClient(ctx context.Context, conn *net.UDPConn, coreIn, coreOut chan *Msg) {
 	clientMap = new(sync.Map)
-	data := make([]byte, 1024)
+	data := make([]byte, 32)
 	for {
 		select {
 		case <-ctx.Done():
@@ -52,7 +52,7 @@ func TransaportWithClient(ctx context.Context, conn *net.UDPConn, coreIn, coreOu
 	}
 }
 
-func writeToRemote(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, postConsumerC chan *Msg) {
+func writeToRemote(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, out chan *Msg) {
 	// 创建write buffer
 	var buffer bytes.Buffer
 	var n int
@@ -60,18 +60,18 @@ func writeToRemote(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, 
 		select {
 		case <-ctx.Done():
 			// 释放资源
-			logger.Warn("[%v] 发送信令至客户端协程退出", ctx.Value("Entity"))
+			logger.Warn("[%v] 发送信令协程退出", ctx.Value("Entity"))
 			return
-		case msg := <-postConsumerC:
+		case msg := <-out:
 			if msg.Type == 0x01 {
 				err := binary.Write(&buffer, binary.BigEndian, msg.Data1)
 				if err != nil {
 					logger.Error("[%v] EpsMsg转化[]byte失败 %v", ctx.Value("Entity"), err)
 					continue
 				}
-				n, err = conn.WriteToUDP(buffer.Bytes(), remote)
+				n, err = conn.Write(buffer.Bytes())
 				if err != nil {
-					logger.Error("[%v] EpsMsg广播消息发送失败 %v %v", ctx.Value("Entity"), err, buffer.Bytes())
+					logger.Error("[%v] EpsMsg消息发送失败 %v %v", ctx.Value("Entity"), err, buffer.Bytes())
 				}
 			} else {
 				err := binary.Write(&buffer, binary.BigEndian, msg.Data2)
@@ -81,10 +81,10 @@ func writeToRemote(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, 
 				}
 				n, err = conn.WriteToUDP(buffer.Bytes(), remote)
 				if err != nil {
-					logger.Error("[%v] SipMsg广播消息发送失败 %v %v", ctx.Value("Entity"), err, buffer.Bytes())
+					logger.Error("[%v] SipMsg消息发送失败 %v %v", ctx.Value("Entity"), err, buffer.Bytes())
 				}
 			}
-			logger.Info("[%v] Write to Client[%v] Data[%v]:%v", ctx.Value("Entity"), remote, n, buffer.Bytes())
+			logger.Info("[%v] Write to Remote[%v] Data[%v]:%v", ctx.Value("Entity"), remote, n, buffer.Bytes()[:n])
 			buffer.Reset()
 		}
 	}
@@ -126,7 +126,7 @@ func TransportWithServer(ctx context.Context, lo *net.UDPConn, remote *net.UDPAd
 	// 开启协程向服务端写数据
 	go writeToRemote(ctx, lo, remote, coreOut)
 	// 循环读取服务端消息
-	data := make([]byte, 1024)
+	data := make([]byte, 32)
 	for {
 		select {
 		case <-ctx.Done():
