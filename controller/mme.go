@@ -55,6 +55,8 @@ func (this *MmeEntity) CoreProcessor(ctx context.Context, in, out chan *common.M
 
 // 附着请求，携带IMSI，和客户端支持的加密方法，拿到IMSI向HSS发起Authentication Informat Request请求
 func (this *MmeEntity) AttachRequestF(ctx context.Context, m *common.Msg, out chan *common.Msg) error {
+	logger.Info("[%v] Receive From eNodeB: %v", ctx.Value("Entity"), string(m.Data1.GetData()))
+
 	imsi, err := common.GetIMSI(m.Data1.GetData())
 	if err != nil {
 		return err
@@ -70,7 +72,7 @@ func (this *MmeEntity) AttachRequestF(ctx context.Context, m *common.Msg, out ch
 
 // HSS 响应Authentication Informat Response，拿到用户签名XRES、HSS服务器的Auth信息、随机数nonce和加密方法Kasme
 func (this *MmeEntity) AuthenticationInformatResponseF(ctx context.Context, m *common.Msg, out chan *common.Msg) error {
-	logger.Error("%v %v %v", m, m.Data1, string(m.Data1.GetData()))
+	logger.Info("[%v] Receive From HSS: %v", ctx.Value("Entity"), string(m.Data1.GetData()))
 	imsi, err := common.GetIMSI(m.Data1.GetData())
 	if err != nil {
 		return err

@@ -61,6 +61,8 @@ func (this *HssEntity) CoreProcessor(ctx context.Context, in, out chan *common.M
 
 // HSS 接收Authentication Informat Request请求，然后查询数据库获得用户信息，生成nonce，选择加密算法，
 func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *common.Msg, out chan *common.Msg) error {
+	logger.Info("[%v] Receive From MME: %v", ctx.Value("Entity"), string(m.Data1.GetData()))
+
 	imsi, err := common.GetIMSI(m.Data1.GetData())
 	if err != nil {
 		return err

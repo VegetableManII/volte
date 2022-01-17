@@ -21,7 +21,7 @@ var clientMap *sync.Map
 
 func TransaportWithClient(ctx context.Context, conn *net.UDPConn, coreIn, coreOut chan *Msg) {
 	clientMap = new(sync.Map)
-	data := make([]byte, 32)
+	data := make([]byte, 1024)
 	for {
 		select {
 		case <-ctx.Done():

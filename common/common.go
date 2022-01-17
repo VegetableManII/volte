@@ -18,8 +18,9 @@ func StrLineUnmarshal(d []byte) map[string]string {
 		kv := strings.Split(line, "=")
 		if len(kv) != 2 {
 			m[kv[0]] = ""
+		} else {
+			m[kv[0]] = kv[1]
 		}
-		m[kv[0]] = kv[1]
 	}
 	return m
 }
