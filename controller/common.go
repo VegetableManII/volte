@@ -2,7 +2,8 @@ package controller
 
 import (
 	"context"
-	"volte/common"
+
+	"github.com/VegetableManII/volte/common"
 )
 
 const (

@@ -7,8 +7,9 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	. "volte/common"
-	"volte/controller"
+
+	. "github.com/VegetableManII/volte/common"
+	"github.com/VegetableManII/volte/controller"
 
 	"github.com/spf13/viper"
 	"github.com/wonderivan/logger"

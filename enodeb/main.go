@@ -15,7 +15,8 @@ import (
 	"strconv"
 	"syscall"
 	"time"
-	. "volte/common"
+
+	. "github.com/VegetableManII/volte/common"
 
 	"github.com/spf13/viper"
 	"github.com/wonderivan/logger"
