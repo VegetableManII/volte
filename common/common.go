@@ -3,9 +3,9 @@ package common
 import (
 	"encoding/binary"
 	"strings"
-)
 
-type CtxString string
+	"github.com/wonderivan/logger"
+)
 
 // 按行分割，获取键值对内容
 func StrLineUnmarshal(d []byte) map[string]string {
@@ -40,14 +40,17 @@ func WrapOutEPS(protocal, method byte, imsi [4]byte, data map[string]string, out
 	if res != "" {
 		size := [2]byte{}
 		l := len([]byte(res))
-		binary.BigEndian.PutUint16(size[:], uint16(l))
+		binary.BigEndian.PutUint16(size[:], uint16(l+4))
 		down.Construct(protocal, method, size, imsi, []byte(res))
 	} else {
 		size := [2]byte{0, 0}
+		binary.BigEndian.PutUint16(size[:], uint16(4))
+		logger.Debug("send data %v", imsi)
 		down.Construct(protocal, method, size, imsi, []byte{0})
 	}
 	wrap := new(Msg)
 	wrap.Type = EPSPROTOCAL
 	wrap.Data1 = down
+	logger.Debug("send data %v %v", wrap.Type, *wrap.Data1)
 	out <- wrap
 }

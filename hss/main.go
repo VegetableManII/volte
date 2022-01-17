@@ -25,7 +25,7 @@ var (
 */
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
-	ctx = context.WithValue(ctx, CtxString("Entity"), "HSS")
+	ctx = context.WithValue(ctx, "Entity", "HSS")
 	coreIChan := make(chan *Msg, 2) // 原生数据输入
 	coreOChan := make(chan *Msg, 2) // 解析后的数据输出
 	quit := make(chan os.Signal, 6)
@@ -56,7 +56,7 @@ func init() {
 	// hssConn = common.ConnectEPS(hssHost)
 	self = new(controller.HssEntity)
 	self.Init()
-
+	RegistRouter()
 }
 
 func RegistRouter() {

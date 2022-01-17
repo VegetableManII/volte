@@ -76,6 +76,7 @@ func (e *EpsMsg) Construct(t, m byte, s [2]byte, i [4]byte, d []byte) {
 	e._type = t
 	e._msg = m
 	e._size = s
+	e._imsi = i
 	copy(e._data[:], d)
 }
 

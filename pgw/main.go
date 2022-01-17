@@ -23,7 +23,7 @@ var (
 */
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
-	ctx = context.WithValue(ctx, CtxString("Entity"), "PGW")
+	ctx = context.WithValue(ctx, "Entity", "PGW")
 	coreIC := make(chan *Msg, 2)
 	coreOC := make(chan *Msg, 2)
 	quit := make(chan os.Signal, 1)

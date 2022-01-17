@@ -38,17 +38,19 @@ func (this *HssEntity) Init() {
 func (this *HssEntity) CoreProcessor(ctx context.Context, in, out chan *common.Msg) {
 	var err error
 	var f BaseSignallingT
+	var ok bool
 	for {
 		select {
 		case msg := <-in:
-			if msg.Type == common.EPSPROTOCAL {
-				f = this.router[msg.GetUniqueMethod()]
-			} else {
-				f = this.router[msg.GetUniqueMethod()]
+			logger.Error("[%v] Debug %v %v", ctx.Value("Entity"), msg.GetUniqueMethod(), this.router)
+			f, ok = this.router[msg.GetUniqueMethod()]
+			if !ok {
+				logger.Error("[%v] HSS不支持的消息类型数据 %v", ctx.Value("Entity"), msg)
+				continue
 			}
 			err = f(ctx, msg, out)
 			if err != nil {
-				logger.Error("[%v] MME消息处理失败 %v %v", ctx.Value("Entity"), msg, err)
+				logger.Error("[%v] HSS消息处理失败 %v %v", ctx.Value("Entity"), msg, err)
 			}
 		case <-ctx.Done():
 			// 释放资源

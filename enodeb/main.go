@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net"
 	"os"
@@ -26,7 +27,7 @@ var (
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
-	ctx = context.WithValue(ctx, CtxString("Entity"), "eNodeB")
+	ctx = context.WithValue(ctx, "Entity", "eNodeB")
 	quit := make(chan os.Signal, 6)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	// 开启广播工作消息
@@ -56,6 +57,7 @@ func init() {
 	enodebBroadcastNet := viper.GetString("eNodeB.broadcast.net")
 	scanTime = viper.GetInt("eNodeB.scan.time")
 	logger.Info("配置文件读取成功", "")
+
 	// 启动与ue连接的服务器
 	loConn, ueBroadcastAddr = initUeServer(host, enodebBroadcastNet)
 	// 作为客户端与eps网络连接
@@ -69,8 +71,13 @@ func init() {
 
 // 与ue连接的UDP服务端
 func initUeServer(host string, broadcast string) (*net.UDPConn, *net.UDPAddr) {
-	la, err := net.ResolveUDPAddr("udp4", host)
+	// la, err := net.ResolveUDPAddr("udp4", host)
+	laddr, err := getLocalInternelIPAddr()
 	if err != nil {
+		log.Panicln("eNodeB host配置解析失败", err)
+	}
+	la, ok := laddr.(*net.UDPAddr)
+	if !ok {
 		log.Panicln("eNodeB host配置解析失败", err)
 	}
 	ra, err := net.ResolveUDPAddr("udp4", net.IPv4bcast.String()+":65533")
@@ -134,4 +141,45 @@ func broadMessageFromNet(ctx context.Context, from *net.UDPConn, to *net.UDPConn
 			}
 		}
 	}
+}
+
+func getLocalInternelIPAddr() (net.Addr, error) {
+	if net.FlagUp != 1 {
+		return nil, errors.New("ErrNoNet")
+	}
+	ifs, e := net.Interfaces()
+	if e != nil {
+		return nil, e
+	}
+	for i := 0; i < len(ifs); i++ {
+		addrs, e := ifs[i].Addrs()
+		if e != nil {
+			return nil, e
+		}
+		for _, address := range addrs {
+			if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.To4().IsLoopback() && isLan(ipnet.IP.String()) {
+				return address, nil
+			}
+		}
+	}
+	return nil, errors.New("ErrNetInterfaceNotFound")
+}
+
+var LanIPSeg = [4]string{
+	"10.0.0.0/8",
+	"172.16.0.0/12",
+	"192.168.0.0/16",
+	"127.0.0.1/8",
+}
+
+func isLan(s string) bool {
+	if ip := net.ParseIP(s); ip != nil {
+		for _, network := range LanIPSeg {
+			_, subnet, _ := net.ParseCIDR(network)
+			if subnet.Contains(ip) {
+				return true
+			}
+		}
+	}
+	return false
 }

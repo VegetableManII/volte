@@ -27,7 +27,7 @@ var (
 */
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
-	ctx = context.WithValue(ctx, CtxString("Entity"), "MME")
+	ctx = context.WithValue(ctx, "Entity", "MME")
 	coreIChan := make(chan *Msg, 2)
 	coreOChan := make(chan *Msg, 2)
 	quit := make(chan os.Signal, 6)
