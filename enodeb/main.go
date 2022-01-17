@@ -6,11 +6,13 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"log"
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 	. "volte/common"
@@ -53,13 +55,13 @@ func init() {
 	if e := viper.ReadInConfig(); e != nil {
 		log.Panicln("配置文件读取失败", e)
 	}
-	host := viper.GetString("eNodeB.host")
-	enodebBroadcastNet := viper.GetString("eNodeB.broadcast.net")
+	hostPort := viper.GetInt("eNodeB.host.port")
+	enodebBroadcastPort := viper.GetInt("eNodeB.broadcast.port")
 	scanTime = viper.GetInt("eNodeB.scan.time")
 	logger.Info("配置文件读取成功", "")
 
 	// 启动与ue连接的服务器
-	loConn, ueBroadcastAddr = initUeServer(host, enodebBroadcastNet)
+	loConn, ueBroadcastAddr = initUeServer(hostPort, enodebBroadcastPort)
 	// 作为客户端与eps网络连接
 	// 创建于MME的UDP连接
 	mme := viper.GetString("EPS.mme.host")
@@ -70,29 +72,34 @@ func init() {
 }
 
 // 与ue连接的UDP服务端
-func initUeServer(host string, broadcast string) (*net.UDPConn, *net.UDPAddr) {
-	// la, err := net.ResolveUDPAddr("udp4", host)
-	laddr, err := getLocalInternelIPAddr()
+func initUeServer(port int, bport int) (*net.UDPConn, *net.UDPAddr) {
+	ipnet, err := getLocalInternelIPNet()
+	if err != nil {
+		log.Panicln("获取本地IP地址失败", err)
+	}
+	log.Printf("[IP]: %v [Net]: %v", ipnet.IP, ipnet.Mask)
+	host := ipnet.IP.To4().String() + ":" + strconv.Itoa(port)
+	la, err := net.ResolveUDPAddr("udp4", host)
 	if err != nil {
 		log.Panicln("eNodeB host配置解析失败", err)
-	}
-	la, ok := laddr.(*net.UDPAddr)
-	if !ok {
-		log.Panicln("eNodeB host配置解析失败", err)
-	}
-	ra, err := net.ResolveUDPAddr("udp4", net.IPv4bcast.String()+":65533")
-	if err != nil {
-		log.Panicln("eNodeB 广播地址配置解析失败", err)
 	}
 	conn, err := net.ListenUDP("udp4", la)
 	if err != nil {
 		log.Panicln("eNodeB host监听失败", err)
 	}
+	bip, err := lastAddr(ipnet)
 	if err != nil {
-		log.Panicln(err)
+		log.Panicln("获取本地广播地址失败", err)
 	}
-	logger.Info("ue UDP广播服务器启动成功 [%v]", host)
-	logger.Info("UDP广播子网 [%v]", broadcast)
+	log.Printf("[Broadcast]: %v", bip)
+	broadcast := bip.String() + ":" + strconv.Itoa(bport)
+	ra, err := net.ResolveUDPAddr("udp4", broadcast)
+	if err != nil {
+		log.Panicln("eNodeB 广播地址配置解析失败", err)
+	}
+
+	logger.Info("ue UDP广播服务器启动成功 [%v]", la)
+	logger.Info("UDP广播子网 [%v]", ra)
 	return conn, ra
 }
 
@@ -143,7 +150,7 @@ func broadMessageFromNet(ctx context.Context, from *net.UDPConn, to *net.UDPConn
 	}
 }
 
-func getLocalInternelIPAddr() (net.Addr, error) {
+func getLocalInternelIPNet() (*net.IPNet, error) {
 	if net.FlagUp != 1 {
 		return nil, errors.New("ErrNoNet")
 	}
@@ -158,7 +165,7 @@ func getLocalInternelIPAddr() (net.Addr, error) {
 		}
 		for _, address := range addrs {
 			if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.To4().IsLoopback() && isLan(ipnet.IP.String()) {
-				return address, nil
+				return ipnet, nil
 			}
 		}
 	}
@@ -182,4 +189,13 @@ func isLan(s string) bool {
 		}
 	}
 	return false
+}
+
+func lastAddr(n *net.IPNet) (net.IP, error) {
+	if n.IP.To4() == nil {
+		return net.IP{}, errors.New("ErrNoIPv6")
+	}
+	ip := make(net.IP, len(n.IP.To4()))
+	binary.BigEndian.PutUint32(ip, binary.BigEndian.Uint32(n.IP.To4())|^binary.BigEndian.Uint32(net.IP(n.Mask).To4()))
+	return ip, nil
 }
