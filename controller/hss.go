@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"crypto/md5"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -62,7 +61,10 @@ func (this *HssEntity) CoreProcessor(ctx context.Context, in, out chan *common.M
 
 // HSS 接收Authentication Informat Request请求，然后查询数据库获得用户信息，生成nonce，选择加密算法，
 func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *common.Msg, out chan *common.Msg) error {
-	imsi := m.Data1.GetIMSI()
+	imsi, err := common.GetIMSI(m.Data1.GetData())
+	if err != nil {
+		return err
+	}
 	// TODO ue携带自身支持的加密算法方式
 	// TODO 查询数据库
 	// 针对该用户生成随机数nonce
@@ -70,7 +72,7 @@ func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *co
 	nonce := rand.Int31()
 	// 加密得到密文
 	data, err := json.Marshal(User{
-		IMSI:        int32(binary.BigEndian.Uint32(imsi[:])),
+		IMSI:        int32(imsi),
 		Mnc:         1,
 		Mcc:         550,
 		Apn:         "hebeiyidong",
@@ -85,12 +87,13 @@ func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *co
 	auth := defaultAuth
 	kasme := "md5"
 	var response = map[string]string{
+		"imsi":         strconv.Itoa(imsi),
 		HSS_RESP_AUTH:  auth,
 		HSS_RESP_RAND:  strconv.Itoa(int(nonce)),
 		HSS_RESP_KASME: kasme,
 		HSS_RESP_XRES:  hex.EncodeToString(xres),
 	}
-	common.WrapOutEPS(common.EPSPROTOCAL, common.AuthenticationInformatResponse, imsi, response, false, out) // 下行
+	common.WrapOutEPS(common.EPSPROTOCAL, common.AuthenticationInformatResponse, response, false, out) // 下行
 	return nil
 }
 

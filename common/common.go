@@ -2,9 +2,9 @@ package common
 
 import (
 	"encoding/binary"
+	"errors"
+	"strconv"
 	"strings"
-
-	"github.com/wonderivan/logger"
 )
 
 // 按行分割，获取键值对内容
@@ -16,6 +16,9 @@ func StrLineUnmarshal(d []byte) map[string]string {
 	lines := strings.Split(s, "\r\n")
 	for _, line := range lines {
 		kv := strings.Split(line, "=")
+		if len(kv) != 2 {
+			m[kv[0]] = ""
+		}
 		m[kv[0]] = kv[1]
 	}
 	return m
@@ -34,24 +37,27 @@ func StrLineMarshal(m map[string]string) string {
 }
 
 // EPS 网络通用发送消息方法
-func WrapOutEPS(protocal, method byte, imsi [4]byte, data map[string]string, dest bool, out chan *Msg) {
+func WrapOutEPS(protocal, method byte, data map[string]string, dest bool, out chan *Msg) {
 	down := new(EpsMsg)
 	res := StrLineMarshal(data)
-	if res != "" {
-		size := [2]byte{}
-		l := len([]byte(res))
-		binary.BigEndian.PutUint16(size[:], uint16(l+4))
-		down.Construct(protocal, method, size, imsi, []byte(res))
-	} else {
-		size := [2]byte{0, 0}
-		binary.BigEndian.PutUint16(size[:], uint16(4))
-		logger.Debug("send data %v", imsi)
-		down.Construct(protocal, method, size, imsi, []byte{0})
-	}
+	size := [2]byte{}
+	l := len([]byte(res))
+	binary.BigEndian.PutUint16(size[:], uint16(l+4))
+	down.Construct(protocal, method, size, []byte(res))
+
 	wrap := new(Msg)
 	wrap.Type = EPSPROTOCAL
 	wrap.Destation = dest
 	wrap.Data1 = down
-	logger.Debug("send data %v %v", wrap.Type, *wrap.Data1)
 	out <- wrap
+}
+
+func GetIMSI(data []byte) (int, error) {
+	m := StrLineUnmarshal(data)
+	value := m["imsi"]
+	imsi, err := strconv.Atoi(value)
+	if err != nil {
+		return 0, errors.New("ErrIMSIDataFormat")
+	}
+	return imsi, nil
 }
