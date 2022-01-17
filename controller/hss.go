@@ -42,7 +42,6 @@ func (this *HssEntity) CoreProcessor(ctx context.Context, in, out chan *common.M
 	for {
 		select {
 		case msg := <-in:
-			logger.Error("[%v] Debug %v %v", ctx.Value("Entity"), msg.GetUniqueMethod(), this.router)
 			f, ok = this.router[msg.GetUniqueMethod()]
 			if !ok {
 				logger.Error("[%v] HSS不支持的消息类型数据 %v", ctx.Value("Entity"), msg)
@@ -73,7 +72,7 @@ func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *co
 	nonce := rand.Int31()
 	// 加密得到密文
 	data, err := json.Marshal(User{
-		IMSI:        int32(imsi),
+		IMSI:        imsi,
 		Mnc:         1,
 		Mcc:         550,
 		Apn:         "hebeiyidong",
@@ -88,7 +87,7 @@ func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *co
 	auth := defaultAuth
 	kasme := "md5"
 	var response = map[string]string{
-		"imsi":         strconv.Itoa(imsi),
+		"imsi":         imsi,
 		HSS_RESP_AUTH:  auth,
 		HSS_RESP_RAND:  strconv.Itoa(int(nonce)),
 		HSS_RESP_KASME: kasme,
@@ -106,7 +105,7 @@ func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *co
  */
 type User struct {
 	ID          int64     `gorm:"column:id"`
-	IMSI        int32     `gorm:"column:imsi" json:"imsi"`
+	IMSI        string    `gorm:"column:imsi" json:"imsi"`
 	Mnc         int32     `gorm:"column:mnc" json:"mnc"` // 移动网号
 	Mcc         int32     `gorm:"column:mcc" json:"mcc"` // 国家码
 	Apn         string    `gorm:"column:apn" json:"apn"`

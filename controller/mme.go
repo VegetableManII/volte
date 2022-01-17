@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"strconv"
 	"sync"
 
 	"github.com/VegetableManII/volte/common"
@@ -11,7 +10,7 @@ import (
 )
 
 type UeAuthXRES struct {
-	xres map[int]string
+	xres map[string]string
 	mu   sync.Mutex
 }
 
@@ -26,7 +25,7 @@ func (this *MmeEntity) Init() {
 	this.router = make(map[[2]byte]BaseSignallingT)
 	// 初始化ue鉴权信息
 	this.ue = new(UeAuthXRES)
-	this.ue.xres = make(map[int]string)
+	this.ue.xres = make(map[string]string)
 }
 
 // eps 域功能实体 MME 的逻辑代码，判断eNodeB转发过来的数据类型，如果是SIP类型则不做处理丢弃
@@ -63,7 +62,7 @@ func (this *MmeEntity) AttachRequestF(ctx context.Context, m *common.Msg, out ch
 	// TODO ue携带自身支持的加密算法方式
 	// 组装请求内容
 	req := map[string]string{
-		"imsi": strconv.Itoa(imsi),
+		"imsi": imsi,
 	}
 	common.WrapOutEPS(common.EPSPROTOCAL, common.AuthenticationInformatRequest, req, true, out) // 上行
 	return nil
@@ -71,6 +70,7 @@ func (this *MmeEntity) AttachRequestF(ctx context.Context, m *common.Msg, out ch
 
 // HSS 响应Authentication Informat Response，拿到用户签名XRES、HSS服务器的Auth信息、随机数nonce和加密方法Kasme
 func (this *MmeEntity) AuthenticationInformatResponseF(ctx context.Context, m *common.Msg, out chan *common.Msg) error {
+	logger.Error("%v %v %v", m, m.Data1, string(m.Data1.GetData()))
 	imsi, err := common.GetIMSI(m.Data1.GetData())
 	if err != nil {
 		return err

@@ -1,10 +1,10 @@
 package common
 
 import (
-	"encoding/binary"
 	"errors"
-	"strconv"
 	"strings"
+
+	"github.com/wonderivan/logger"
 )
 
 // 按行分割，获取键值对内容
@@ -40,9 +40,10 @@ func StrLineMarshal(m map[string]string) string {
 func WrapOutEPS(protocal, method byte, data map[string]string, dest bool, out chan *Msg) {
 	down := new(EpsMsg)
 	res := StrLineMarshal(data)
-	size := [2]byte{}
-	l := len([]byte(res))
-	binary.BigEndian.PutUint16(size[:], uint16(l+4))
+
+	logger.Error("unmarshal: %v", res)
+
+	size := len([]byte(res))
 	down.Construct(protocal, method, size, []byte(res))
 
 	wrap := new(Msg)
@@ -52,12 +53,11 @@ func WrapOutEPS(protocal, method byte, data map[string]string, dest bool, out ch
 	out <- wrap
 }
 
-func GetIMSI(data []byte) (int, error) {
+func GetIMSI(data []byte) (string, error) {
 	m := StrLineUnmarshal(data)
-	value := m["imsi"]
-	imsi, err := strconv.Atoi(value)
-	if err != nil {
-		return 0, errors.New("ErrIMSIDataFormat")
+	imsi, ok := m["imsi"]
+	if !ok {
+		return "", errors.New("ErrEmptyIMSI")
 	}
 	return imsi, nil
 }

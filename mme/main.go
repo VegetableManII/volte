@@ -62,7 +62,7 @@ func init() {
 	// 创建连接 HSS 的客户端
 	hssConn, hssAddr = ConnectServer(hssHost)
 	// 创建自身逻辑实体
-	self = new(MmeEntity)
+	self = new(controller.MmeEntity)
 	self.Init()
 	RegistRouter()
 }

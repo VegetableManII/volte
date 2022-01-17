@@ -1,5 +1,7 @@
 package common
 
+import "encoding/binary"
+
 const (
 	EPSPROTOCAL byte = 0x01
 	SIPPROTOCAL byte = 0x00
@@ -71,10 +73,10 @@ func (e *EpsMsg) Init(data []byte) {
 	copy(e._data[:], data[4:])
 }
 
-func (e *EpsMsg) Construct(t, m byte, s [2]byte, d []byte) {
+func (e *EpsMsg) Construct(t, m byte, s int, d []byte) {
 	e._type = t
 	e._msg = m
-	e._size = s
+	binary.BigEndian.PutUint16(e._size[:], uint16(s))
 	copy(e._data[:], d)
 }
 

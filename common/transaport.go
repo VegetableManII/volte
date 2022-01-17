@@ -56,7 +56,6 @@ func TransaportWithClient(ctx context.Context, conn *net.UDPConn, coreIn, coreOu
 func receiveCoreProcessResult(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, out chan *Msg) {
 	// 创建write buffer
 	var buffer bytes.Buffer
-	var n int
 	for {
 		select {
 		case <-ctx.Done():
@@ -87,21 +86,22 @@ func receiveCoreProcessResult(ctx context.Context, conn *net.UDPConn, remote *ne
 					writeToRemote(ctx, conn, remote, buffer.Bytes())
 				}
 			}
-			logger.Info("[%v] Write to Remote[%v] Data[%v]:%v", ctx.Value("Entity"), remote, n, buffer.Bytes()[:n])
 			buffer.Reset()
 		}
 	}
 }
 func writeToRemote(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, data []byte) {
 	var err error
+	var n int
 	if remote == nil {
-		_, err = conn.Write(data)
+		n, err = conn.Write(data)
 	} else {
-		_, err = conn.WriteToUDP(data, remote)
+		n, err = conn.WriteToUDP(data, remote)
 	}
 	if err != nil {
 		logger.Error("[%v] 消息发送失败 %v %v", ctx.Value("Entity"), err, data)
 	}
+	logger.Info("[%v] Write to Remote[%v] Data[%v]:%v", ctx.Value("Entity"), remote, n, data[:n])
 }
 
 // 采用分发订阅模式分发eps网络信令和sip信令
