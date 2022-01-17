@@ -38,9 +38,10 @@ const (
 )
 
 type Msg struct {
-	Type  byte // 0x01 eps 0x00 ims
-	Data1 *EpsMsg
-	Data2 *SipMsg
+	Type      byte // 0x01 eps 0x00 ims
+	Destation bool // true 上行 false 下行
+	Data1     *EpsMsg
+	Data2     *SipMsg
 }
 
 func (m *Msg) GetUniqueMethod() [2]byte {

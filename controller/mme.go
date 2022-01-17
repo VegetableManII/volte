@@ -59,7 +59,7 @@ func (this *MmeEntity) AttachRequestF(ctx context.Context, m *common.Msg, out ch
 	logger.Warn("[%v] MME读取到ismi %v", ctx.Value("Entity"), imsi)
 	// TODO ue携带自身支持的加密算法方式
 	// 组装请求内容
-	common.WrapOutEPS(common.EPSPROTOCAL, common.AuthenticationInformatRequest, imsi, nil, out)
+	common.WrapOutEPS(common.EPSPROTOCAL, common.AuthenticationInformatRequest, imsi, nil, true, out) // 上行
 	return nil
 }
 
@@ -75,7 +75,7 @@ func (this *MmeEntity) AuthenticationInformatResponseF(ctx context.Context, m *c
 	this.ue.mu.Unlock()
 	// 下行发送给ue三项，HSS服务器的Auth信息、随机数nonce和加密方法Kasme
 	// 组装下行数据内容
-	delete(resp, HSS_RESP_XRES) // 删除XRES项s
-	common.WrapOutEPS(common.EPSPROTOCAL, common.AuthenticationInformatRequest, imsi, resp, out)
+	delete(resp, HSS_RESP_XRES)                                                                         // 删除XRES项s
+	common.WrapOutEPS(common.EPSPROTOCAL, common.AuthenticationInformatRequest, imsi, resp, false, out) // 下行
 	return nil
 }

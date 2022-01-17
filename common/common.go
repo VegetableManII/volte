@@ -34,7 +34,7 @@ func StrLineMarshal(m map[string]string) string {
 }
 
 // EPS 网络通用发送消息方法
-func WrapOutEPS(protocal, method byte, imsi [4]byte, data map[string]string, out chan *Msg) {
+func WrapOutEPS(protocal, method byte, imsi [4]byte, data map[string]string, dest bool, out chan *Msg) {
 	down := new(EpsMsg)
 	res := StrLineMarshal(data)
 	if res != "" {
@@ -50,6 +50,7 @@ func WrapOutEPS(protocal, method byte, imsi [4]byte, data map[string]string, out
 	}
 	wrap := new(Msg)
 	wrap.Type = EPSPROTOCAL
+	wrap.Destation = dest
 	wrap.Data1 = down
 	logger.Debug("send data %v %v", wrap.Type, *wrap.Data1)
 	out <- wrap

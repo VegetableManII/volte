@@ -42,7 +42,7 @@ func TransaportWithClient(ctx context.Context, conn *net.UDPConn, coreIn, coreOu
 					continue
 				} else {
 					clientMap.Store(remote, ctx.Value("Entity"))
-					go writeToRemote(ctx, conn, remote, coreOut)
+					go receiveCoreProcessResult(ctx, conn, remote, coreOut)
 				}
 			} else {
 				logger.Info("[%v] Remote[%v] Len[%v]", ctx.Value("Entity"), remote, n)
@@ -52,7 +52,8 @@ func TransaportWithClient(ctx context.Context, conn *net.UDPConn, coreIn, coreOu
 	}
 }
 
-func writeToRemote(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, out chan *Msg) {
+// 接收逻辑核心处理结果
+func receiveCoreProcessResult(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, out chan *Msg) {
 	// 创建write buffer
 	var buffer bytes.Buffer
 	var n int
@@ -60,7 +61,7 @@ func writeToRemote(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, 
 		select {
 		case <-ctx.Done():
 			// 释放资源
-			logger.Warn("[%v] 发送信令协程退出", ctx.Value("Entity"))
+			logger.Warn("[%v] 发送消息协程退出", ctx.Value("Entity"))
 			return
 		case msg := <-out:
 			if msg.Type == 0x01 {
@@ -69,9 +70,10 @@ func writeToRemote(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, 
 					logger.Error("[%v] EpsMsg转化[]byte失败 %v", ctx.Value("Entity"), err)
 					continue
 				}
-				n, err = conn.Write(buffer.Bytes())
-				if err != nil {
-					logger.Error("[%v] EpsMsg消息发送失败 %v %v", ctx.Value("Entity"), err, buffer.Bytes())
+				if msg.Destation { // 上行，remote为服务端，remote参数不用传递
+					writeToRemote(ctx, conn, nil, buffer.Bytes())
+				} else { // 下行，remote为客户端，remote参数需要传递
+					writeToRemote(ctx, conn, remote, buffer.Bytes())
 				}
 			} else {
 				err := binary.Write(&buffer, binary.BigEndian, msg.Data2)
@@ -79,14 +81,26 @@ func writeToRemote(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, 
 					logger.Error("[%v] SipMsg转化[]byte失败 %v", ctx.Value("Entity"), err)
 					continue
 				}
-				n, err = conn.WriteToUDP(buffer.Bytes(), remote)
-				if err != nil {
-					logger.Error("[%v] SipMsg消息发送失败 %v %v", ctx.Value("Entity"), err, buffer.Bytes())
+				if msg.Destation { // 上行，remote为服务端，remote参数不用传递
+					writeToRemote(ctx, conn, nil, buffer.Bytes())
+				} else { // 下行，remote为客户端，remote参数需要传递
+					writeToRemote(ctx, conn, remote, buffer.Bytes())
 				}
 			}
 			logger.Info("[%v] Write to Remote[%v] Data[%v]:%v", ctx.Value("Entity"), remote, n, buffer.Bytes()[:n])
 			buffer.Reset()
 		}
+	}
+}
+func writeToRemote(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, data []byte) {
+	var err error
+	if remote == nil {
+		_, err = conn.Write(data)
+	} else {
+		_, err = conn.WriteToUDP(data, remote)
+	}
+	if err != nil {
+		logger.Error("[%v] 消息发送失败 %v %v", ctx.Value("Entity"), err, data)
 	}
 }
 
@@ -96,8 +110,9 @@ func distribute(data []byte, c chan *Msg) {
 		msg := new(EpsMsg)
 		msg.Init(data)
 		c <- &Msg{
-			Type:  EPSPROTOCAL,
-			Data1: msg,
+			Type:      EPSPROTOCAL,
+			Destation: false, // 下行通道
+			Data1:     msg,
 		}
 	} else { // ims网络域sip协议
 		// todo
@@ -124,7 +139,7 @@ func EnodebProxyMessage(ctx context.Context, src, dest *net.UDPConn) {
 // 功能实体作为客户端与其上层服务端交互
 func TransportWithServer(ctx context.Context, lo *net.UDPConn, remote *net.UDPAddr, coreIn, coreOut chan *Msg) {
 	// 开启协程向服务端写数据
-	go writeToRemote(ctx, lo, remote, coreOut)
+	go receiveCoreProcessResult(ctx, lo, remote, coreOut)
 	// 循环读取服务端消息
 	data := make([]byte, 32)
 	for {

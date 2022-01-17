@@ -90,7 +90,7 @@ func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *co
 		HSS_RESP_KASME: kasme,
 		HSS_RESP_XRES:  hex.EncodeToString(xres),
 	}
-	common.WrapOutEPS(common.EPSPROTOCAL, common.AuthenticationInformatResponse, imsi, response, out)
+	common.WrapOutEPS(common.EPSPROTOCAL, common.AuthenticationInformatResponse, imsi, response, false, out) // 下行
 	return nil
 }
 
