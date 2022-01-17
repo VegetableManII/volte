@@ -35,7 +35,6 @@ func TransaportWithClient(ctx context.Context, conn *net.UDPConn, coreIn, coreOu
 				logger.Error("[%v] Server读取数据错误 %v", ctx.Value("Entity"), err)
 			}
 			if remote != nil || n != 0 {
-				logger.Info("[%v] Read[%v] Data: %v", ctx.Value("Entity"), n, data[:n])
 				distribute(data[:n], coreIn)
 				// 检查该客户端是否已经开启线程服务
 				if _, ok := clientMap.Load(remote); ok {
@@ -92,16 +91,14 @@ func receiveCoreProcessResult(ctx context.Context, conn *net.UDPConn, remote *ne
 }
 func writeToRemote(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, data []byte) {
 	var err error
-	var n int
 	if remote == nil {
-		n, err = conn.Write(data)
+		_, err = conn.Write(data)
 	} else {
-		n, err = conn.WriteToUDP(data, remote)
+		_, err = conn.WriteToUDP(data, remote)
 	}
 	if err != nil {
 		logger.Error("[%v] 消息发送失败 %v %v", ctx.Value("Entity"), err, data)
 	}
-	logger.Info("[%v] Write to Remote[%v] Data[%v]:%v", ctx.Value("Entity"), remote, n, data[:n])
 }
 
 // 采用分发订阅模式分发eps网络信令和sip信令
@@ -141,7 +138,7 @@ func TransportWithServer(ctx context.Context, lo *net.UDPConn, remote *net.UDPAd
 	// 开启协程向服务端写数据
 	go receiveCoreProcessResult(ctx, lo, remote, coreOut)
 	// 循环读取服务端消息
-	data := make([]byte, 32)
+	data := make([]byte, 1024)
 	for {
 		select {
 		case <-ctx.Done():
@@ -153,7 +150,6 @@ func TransportWithServer(ctx context.Context, lo *net.UDPConn, remote *net.UDPAd
 				logger.Error("[%v] Client读取数据错误 %v", ctx.Value("Entity"), err)
 			}
 			if n != 0 {
-				logger.Info("[%v] Read[%v] Data: %v", ctx.Value("Entity"), n, data[:n])
 				distribute(data[:n], coreIn)
 			} else {
 				logger.Info("[%v] Remote[%v] Len[%v]", ctx.Value("Entity"), remote, n)

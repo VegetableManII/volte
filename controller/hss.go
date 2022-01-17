@@ -4,11 +4,9 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
-	"encoding/json"
-	"errors"
+	"fmt"
 	"hash"
 	"math/rand"
-	"strconv"
 	"time"
 
 	"github.com/VegetableManII/volte/common"
@@ -73,25 +71,16 @@ func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *co
 	rand.Seed(time.Now().UnixNano())
 	nonce := rand.Int31()
 	// 加密得到密文
-	data, err := json.Marshal(User{
-		IMSI:        imsi,
-		Mnc:         1,
-		Mcc:         550,
-		Apn:         "hebeiyidong",
-		SipUserName: "jiqimao",
-		SipDNS:      "3gpp.net",
-		Nonce:       nonce,
-	})
-	if err != nil {
-		return errors.New("ErrDataFormat")
-	}
-	xres := defaultHash.Sum(data)
+	data := fmt.Sprintf("%s %s %s %s %s %s %d", imsi,
+		"1", "550", "hebeiyidong", "jiqimao", "3gpp.net", nonce)
+	defaultHash.Write([]byte(data))
+	xres := defaultHash.Sum(nil)
 	auth := defaultAuth
 	kasme := "md5"
 	var response = map[string]string{
 		"imsi":         imsi,
 		HSS_RESP_AUTH:  auth,
-		HSS_RESP_RAND:  strconv.Itoa(int(nonce)),
+		HSS_RESP_RAND:  fmt.Sprintf("%d", nonce),
 		HSS_RESP_KASME: kasme,
 		HSS_RESP_XRES:  hex.EncodeToString(xres),
 	}

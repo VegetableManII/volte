@@ -16,9 +16,7 @@ func StrLineUnmarshal(d []byte) map[string]string {
 	lines := strings.Split(s, "\r\n")
 	for _, line := range lines {
 		kv := strings.Split(line, "=")
-		if len(kv) != 2 {
-			m[kv[0]] = ""
-		} else {
+		if len(kv) == 2 {
 			m[kv[0]] = kv[1]
 		}
 	}
@@ -31,19 +29,18 @@ func StrLineMarshal(m map[string]string) string {
 	if m == nil {
 		return line
 	}
+	lines := make([]string, 0, len(m))
 	for k, v := range m {
-		line += k + "=" + v + "\r\n"
+		lines = append(lines, k+"="+v)
 	}
-	return line
+	return strings.Join(lines, "\r\n")
 }
 
 // EPS 网络通用发送消息方法
 func WrapOutEPS(protocal, method byte, data map[string]string, dest bool, out chan *Msg) {
 	down := new(EpsMsg)
 	res := StrLineMarshal(data)
-
-	logger.Error("unmarshal: %v", res)
-
+	logger.Error("res %v", res)
 	size := len([]byte(res))
 	down.Construct(protocal, method, size, []byte(res))
 
@@ -51,6 +48,7 @@ func WrapOutEPS(protocal, method byte, data map[string]string, dest bool, out ch
 	wrap.Type = EPSPROTOCAL
 	wrap.Destation = dest
 	wrap.Data1 = down
+	logger.Error("down %v", wrap.Data1._data)
 	out <- wrap
 }
 

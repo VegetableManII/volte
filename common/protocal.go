@@ -77,7 +77,7 @@ func (e *EpsMsg) Construct(t, m byte, s int, d []byte) {
 	e._type = t
 	e._msg = m
 	binary.BigEndian.PutUint16(e._size[:], uint16(s))
-	copy(e._data[:], d)
+	copy(e._data[:], d[:])
 }
 
 func (e *EpsMsg) GetData() []byte {

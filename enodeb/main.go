@@ -139,7 +139,6 @@ func broadMessageFromNet(ctx context.Context, from *net.UDPConn, to *net.UDPConn
 			if err != nil {
 				logger.Error("[%v] 读取网络侧数据错误 %v", ctx.Value("Entity"), err)
 			}
-			logger.Info("[%v] 读取网络侧数据 %v", ctx.Value("Entity"), data[:n])
 			if n != 0 && remote != nil {
 				// 将收到的消息广播出去
 				broadWorkingMessage(ctx, to, baddr, 0, data[:n])
