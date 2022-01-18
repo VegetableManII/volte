@@ -78,7 +78,6 @@ func initUeServer(port int, bport int) (*net.UDPConn, *net.UDPAddr) {
 	if err != nil {
 		log.Panicln("获取本地IP地址失败", err)
 	}
-	log.Printf("[IP]: %v [Net]: %v", ipnet.IP, ipnet.Mask)
 	host := ipnet.IP.To4().String() + ":" + strconv.Itoa(port)
 	la, err := net.ResolveUDPAddr("udp4", host)
 	if err != nil {
@@ -92,7 +91,6 @@ func initUeServer(port int, bport int) (*net.UDPConn, *net.UDPAddr) {
 	if err != nil {
 		log.Panicln("获取本地广播地址失败", err)
 	}
-	log.Printf("[Broadcast]: %v", bip)
 	broadcast := bip.String() + ":" + strconv.Itoa(bport)
 	ra, err := net.ResolveUDPAddr("udp4", broadcast)
 	if err != nil {

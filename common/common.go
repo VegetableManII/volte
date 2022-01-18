@@ -2,12 +2,11 @@ package common
 
 import (
 	"errors"
+	"log"
 	"strings"
-
-	"github.com/wonderivan/logger"
 )
 
-// 按行分割，获取键值对内容
+// 按行分割，获取键值对内容，需要明确给出字节流边界，防止把 ‘\0’ 字符识别为字符串中的字符
 func StrLineUnmarshal(d []byte) map[string]string {
 	m := make(map[string]string, 1)
 
@@ -40,15 +39,14 @@ func StrLineMarshal(m map[string]string) string {
 func WrapOutEPS(protocal, method byte, data map[string]string, dest bool, out chan *Msg) {
 	down := new(EpsMsg)
 	res := StrLineMarshal(data)
-	logger.Error("res %v", res)
 	size := len([]byte(res))
+	log.Println([]byte(res))
 	down.Construct(protocal, method, size, []byte(res))
-
 	wrap := new(Msg)
 	wrap.Type = EPSPROTOCAL
 	wrap.Destation = dest
 	wrap.Data1 = down
-	logger.Error("down %v", wrap.Data1._data)
+
 	out <- wrap
 }
 

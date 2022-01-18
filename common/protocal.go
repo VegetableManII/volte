@@ -1,6 +1,8 @@
 package common
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+)
 
 const (
 	EPSPROTOCAL byte = 0x01
@@ -60,28 +62,29 @@ func (m *Msg) GetUniqueMethod() [2]byte {
 
 // eps网络电路协议消息结构
 type EpsMsg struct {
-	_type byte // 0x01 表示电路域协议
-	_msg  byte
-	_size [2]byte    // data字段的长度
+	_type uint8 // 0x01 表示电路域协议
+	_msg  uint8
+	_size uint16     // data字段的长度
 	_data [1020]byte // 最大65535字节大小
 }
 
 func (e *EpsMsg) Init(data []byte) {
+	l := binary.BigEndian.Uint16(data[2:4])
 	e._type = EPSPROTOCAL
 	e._msg = data[1]
-	copy(e._size[:], data[2:4])
-	copy(e._data[:], data[4:])
+	e._size = l
+	copy(e._data[:], data[4:l+4])
 }
 
 func (e *EpsMsg) Construct(t, m byte, s int, d []byte) {
 	e._type = t
 	e._msg = m
-	binary.BigEndian.PutUint16(e._size[:], uint16(s))
-	copy(e._data[:], d[:])
+	e._size = uint16(s)
+	copy(e._data[:], d[0:e._size])
 }
 
 func (e *EpsMsg) GetData() []byte {
-	return e._data[:]
+	return e._data[:e._size]
 }
 
 // todo 定义sip消息结构
