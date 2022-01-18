@@ -1,6 +1,7 @@
 package common
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/binary"
@@ -48,6 +49,7 @@ func TransaportWithClient(ctx context.Context, conn *net.UDPConn, coreIn, coreOu
 				time.Sleep(500 * time.Millisecond)
 			}
 		}
+		data = data[:0]
 	}
 }
 
@@ -63,7 +65,7 @@ func receiveCoreProcessResult(ctx context.Context, conn *net.UDPConn, remote *ne
 			return
 		case pkg := <-out:
 			if pkg._type == 0x01 {
-				err := binary.Write(&buffer, binary.BigEndian, pkg)
+				err := binary.Write(&buffer, binary.BigEndian, pkg.CommonMsg)
 				if err != nil {
 					logger.Error("[%v] EpsMsg转化[]byte失败 %v", ctx.Value("Entity"), err)
 					continue
@@ -74,7 +76,7 @@ func receiveCoreProcessResult(ctx context.Context, conn *net.UDPConn, remote *ne
 					writeToRemote(ctx, conn, remote, buffer.Bytes())
 				}
 			} else {
-				err := binary.Write(&buffer, binary.BigEndian, pkg)
+				err := binary.Write(&buffer, binary.BigEndian, pkg.CommonMsg)
 				if err != nil {
 					logger.Error("[%v] SipMsg转化[]byte失败 %v", ctx.Value("Entity"), err)
 					continue
@@ -136,19 +138,38 @@ func TransportWithServer(ctx context.Context, lo *net.UDPConn, remote *net.UDPAd
 }
 
 // 主要用于基站实现消息的代理转发, 将ue消息转发至网络侧
-func EnodebProxyMessage(ctx context.Context, src, dest *net.UDPConn) {
+func EnodebProxyMessage(ctx context.Context, src, dest1, dest2 *net.UDPConn) {
+	uereader := bufio.NewReader(src)
+	mmewriter := bufio.NewWriter(dest1)
+	pgwwriter := bufio.NewWriter(dest2)
+	data := make([]byte, 1024)
+	var n int
+	var err error
 	for {
 		select {
 		case <-ctx.Done():
 			logger.Warn("[%v] 基站转发协程退出...", ctx.Value("Entity"))
 			return
 		default:
-			// 循环代理转发用户侧到网络侧消息
-			n, err := io.Copy(dest, src) // 阻塞式,copy有deadline,如果src传输数据过快copy会一直进行复制
+			n, err = uereader.Read(data)
 			if err != nil {
-				logger.Error("[%v] 基站转发消息失败 %v %v", ctx.Value("Entity"), n, err)
+				logger.Error("[%v] 基站接收消息失败 %v %v", ctx.Value("Entity"), n, err)
+			}
+			if data[0] == EPSPROTOCAL {
+				n, err = mmewriter.Write(data)
+				if err != nil {
+					logger.Error("[%v] 基站转发消息失败[to mme] %v %v", ctx.Value("Entity"), n, err)
+				}
+			} else if data[0] == SIPPROTOCAL {
+				n, err = pgwwriter.Write(data)
+				if err != nil {
+					logger.Error("[%v] 基站转发消息失败[to mme] %v %v", ctx.Value("Entity"), n, err)
+				}
+			} else {
+				logger.Error("[%v] 不支持的消息类型 %v %v", ctx.Value("Entity"), data)
 			}
 		}
+		data = data[:0]
 	}
 }
 
