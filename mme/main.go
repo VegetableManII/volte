@@ -70,4 +70,5 @@ func init() {
 func RegistRouter() {
 	self.Regist([2]byte{EPSPROTOCAL, AttachRequest}, self.AttachRequestF)
 	self.Regist([2]byte{EPSPROTOCAL, AuthenticationInformatResponse}, self.AuthenticationInformatResponseF)
+	self.Regist([2]byte{EPSPROTOCAL, AuthenticationResponse}, self.AuthenticationResponseF)
 }

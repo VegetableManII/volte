@@ -50,16 +50,18 @@ func init() {
 		log.Panicln("配置文件读取失败", e)
 	}
 	host := viper.GetString("EPS.hss.host")
+	dbhost := viper.GetString("mysql.host")
 	logger.Info("配置文件读取成功", "")
 	// 启动 HSS 的UDP服务器
 	mmeConn = InitServer(host)
 	// 创建连接 HSS 的客户端
 	// hssConn = common.ConnectEPS(hssHost)
 	self = new(controller.HssEntity)
-	self.Init()
+	self.Init(dbhost)
 	RegistRouter()
 }
 
 func RegistRouter() {
 	self.Regist([2]byte{EPSPROTOCAL, AuthenticationInformatRequest}, self.AuthenticationInformatRequestF)
+	self.Regist([2]byte{EPSPROTOCAL, UpdateLocationRequest}, self.UpdateLocationRequestF)
 }

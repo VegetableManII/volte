@@ -2,7 +2,6 @@ package common
 
 import (
 	"errors"
-	"log"
 	"strings"
 )
 
@@ -40,7 +39,6 @@ func WrapOutEPS(protocal, method byte, data map[string]string, dest bool, out ch
 	down := new(EpsMsg)
 	res := StrLineMarshal(data)
 	size := len([]byte(res))
-	log.Println([]byte(res))
 	down.Construct(protocal, method, size, []byte(res))
 	wrap := new(Msg)
 	wrap.Type = EPSPROTOCAL

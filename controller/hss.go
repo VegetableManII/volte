@@ -6,10 +6,14 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash"
+	"log"
 	"math/rand"
 	"time"
 
 	"github.com/VegetableManII/volte/common"
+
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/jinzhu/gorm"
 
 	"github.com/wonderivan/logger"
 )
@@ -18,18 +22,25 @@ type HssEntity struct {
 	*Mux
 	csupport map[string]hash.Hash
 	auth     string
+	client   *gorm.DB
 }
 
 var defaultHash hash.Hash
 var defaultAuth string = "offical@hebeiyidong.3gpp.net"
 
-func (this *HssEntity) Init() {
+func (this *HssEntity) Init(dbhost string) {
 	// 初始化路由
 	this.Mux = new(Mux)
 	this.router = make(map[[2]byte]BaseSignallingT)
 	// 初始化支持的加密算法
 	this.csupport = make(map[string]hash.Hash)
 	defaultHash = md5.New()
+	// 初始化数据库连接
+	db, err := gorm.Open("mysql", dbhost)
+	if err != nil {
+		log.Panicln("HSS初始化数据库连接失败", err)
+	}
+	this.client = db
 }
 
 // HSS可以接收eps电路协议也可以接收SIP协议
@@ -60,31 +71,52 @@ func (this *HssEntity) CoreProcessor(ctx context.Context, in, out chan *common.M
 // HSS 接收Authentication Informat Request请求，然后查询数据库获得用户信息，生成nonce，选择加密算法，
 func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *common.Msg, out chan *common.Msg) error {
 	logger.Info("[%v] Receive From MME: %v", ctx.Value("Entity"), string(m.Data1.GetData()))
-
-	imsi, err := common.GetIMSI(m.Data1.GetData())
+	data := m.Data1.GetData()
+	hashtable := common.StrLineUnmarshal(data)
+	imsi := hashtable["IMSI"]
+	// TODO ue携带自身支持的加密算法方式
+	// 查询数据库
+	user, err := GetUserByIMSI(ctx, this.client, imsi)
 	if err != nil {
 		return err
 	}
-	// TODO ue携带自身支持的加密算法方式
-	// TODO 查询数据库
 	// 针对该用户生成随机数nonce
 	rand.Seed(time.Now().UnixNano())
 	nonce := rand.Int31()
 	// 加密得到密文
-	data := fmt.Sprintf("%s %s %s %s %s %s %d", imsi,
-		"1", "550", "hebeiyidong", "jiqimao", "3gpp.net", nonce)
-	defaultHash.Write([]byte(data))
+	seed := fmt.Sprintf("%s %s %d %s %s %s %d", user.IMSI,
+		user.Mnc, user.Mcc, user.Apn, user.SipUserName, user.SipDNS, nonce)
+	defaultHash.Write([]byte(seed))
 	xres := defaultHash.Sum(nil)
 	auth := defaultAuth
 	kasme := "md5"
 	var response = map[string]string{
-		"imsi":         imsi,
+		"IMSI":         imsi,
 		HSS_RESP_AUTH:  auth,
 		HSS_RESP_RAND:  fmt.Sprintf("%d", nonce),
 		HSS_RESP_KASME: kasme,
 		HSS_RESP_XRES:  hex.EncodeToString(xres),
 	}
 	common.WrapOutEPS(common.EPSPROTOCAL, common.AuthenticationInformatResponse, response, false, out) // 下行
+	return nil
+}
+
+// HSS 接收Update Location Request请求，将用户APN信息响应给MME用于和PGW建立承载
+func (this *HssEntity) UpdateLocationRequestF(ctx context.Context, m *common.Msg, out chan *common.Msg) error {
+	logger.Info("[%v] Receive From MME: %v", ctx.Value("Entity"), string(m.Data1.GetData()))
+	data := m.Data1.GetData()
+	hashtable := common.StrLineUnmarshal(data)
+	imsi := hashtable["IMSI"]
+	// 查询数据库
+	user, err := GetUserByIMSI(ctx, this.client, imsi)
+	if err != nil {
+		return err
+	}
+	var response = map[string]string{
+		"IMSI": imsi,
+		"APN":  user.Apn,
+	}
+	common.WrapOutEPS(common.EPSPROTOCAL, common.UpdateLocationACK, response, false, out) // 下行
 	return nil
 }
 
@@ -97,17 +129,35 @@ func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *co
 type User struct {
 	ID          int64     `gorm:"column:id"`
 	IMSI        string    `gorm:"column:imsi" json:"imsi"`
-	Mnc         int32     `gorm:"column:mnc" json:"mnc"` // 移动网号
+	Mnc         string    `gorm:"column:mnc" json:"mnc"` // 移动网号
 	Mcc         int32     `gorm:"column:mcc" json:"mcc"` // 国家码
 	Apn         string    `gorm:"column:apn" json:"apn"`
 	IP          string    `gorm:"column:ip" json:"ip"`
 	SipUserName string    `gorm:"column:sip_username" json:"sip_username"`
 	SipDNS      string    `gorm:"column:sip_dns" json:"sip_dns"`
-	Nonce       int32     `json:"nonce"`
 	Ctime       time.Time `gorm:"column:ctime"`
 	Utime       time.Time `gorm:"column:utime"`
 }
 
 func (User) TableName() string {
 	return "users"
+}
+
+func GetUserByIMSI(ctx context.Context, db *gorm.DB, imsi string) (*User, error) {
+	ret := new(User)
+	err := db.Model(User{}).Where("imsi=?", imsi).Find(ret).Error
+	if err != nil {
+		logger.Error("[%v] HSS获取用户信息失败,IMSI=%v,ERR=%v", ctx.Value("Entity"), imsi, err)
+		return nil, err
+	}
+	return ret, nil
+}
+
+func CreateUser(ctx context.Context, db *gorm.DB, user *User) error {
+	err := db.Create(user).Error
+	if err != nil {
+		logger.Error("[%v] HSS创建用户信息失败,USER=%v,ERR=%v", ctx.Value("Entity"), *user, err)
+		return err
+	}
+	return nil
 }
