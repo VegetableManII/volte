@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	imsConn, eNodeBConn, mmeConn *net.UDPConn
+	epsConn *net.UDPConn
 )
 
 /*
@@ -24,22 +24,18 @@ var (
 */
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
-	ctx = context.WithValue(ctx, "Entity", "PGW")
-	// coreIC := make(chan *Msg, 2)
-	// coreOC := make(chan *Msg, 2)
+	ctx = context.WithValue(ctx, "Entity", "CSCF")
+	coreIC := make(chan *Package, 2)
+	coreOC := make(chan *Package, 2)
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	// TODO 开启与MME交互的协程
-	// go TransaportWithClient(ctx, mmeConn, coreIC, coreOC)
-	// go common.ExchangeWithClient(ctx, eNodeBConn, coreIC, coreOC) // debug
-	// 开启EPS域和IMS域的消息转发协程
-	go PGWProxyMessage(ctx, eNodeBConn, imsConn)
-	go PGWProxyMessage(ctx, imsConn, eNodeBConn)
+	// 开启与eps域交互的协程
+	go TransaportWithClient(ctx, epsConn, coreIC, coreOC)
 
 	<-quit
-	logger.Warn("[PGW] pgw 功能实体退出...")
+	logger.Warn("[X-CSCF] x-cscf 功能实体退出...")
 	cancel()
-	logger.Warn("[PGW] pgw 子协程退出完成...")
+	logger.Warn("[X-CSCF] x-cscf 子协程退出完成...")
 }
 
 func init() {
@@ -49,11 +45,8 @@ func init() {
 	if e := viper.ReadInConfig(); e != nil {
 		log.Panicln("配置文件读取失败", e)
 	}
-	host := viper.GetString("EPS.pgw.host")
-	imshost := viper.GetString("IMS.x-cscf.host")
+	host := viper.GetString("IMS.x-cscf.host")
 	logger.Info("配置文件读取成功", "")
-	// 启动 PGW 的UDP服务器
-	eNodeBConn = InitServer(host)
-	// 创建连接IMS域的客户端
-	imsConn, _ = ConnectServer(imshost)
+	// 启动 CSCF 的UDP服务器
+	epsConn = InitServer(host)
 }

@@ -27,8 +27,8 @@ var (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	ctx = context.WithValue(ctx, "Entity", "HSS")
-	coreIChan := make(chan *Msg, 2) // 原生数据输入
-	coreOChan := make(chan *Msg, 2) // 解析后的数据输出
+	coreIChan := make(chan *Package, 2) // 原生数据输入
+	coreOChan := make(chan *Package, 2) // 解析后的数据输出
 	quit := make(chan os.Signal, 6)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	// 开启与mme交互的协程

@@ -1,7 +1,3 @@
-/*
-eNodeB主要功能：消息转发
-根据不同的消息类型转发到EPS网络还是IMS网络
-*/
 package main
 
 import (
@@ -39,8 +35,8 @@ func main() {
 	go EnodebProxyMessage(ctx, loConn, mmeConn) // 转发用户上行数据
 	go broadMessageFromNet(ctx, mmeConn, loConn, ueBroadcastAddr)
 	// 开启ue和pgw的转发协程
-	//go EnodebProxyMessage(ctx, loConn, pgwConn) // 转发用户上行数据
-	//go broadMessageFromNet(ctx, pgwConn, loConn, ueBroadcastAddr)
+	go EnodebProxyMessage(ctx, loConn, pgwConn) // 转发用户上行数据
+	go broadMessageFromNet(ctx, pgwConn, loConn, ueBroadcastAddr)
 	<-quit
 	logger.Warn("[eNodeB] eNodeB 功能实体退出...")
 	cancel()
@@ -67,9 +63,9 @@ func init() {
 	// 创建于MME的UDP连接
 	mme := viper.GetString("EPS.mme.host")
 	mmeConn, _ = ConnectServer(mme)
-	// TODO 创建于PGW的UDP连接
-	//pgw := viper.GetString("EPS.pgw")
-	//pgwConn = connectEPS(pgw)
+	// 创建于PGW的UDP连接
+	pgw := viper.GetString("EPS.pgw")
+	pgwConn, _ = ConnectServer(pgw)
 }
 
 // 与ue连接的UDP服务端

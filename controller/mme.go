@@ -30,12 +30,12 @@ func (this *MmeEntity) Init() {
 }
 
 // eps 域功能实体 MME 的逻辑代码，判断eNodeB转发过来的数据类型，如果是SIP类型则不做处理丢弃
-func (this *MmeEntity) CoreProcessor(ctx context.Context, in, out chan *common.Msg) {
+func (this *MmeEntity) CoreProcessor(ctx context.Context, in, out chan *common.Package) {
 	var err error
 	for {
 		select {
 		case msg := <-in:
-			if msg.Type == common.SIPPROTOCAL { // 不处理SIP协议
+			if msg.GetType() == common.SIPPROTOCAL { // 不处理SIP协议
 				continue
 			}
 			f, ok := this.router[msg.GetUniqueMethod()]
@@ -55,9 +55,9 @@ func (this *MmeEntity) CoreProcessor(ctx context.Context, in, out chan *common.M
 }
 
 // 附着请求，携带IMSI，和客户端支持的加密方法，拿到IMSI向HSS发起Authentication Informat Request请求
-func (this *MmeEntity) AttachRequestF(ctx context.Context, m *common.Msg, out chan *common.Msg) error {
-	logger.Info("[%v] Receive From eNodeB: %v", ctx.Value("Entity"), string(m.Data1.GetData()))
-	data := m.Data1.GetData()
+func (this *MmeEntity) AttachRequestF(ctx context.Context, m *common.Package, out chan *common.Package) error {
+	logger.Info("[%v] Receive From eNodeB: %v", ctx.Value("Entity"), string(m.GetData()))
+	data := m.GetData()
 	hashtable := common.StrLineUnmarshal(data)
 	imsi := hashtable["IMSI"]
 	// TODO ue携带自身支持的加密算法方式
@@ -65,15 +65,15 @@ func (this *MmeEntity) AttachRequestF(ctx context.Context, m *common.Msg, out ch
 	req := map[string]string{
 		"IMSI": imsi,
 	}
-	common.WrapOutEPS(common.EPSPROTOCAL, common.AuthenticationInformatRequest, req, true, out) // 上行
+	common.PackageOut(common.EPSPROTOCAL, common.AuthenticationInformatRequest, req, true, out) // 上行
 	return nil
 }
 
 // HSS 响应Authentication Informat Response，拿到用户签名XRES、HSS服务器的Auth信息、随机数nonce和加密方法Kasme
-func (this *MmeEntity) AuthenticationInformatResponseF(ctx context.Context, m *common.Msg, out chan *common.Msg) error {
-	logger.Info("[%v] Receive From HSS: %v", ctx.Value("Entity"), string(m.Data1.GetData()))
+func (this *MmeEntity) AuthenticationInformatResponseF(ctx context.Context, m *common.Package, out chan *common.Package) error {
+	logger.Info("[%v] Receive From HSS: %v", ctx.Value("Entity"), string(m.GetData()))
 	// 获取data部分的响应信息
-	data := m.Data1.GetData()
+	data := m.GetData()
 	hashtable := common.StrLineUnmarshal(data)
 	imsi := hashtable["IMSI"]
 	xres := hashtable[HSS_RESP_XRES]
@@ -83,14 +83,14 @@ func (this *MmeEntity) AuthenticationInformatResponseF(ctx context.Context, m *c
 	// 下行发送给ue三项，HSS服务器的Auth信息、随机数nonce和加密方法Kasme
 	// 组装下行数据内容
 	delete(hashtable, HSS_RESP_XRES)                                                                   // 删除XRES项s
-	common.WrapOutEPS(common.EPSPROTOCAL, common.AuthenticationInformatRequest, hashtable, false, out) // 下行
+	common.PackageOut(common.EPSPROTOCAL, common.AuthenticationInformatRequest, hashtable, false, out) // 下行
 	return nil
 }
 
 // UE终端 响应AuthenticationResponse，比较用户RES是否与XRES一致
-func (this *MmeEntity) AuthenticationResponseF(ctx context.Context, m *common.Msg, out chan *common.Msg) error {
-	logger.Info("[%v] Receive From eNodeB: %v", ctx.Value("Entity"), string(m.Data1.GetData()))
-	data := m.Data1.GetData()
+func (this *MmeEntity) AuthenticationResponseF(ctx context.Context, m *common.Package, out chan *common.Package) error {
+	logger.Info("[%v] Receive From eNodeB: %v", ctx.Value("Entity"), string(m.GetData()))
+	data := m.GetData()
 	hashtbale := common.StrLineUnmarshal(data)
 	imsi := hashtbale["IMSI"]
 	res := hashtbale["RES"]
@@ -102,18 +102,18 @@ func (this *MmeEntity) AuthenticationResponseF(ctx context.Context, m *common.Ms
 		return errors.New("ErrAuthenFailed")
 	}
 	// 向上行HSS发送位置更新请求
-	common.WrapOutEPS(common.EPSPROTOCAL, common.UpdateLocationRequest, nil, true, out) // 上行
+	common.PackageOut(common.EPSPROTOCAL, common.UpdateLocationRequest, nil, true, out) // 上行
 	return nil
 }
 
 // 接收HSS的 Update Location ACK 响应得到用户的APN，再请求PGW完成承载的建立（该部分暂不实现，得到ACK后直接向用户发送Attach Accept）
-func (this *MmeEntity) UpdateLocationACKF(ctx context.Context, m *common.Msg, out chan *common.Msg) error {
-	logger.Info("[%v] Receive From HSS: %v", ctx.Value("Entity"), string(m.Data1.GetData()))
+func (this *MmeEntity) UpdateLocationACKF(ctx context.Context, m *common.Package, out chan *common.Package) error {
+	logger.Info("[%v] Receive From HSS: %v", ctx.Value("Entity"), string(m.GetData()))
 	/*
 		1.获得APN
 		2.请求PGW建立承载
 	*/
 	// 直接响应UE终端附着允许的响应
-	common.WrapOutEPS(common.EPSPROTOCAL, common.AttachAccept, nil, false, out) // 下行
+	common.PackageOut(common.EPSPROTOCAL, common.AttachAccept, nil, false, out) // 下行
 	return nil
 }

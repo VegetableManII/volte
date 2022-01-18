@@ -28,8 +28,8 @@ var (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	ctx = context.WithValue(ctx, "Entity", "MME")
-	coreIChan := make(chan *Msg, 2)
-	coreOChan := make(chan *Msg, 2)
+	coreIChan := make(chan *Package, 2)
+	coreOChan := make(chan *Package, 2)
 	quit := make(chan os.Signal, 6)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	// 开启与eNodeB交互的协程

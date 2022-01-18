@@ -35,17 +35,12 @@ func StrLineMarshal(m map[string]string) string {
 }
 
 // EPS 网络通用发送消息方法
-func WrapOutEPS(protocal, method byte, data map[string]string, dest bool, out chan *Msg) {
-	down := new(EpsMsg)
+func PackageOut(protocal, method byte, data map[string]string, dest bool, out chan *Package) {
+	cmsg := new(CommonMsg)
 	res := StrLineMarshal(data)
 	size := len([]byte(res))
-	down.Construct(protocal, method, size, []byte(res))
-	wrap := new(Msg)
-	wrap.Type = EPSPROTOCAL
-	wrap.Destation = dest
-	wrap.Data1 = down
-
-	out <- wrap
+	cmsg.Construct(protocal, method, size, []byte(res))
+	out <- &Package{cmsg, dest}
 }
 
 func GetIMSI(data []byte) (string, error) {

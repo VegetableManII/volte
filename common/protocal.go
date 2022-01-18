@@ -41,63 +41,41 @@ const (
 	REGISTER  byte = 0x0C
 )
 
-type Msg struct {
-	Type      byte // 0x01 eps 0x00 ims
-	Destation bool // true 上行 false 下行
-	Data1     *EpsMsg
-	Data2     *SipMsg
+type Package struct {
+	*CommonMsg
+	Destation bool // true上行、false下行
+}
+type CommonMsg struct {
+	_type   uint8 // 0x01 表示电路域协议
+	_method uint8
+	_size   uint16     // data字段的长度
+	_data   [1020]byte // 最大65535字节大小
 }
 
-func (m *Msg) GetUniqueMethod() [2]byte {
-	uniq := [2]byte{}
-	if m.Type == EPSPROTOCAL {
-		uniq[0] = m.Data1._type
-		uniq[1] = m.Data1._msg
-	} else {
-		uniq[0] = m.Data2._type
-		uniq[1] = m.Data2._msg
-	}
+func (p *Package) GetUniqueMethod() [2]byte {
+	uniq := [2]byte{p._type, p._method}
 	return uniq
 }
 
-// eps网络电路协议消息结构
-type EpsMsg struct {
-	_type uint8 // 0x01 表示电路域协议
-	_msg  uint8
-	_size uint16     // data字段的长度
-	_data [1020]byte // 最大65535字节大小
-}
-
-func (e *EpsMsg) Init(data []byte) {
+func (e *CommonMsg) Init(data []byte) {
 	l := binary.BigEndian.Uint16(data[2:4])
-	e._type = EPSPROTOCAL
-	e._msg = data[1]
+	e._type = data[0]
+	e._method = data[1]
 	e._size = l
 	copy(e._data[:], data[4:l+4])
 }
 
-func (e *EpsMsg) Construct(t, m byte, s int, d []byte) {
+func (e *CommonMsg) Construct(t, m byte, s int, d []byte) {
 	e._type = t
-	e._msg = m
+	e._method = m
 	e._size = uint16(s)
 	copy(e._data[:], d[0:e._size])
 }
 
-func (e *EpsMsg) GetData() []byte {
+func (e *CommonMsg) GetData() []byte {
 	return e._data[:e._size]
 }
 
-// todo 定义sip消息结构
-type SipMsg struct {
-	_type byte // 0x01 表示电路域协议
-	_msg  byte
-	_size [2]byte  // data字段的长度
-	_data [28]byte // 最大65535字节大小
-}
-
-func (s *SipMsg) Init(data []byte) {
-	s._type = SIPPROTOCAL
-	s._msg = data[1]
-	copy(s._size[:], data[2:4])
-	copy(s._data[:], data[4:])
+func (e *CommonMsg) GetType() byte {
+	return e._type
 }

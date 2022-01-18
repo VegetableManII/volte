@@ -14,7 +14,7 @@ const (
 )
 
 // 定义基础路由转发方法
-type BaseSignallingT func(context.Context, *common.Msg, chan *common.Msg) error
+type BaseSignallingT func(context.Context, *common.Package, chan *common.Package) error
 
 // 路由转发器
 type Mux struct {
@@ -32,5 +32,5 @@ func (m *Mux) Regist(r [2]byte, f BaseSignallingT) {
 
 // VoLTE网络中各个功能实体的逻辑处理器实体抽象基类对象
 type Base interface {
-	CoreProcessor(context.Context, chan *common.Msg, chan *common.Msg)
+	CoreProcessor(context.Context, chan *common.Package, chan *common.Package)
 }

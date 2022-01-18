@@ -44,7 +44,7 @@ func (this *HssEntity) Init(dbhost string) {
 }
 
 // HSS可以接收eps电路协议也可以接收SIP协议
-func (this *HssEntity) CoreProcessor(ctx context.Context, in, out chan *common.Msg) {
+func (this *HssEntity) CoreProcessor(ctx context.Context, in, out chan *common.Package) {
 	var err error
 	var f BaseSignallingT
 	var ok bool
@@ -69,9 +69,9 @@ func (this *HssEntity) CoreProcessor(ctx context.Context, in, out chan *common.M
 }
 
 // HSS 接收Authentication Informat Request请求，然后查询数据库获得用户信息，生成nonce，选择加密算法，
-func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *common.Msg, out chan *common.Msg) error {
-	logger.Info("[%v] Receive From MME: %v", ctx.Value("Entity"), string(m.Data1.GetData()))
-	data := m.Data1.GetData()
+func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *common.Package, out chan *common.Package) error {
+	logger.Info("[%v] Receive From MME: %v", ctx.Value("Entity"), string(m.GetData()))
+	data := m.GetData()
 	hashtable := common.StrLineUnmarshal(data)
 	imsi := hashtable["IMSI"]
 	// TODO ue携带自身支持的加密算法方式
@@ -97,14 +97,14 @@ func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *co
 		HSS_RESP_KASME: kasme,
 		HSS_RESP_XRES:  hex.EncodeToString(xres),
 	}
-	common.WrapOutEPS(common.EPSPROTOCAL, common.AuthenticationInformatResponse, response, false, out) // 下行
+	common.PackageOut(common.EPSPROTOCAL, common.AuthenticationInformatResponse, response, false, out) // 下行
 	return nil
 }
 
 // HSS 接收Update Location Request请求，将用户APN信息响应给MME用于和PGW建立承载
-func (this *HssEntity) UpdateLocationRequestF(ctx context.Context, m *common.Msg, out chan *common.Msg) error {
-	logger.Info("[%v] Receive From MME: %v", ctx.Value("Entity"), string(m.Data1.GetData()))
-	data := m.Data1.GetData()
+func (this *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Package, out chan *common.Package) error {
+	logger.Info("[%v] Receive From MME: %v", ctx.Value("Entity"), string(p.GetData()))
+	data := p.GetData()
 	hashtable := common.StrLineUnmarshal(data)
 	imsi := hashtable["IMSI"]
 	// 查询数据库
@@ -116,7 +116,7 @@ func (this *HssEntity) UpdateLocationRequestF(ctx context.Context, m *common.Msg
 		"IMSI": imsi,
 		"APN":  user.Apn,
 	}
-	common.WrapOutEPS(common.EPSPROTOCAL, common.UpdateLocationACK, response, false, out) // 下行
+	common.PackageOut(common.EPSPROTOCAL, common.UpdateLocationACK, response, false, out) // 下行
 	return nil
 }
 
