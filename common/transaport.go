@@ -141,17 +141,18 @@ func TransportWithServer(ctx context.Context, lo *net.UDPConn, remote *net.UDPAd
 func EnodebProxyMessage(ctx context.Context, src, dest1, dest2 *net.UDPConn) {
 	mmewriter := bufio.NewWriter(dest1)
 	pgwwriter := bufio.NewWriter(dest2)
-	data := make([]byte, 1024)
+
 	var n int
 	var err error
 	for {
+		data := make([]byte, 1024)
 		select {
 		case <-ctx.Done():
 			logger.Warn("[%v] 基站转发协程退出...", ctx.Value("Entity"))
 			return
 		default:
-			data, err = io.ReadAll(src)
-			if err != nil {
+			n, _, err = src.ReadFromUDP(data)
+			if err != nil && n == 0 {
 				logger.Error("[%v] 基站接收消息失败 %v %v", ctx.Value("Entity"), n, err)
 			}
 			if data[0] == EPSPROTOCAL {
@@ -168,7 +169,6 @@ func EnodebProxyMessage(ctx context.Context, src, dest1, dest2 *net.UDPConn) {
 				logger.Error("[%v] 不支持的消息类型 %v %v", ctx.Value("Entity"), data)
 			}
 		}
-		data = data[:0]
 	}
 }
 
