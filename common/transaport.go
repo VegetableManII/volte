@@ -139,7 +139,6 @@ func TransportWithServer(ctx context.Context, lo *net.UDPConn, remote *net.UDPAd
 
 // 主要用于基站实现消息的代理转发, 将ue消息转发至网络侧
 func EnodebProxyMessage(ctx context.Context, src, dest1, dest2 *net.UDPConn) {
-	uereader := bufio.NewReader(src)
 	mmewriter := bufio.NewWriter(dest1)
 	pgwwriter := bufio.NewWriter(dest2)
 	data := make([]byte, 1024)
@@ -151,7 +150,7 @@ func EnodebProxyMessage(ctx context.Context, src, dest1, dest2 *net.UDPConn) {
 			logger.Warn("[%v] 基站转发协程退出...", ctx.Value("Entity"))
 			return
 		default:
-			n, err = uereader.Read(data)
+			data, err = io.ReadAll(src)
 			if err != nil {
 				logger.Error("[%v] 基站接收消息失败 %v %v", ctx.Value("Entity"), n, err)
 			}

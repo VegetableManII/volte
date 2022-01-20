@@ -63,7 +63,7 @@ func init() {
 	mme := viper.GetString("EPS.mme.host")
 	mmeConn, _ = ConnectServer(mme)
 	// 创建于PGW的UDP连接
-	pgw := viper.GetString("EPS.pgw")
+	pgw := viper.GetString("EPS.pgw.host")
 	pgwConn, _ = ConnectServer(pgw)
 }
 
