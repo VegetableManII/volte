@@ -44,6 +44,7 @@ func (this *MmeEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 			f, ok := this.router[msg.GetUniqueMethod()]
 			if !ok {
 				logger.Error("[%v] MME不支持的消息类型数据 %v", ctx.Value("Entity"), msg)
+				continue
 			}
 			err = f(ctx, msg, up, down)
 			if err != nil {

@@ -59,13 +59,12 @@ func ReceiveClientMessage(ctx context.Context, host string, coreIn chan *Package
 		logger.Fatal("解析地址失败 %v", err)
 	}
 	logger.Info("服务监听启动成功 %v", lo.String())
+	conn, err := net.ListenUDP("udp4", lo)
+	if err != nil {
+		log.Panicln("udp server 监听失败", err)
+	}
+	logger.Info("服务器启动成功[%v]", lo)
 	for {
-		conn, err := net.ListenUDP("udp4", lo)
-		if err != nil {
-			log.Panicln("udp server 监听失败", err)
-		}
-		logger.Info("服务器启动成功[%v]", lo)
-
 		data := make([]byte, 1024)
 		select {
 		case <-ctx.Done():
