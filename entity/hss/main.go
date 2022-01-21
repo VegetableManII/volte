@@ -31,8 +31,10 @@ func main() {
 	coreOutDown := make(chan *Package, 2) // 核心处理器解析后的数据输出下行结果
 	quit := make(chan os.Signal, 6)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	// 开启与客户端交互的协程
+
 	go ReceiveClientMessage(ctx, localHost, coreIn)
+	go ProcessDownStreamData(ctx, coreOutDown)
+	go ProcessUpStreamData(ctx, coreOutUp)
 
 	go self.CoreProcessor(ctx, coreIn, coreOutUp, coreOutDown)
 	<-quit

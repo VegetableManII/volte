@@ -5,10 +5,8 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
-	"io"
 	"log"
 	"net"
-	"sync"
 	"time"
 
 	"github.com/wonderivan/logger"
@@ -48,35 +46,14 @@ func EnodebProxyMessage(ctx context.Context, src *net.UDPConn, mme, pgw string) 
 	}
 }
 
-// 主要用于PGW实现消息的代理转发, 将EPS域消息转发至IMS域
-// 消息数据不经过核心处理器处理
-func PGWProxyMessage(ctx context.Context, src, dest *net.UDPConn) {
-	for {
-		select {
-		case <-ctx.Done():
-			logger.Warn("[%v] PGW转发协程退出...", ctx.Value("Entity"))
-			return
-		default:
-			// 循环代理转发EPS侧到IMS侧消息
-			n, err := io.Copy(dest, src) // 阻塞式,copy有deadline,如果src传输数据过快copy会一直进行复制
-			if err != nil {
-				logger.Error("[%v] PGW转发消息失败 %v %v", ctx.Value("Entity"), n, err)
-			}
-			logger.Info("[%v] PGW转发消息from %v to %v", ctx.Value("Entity"), src.LocalAddr().String(), dest.LocalAddr().String())
-		}
-	}
-}
-
 /*
 并发安全集合用来保存客户端连接
 新连接接入之后保存对方的IP到集合中
 当连接断开时没有从集合中删除???如何判断已经断开
 */
-var clientMap *sync.Map
 
 // 通用网络中的功能实体与接收客户端数据的通用方法
 func ReceiveClientMessage(ctx context.Context, host string, coreIn chan *Package) {
-	clientMap = new(sync.Map)
 	lo, err := net.ResolveUDPAddr("udp4", host)
 	if err != nil {
 		logger.Fatal("解析地址失败 %v", err)
@@ -111,7 +88,7 @@ func ReceiveClientMessage(ctx context.Context, host string, coreIn chan *Package
 }
 
 // 接收逻辑核心处理结果
-func ProcessDownStreamData(ctx context.Context, conn *net.UDPConn, out chan *Package) {
+func ProcessDownStreamData(ctx context.Context, out chan *Package) {
 	// 创建write buffer
 	var buffer bytes.Buffer
 	for {
@@ -128,9 +105,12 @@ func ProcessDownStreamData(ctx context.Context, conn *net.UDPConn, out chan *Pac
 				continue
 			}
 			// 下行
-			SendUDPMessage(ctx, host, buffer.Bytes())
-			buffer.Reset()
+			err = SendUDPMessage(ctx, host, buffer.Bytes())
+			if err != nil {
+				logger.Error("[%v] 请求下级节点失败 %v", ctx.Value("Entity"), err)
+			}
 		}
+		buffer.Reset()
 	}
 }
 

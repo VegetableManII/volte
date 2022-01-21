@@ -31,8 +31,10 @@ func main() {
 	coreOutDown := make(chan *Package, 2)
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	// 开启与eps域交互的协程
+
 	go ReceiveClientMessage(ctx, localHost, coreIn)
+	go ProcessDownStreamData(ctx, coreOutDown)
+	go ProcessUpStreamData(ctx, coreOutUp)
 	// 开启IMS域的逻辑处理协程
 	go self.CoreProcessor(ctx, coreIn, coreOutUp, coreOutDown)
 

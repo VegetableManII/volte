@@ -31,11 +31,10 @@ func main() {
 	coreOutDown := make(chan *Package, 2)
 	quit := make(chan os.Signal, 6)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	// 开启与eNodeB交互的协程
-	go ReceiveClientMessage(ctx, localHost, coreIn)
-	// go common.ExchangeWithClient(ctx, eNodeBConn, preParseC, preParseC) // debug
-	// 开启与HSS交互的协程
 
+	go ReceiveClientMessage(ctx, localHost, coreIn)
+	go ProcessDownStreamData(ctx, coreOutDown)
+	go ProcessUpStreamData(ctx, coreOutUp)
 	// 开启逻辑处理协程
 	go self.CoreProcessor(ctx, coreIn, coreOutUp, coreOutDown)
 

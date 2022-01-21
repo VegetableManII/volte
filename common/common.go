@@ -43,6 +43,15 @@ func PackageOut(protocal, method byte, data map[string]string, dest string, out 
 	out <- &Package{cmsg, dest}
 }
 
+// IMS 网络通用发送消息方法
+func RawPackageOut(protocal, method byte, data []byte, dest string, out chan *Package) {
+	cmsg := new(CommonMsg)
+	size := len(data)
+	cmsg.Construct(protocal, method, size, data)
+	out <- &Package{cmsg, dest}
+
+}
+
 func GetIMSI(data []byte) (string, error) {
 	m := StrLineUnmarshal(data)
 	imsi, ok := m["imsi"]
