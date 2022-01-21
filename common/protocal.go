@@ -43,7 +43,7 @@ const (
 
 type Package struct {
 	*CommonMsg
-	Destation bool // true上行、false下行
+	Destation string // true上行、false下行
 }
 type CommonMsg struct {
 	_type   uint8 // 0x01 表示电路域协议

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"log"
-	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -16,9 +15,8 @@ import (
 )
 
 var (
-	self                *controller.MmeEntity
-	eNodeBConn, hssConn *net.UDPConn
-	hssAddr             *net.UDPAddr
+	self      *controller.MmeEntity
+	localHost string
 )
 
 /*
@@ -28,18 +26,18 @@ var (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	ctx = context.WithValue(ctx, "Entity", "MME")
-	coreIChan := make(chan *Package, 2)
-	coreOChan := make(chan *Package, 2)
+	coreIn := make(chan *Package, 4)
+	coreOutUp := make(chan *Package, 2)
+	coreOutDown := make(chan *Package, 2)
 	quit := make(chan os.Signal, 6)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	// 开启与eNodeB交互的协程
-	go TransaportWithClient(ctx, eNodeBConn, coreIChan, coreOChan)
+	go ReceiveClientMessage(ctx, localHost, coreIn)
 	// go common.ExchangeWithClient(ctx, eNodeBConn, preParseC, preParseC) // debug
 	// 开启与HSS交互的协程
-	go TransportWithServer(ctx, hssConn, hssAddr, coreIChan, coreOChan)
 
 	// 开启逻辑处理协程
-	go self.CoreProcessor(ctx, coreIChan, coreOChan)
+	go self.CoreProcessor(ctx, coreIn, coreOutUp, coreOutDown)
 
 	<-quit
 	logger.Warn("[MME] mme 功能实体退出...")
@@ -54,16 +52,15 @@ func init() {
 	if e := viper.ReadInConfig(); e != nil {
 		log.Panicln("配置文件读取失败", e)
 	}
-	host := viper.GetString("EPS.mme.host")
+	localHost = viper.GetString("EPS.mme.host")
 	hssHost := viper.GetString("EPS.hss.host")
+	eNodeBhost := viper.GetString("EPS.eNodeB.host")
 	logger.Info("配置文件读取成功", "")
-	// 启动 MME 的UDP服务器
-	eNodeBConn = InitServer(host)
-	// 创建连接 HSS 的客户端
-	hssConn, hssAddr = ConnectServer(hssHost)
 	// 创建自身逻辑实体
 	self = new(controller.MmeEntity)
 	self.Init()
+	self.Points["HSS"] = hssHost
+	self.Points["eNodeB"] = eNodeBhost
 	RegistRouter()
 }
 

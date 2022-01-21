@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"log"
-	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -16,8 +15,8 @@ import (
 )
 
 var (
-	self    *controller.CscfEntity
-	epsConn *net.UDPConn
+	self      *controller.CscfEntity
+	localHost string
 )
 
 /*
@@ -27,14 +26,15 @@ var (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	ctx = context.WithValue(ctx, "Entity", "CSCF")
-	coreIC := make(chan *Package, 2)
-	coreOC := make(chan *Package, 2)
+	coreIn := make(chan *Package, 4)
+	coreOutUp := make(chan *Package, 2)
+	coreOutDown := make(chan *Package, 2)
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	// 开启与eps域交互的协程
-	go TransaportWithClient(ctx, epsConn, coreIC, coreOC)
+	go ReceiveClientMessage(ctx, localHost, coreIn)
 	// 开启IMS域的逻辑处理协程
-	go self.CoreProcessor(ctx, coreIC, coreOC)
+	go self.CoreProcessor(ctx, coreIn, coreOutUp, coreOutDown)
 
 	<-quit
 	logger.Warn("[X-CSCF] x-cscf 功能实体退出...")
@@ -49,9 +49,8 @@ func init() {
 	if e := viper.ReadInConfig(); e != nil {
 		log.Panicln("配置文件读取失败", e)
 	}
-	host := viper.GetString("IMS.x-cscf.host")
+	localHost = viper.GetString("IMS.x-cscf.host")
 	logger.Info("配置文件读取成功", "")
 	// 启动 CSCF 的UDP服务器
-	epsConn = InitServer(host)
 	self.Init()
 }

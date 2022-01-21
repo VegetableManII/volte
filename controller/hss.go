@@ -8,6 +8,7 @@ import (
 	"hash"
 	"log"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/VegetableManII/volte/common"
@@ -21,8 +22,10 @@ import (
 type HssEntity struct {
 	*Mux
 	csupport map[string]hash.Hash
+	Points   map[string]string
 	auth     string
-	client   *gorm.DB
+	dbclient *gorm.DB
+	sync.Mutex
 }
 
 var defaultHash hash.Hash
@@ -34,17 +37,18 @@ func (this *HssEntity) Init(dbhost string) {
 	this.router = make(map[[2]byte]BaseSignallingT)
 	// 初始化支持的加密算法
 	this.csupport = make(map[string]hash.Hash)
+	this.Points = make(map[string]string)
 	defaultHash = md5.New()
 	// 初始化数据库连接
 	db, err := gorm.Open("mysql", dbhost)
 	if err != nil {
 		log.Panicln("HSS初始化数据库连接失败", err)
 	}
-	this.client = db
+	this.dbclient = db
 }
 
 // HSS可以接收eps电路协议也可以接收SIP协议
-func (this *HssEntity) CoreProcessor(ctx context.Context, in, out chan *common.Package) {
+func (this *HssEntity) CoreProcessor(ctx context.Context, in, up, down chan *common.Package) {
 	var err error
 	var f BaseSignallingT
 	var ok bool
@@ -56,7 +60,7 @@ func (this *HssEntity) CoreProcessor(ctx context.Context, in, out chan *common.P
 				logger.Error("[%v] HSS不支持的消息类型数据 %v", ctx.Value("Entity"), msg)
 				continue
 			}
-			err = f(ctx, msg, out)
+			err = f(ctx, msg, up, down)
 			if err != nil {
 				logger.Error("[%v] HSS消息处理失败 %v %v", ctx.Value("Entity"), msg, err)
 			}
@@ -69,14 +73,14 @@ func (this *HssEntity) CoreProcessor(ctx context.Context, in, out chan *common.P
 }
 
 // HSS 接收Authentication Informat Request请求，然后查询数据库获得用户信息，生成nonce，选择加密算法，
-func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *common.Package, out chan *common.Package) error {
+func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
 	logger.Info("[%v] Receive From MME: %v", ctx.Value("Entity"), string(m.GetData()))
 	data := m.GetData()
 	hashtable := common.StrLineUnmarshal(data)
 	imsi := hashtable["IMSI"]
 	// TODO ue携带自身支持的加密算法方式
 	// 查询数据库
-	user, err := GetUserByIMSI(ctx, this.client, imsi)
+	user, err := GetUserByIMSI(ctx, this.dbclient, imsi)
 	if err != nil {
 		return err
 	}
@@ -97,18 +101,21 @@ func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *co
 		HSS_RESP_KASME: kasme,
 		HSS_RESP_XRES:  hex.EncodeToString(xres),
 	}
-	common.PackageOut(common.EPSPROTOCAL, common.AuthenticationInformatResponse, response, false, out) // 下行
+	this.Lock()
+	host := this.Points["MME"]
+	this.Unlock()
+	common.PackageOut(common.EPSPROTOCAL, common.AuthenticationInformatResponse, response, host, down) // 下行
 	return nil
 }
 
 // HSS 接收Update Location Request请求，将用户APN信息响应给MME用于和PGW建立承载
-func (this *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Package, out chan *common.Package) error {
+func (this *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
 	logger.Info("[%v] Receive From MME: %v", ctx.Value("Entity"), string(p.GetData()))
 	data := p.GetData()
 	hashtable := common.StrLineUnmarshal(data)
 	imsi := hashtable["IMSI"]
 	// 查询数据库
-	user, err := GetUserByIMSI(ctx, this.client, imsi)
+	user, err := GetUserByIMSI(ctx, this.dbclient, imsi)
 	if err != nil {
 		return err
 	}
@@ -116,7 +123,10 @@ func (this *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Pac
 		"IMSI": imsi,
 		"APN":  user.Apn,
 	}
-	common.PackageOut(common.EPSPROTOCAL, common.UpdateLocationACK, response, false, out) // 下行
+	this.Lock()
+	host := this.Points["MME"]
+	this.Unlock()
+	common.PackageOut(common.EPSPROTOCAL, common.UpdateLocationACK, response, host, down) // 下行
 	return nil
 }
 

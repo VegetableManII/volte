@@ -1,11 +1,12 @@
 package common
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"io"
+	"log"
 	"net"
 	"sync"
 	"time"
@@ -13,135 +14,8 @@ import (
 	"github.com/wonderivan/logger"
 )
 
-/*
-并发安全集合用来保存客户端连接
-新连接接入之后保存对方的IP到集合中
-当连接断开时没有从集合中删除???如何判断已经断开
-*/
-var clientMap *sync.Map
-
-func TransaportWithClient(ctx context.Context, conn *net.UDPConn, coreIn, coreOut chan *Package) {
-	clientMap = new(sync.Map)
-	data := make([]byte, 1024)
-	for {
-		select {
-		case <-ctx.Done():
-			// 释放资源
-			// close(pre) // 关闭生产者通道
-			logger.Warn("[%v] 与下级节点通信协程退出", ctx.Value("Entity"))
-			return
-		default:
-			n, remote, err := conn.ReadFromUDP(data)
-			if err != nil {
-				logger.Error("[%v] Server读取数据错误 %v", ctx.Value("Entity"), err)
-			}
-			if remote != nil || n != 0 {
-				distribute(data[:n], coreIn)
-				// 检查该客户端是否已经开启线程服务
-				if _, ok := clientMap.Load(remote); ok {
-					continue
-				} else {
-					clientMap.Store(remote, ctx.Value("Entity"))
-					go receiveCoreProcessResult(ctx, conn, remote, coreOut)
-				}
-			} else {
-				logger.Info("[%v] Remote[%v] Len[%v]", ctx.Value("Entity"), remote, n)
-				time.Sleep(500 * time.Millisecond)
-			}
-		}
-		data = data[:0]
-	}
-}
-
-// 接收逻辑核心处理结果
-func receiveCoreProcessResult(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, out chan *Package) {
-	// 创建write buffer
-	var buffer bytes.Buffer
-	for {
-		select {
-		case <-ctx.Done():
-			// 释放资源
-			logger.Warn("[%v] 发送消息协程退出", ctx.Value("Entity"))
-			return
-		case pkg := <-out:
-			if pkg._type == 0x01 {
-				err := binary.Write(&buffer, binary.BigEndian, pkg.CommonMsg)
-				if err != nil {
-					logger.Error("[%v] EpsMsg转化[]byte失败 %v", ctx.Value("Entity"), err)
-					continue
-				}
-				if pkg.Destation { // 上行，remote为服务端，remote参数不用传递
-					writeToRemote(ctx, conn, nil, buffer.Bytes())
-				} else { // 下行，remote为客户端，remote参数需要传递
-					writeToRemote(ctx, conn, remote, buffer.Bytes())
-				}
-			} else {
-				err := binary.Write(&buffer, binary.BigEndian, pkg.CommonMsg)
-				if err != nil {
-					logger.Error("[%v] SipMsg转化[]byte失败 %v", ctx.Value("Entity"), err)
-					continue
-				}
-				if pkg.Destation { // 上行，remote为服务端，remote参数不用传递
-					writeToRemote(ctx, conn, nil, buffer.Bytes())
-				} else { // 下行，remote为客户端，remote参数需要传递
-					writeToRemote(ctx, conn, remote, buffer.Bytes())
-				}
-			}
-			buffer.Reset()
-		}
-	}
-}
-func writeToRemote(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, data []byte) {
-	var err error
-	conn.RemoteAddr()
-	if remote == nil {
-		_, err = conn.Write(data)
-	} else {
-		_, err = conn.WriteToUDP(data, remote)
-	}
-	if err != nil {
-		logger.Error("[%v] 消息发送失败 %v %v", ctx.Value("Entity"), err, data)
-	}
-}
-
-// 采用分发订阅模式分发eps网络信令和sip信令
-func distribute(data []byte, c chan *Package) {
-	cmsg := new(CommonMsg)
-	cmsg.Init(data)
-	c <- &Package{cmsg, false}
-}
-
-// 功能实体作为客户端与其上层服务端交互
-func TransportWithServer(ctx context.Context, lo *net.UDPConn, remote *net.UDPAddr, coreIn, coreOut chan *Package) {
-	// 开启协程向服务端写数据
-	go receiveCoreProcessResult(ctx, lo, remote, coreOut)
-	// 循环读取服务端消息
-	data := make([]byte, 1024)
-	for {
-		select {
-		case <-ctx.Done():
-			logger.Warn("[%v] 与上级节点通信协程退出...", ctx.Value("Entity"))
-			return
-		default:
-			n, _, err := lo.ReadFromUDP(data)
-			if err != nil {
-				logger.Error("[%v] Client读取数据错误 %v", ctx.Value("Entity"), err)
-			}
-			if n != 0 {
-				distribute(data[:n], coreIn)
-			} else {
-				logger.Info("[%v] Remote[%v] Len[%v]", ctx.Value("Entity"), remote, n)
-				time.Sleep(500 * time.Millisecond)
-			}
-		}
-	}
-}
-
 // 主要用于基站实现消息的代理转发, 将ue消息转发至网络侧
-func EnodebProxyMessage(ctx context.Context, src, dest1, dest2 *net.UDPConn) {
-	mmewriter := bufio.NewWriter(dest1)
-	pgwwriter := bufio.NewWriter(dest2)
-
+func EnodebProxyMessage(ctx context.Context, src *net.UDPConn, mme, pgw string) {
 	var n int
 	var err error
 	for {
@@ -156,15 +30,17 @@ func EnodebProxyMessage(ctx context.Context, src, dest1, dest2 *net.UDPConn) {
 				logger.Error("[%v] 基站接收消息失败 %v %v", ctx.Value("Entity"), n, err)
 			}
 			if data[0] == EPSPROTOCAL {
-				n, err = mmewriter.Write(data)
+				err = SendUDPMessage(ctx, mme, data)
 				if err != nil {
 					logger.Error("[%v] 基站转发消息失败[to mme] %v %v", ctx.Value("Entity"), n, err)
 				}
+				logger.Info("[%v] 基站转发消息[to mme] %v", ctx.Value("Entity"), string(data[4:]))
 			} else if data[0] == SIPPROTOCAL {
-				n, err = pgwwriter.Write(data)
+				err = SendUDPMessage(ctx, pgw, data)
 				if err != nil {
-					logger.Error("[%v] 基站转发消息失败[to mme] %v %v", ctx.Value("Entity"), n, err)
+					logger.Error("[%v] 基站转发消息失败[to pgw] %v %v", ctx.Value("Entity"), n, err)
 				}
+				logger.Info("[%v] 基站转发消息[to pgw] %v", ctx.Value("Entity"), string(data[4:]))
 			} else {
 				logger.Error("[%v] 不支持的消息类型 %v %v", ctx.Value("Entity"), data)
 			}
@@ -173,6 +49,7 @@ func EnodebProxyMessage(ctx context.Context, src, dest1, dest2 *net.UDPConn) {
 }
 
 // 主要用于PGW实现消息的代理转发, 将EPS域消息转发至IMS域
+// 消息数据不经过核心处理器处理
 func PGWProxyMessage(ctx context.Context, src, dest *net.UDPConn) {
 	for {
 		select {
@@ -185,6 +62,122 @@ func PGWProxyMessage(ctx context.Context, src, dest *net.UDPConn) {
 			if err != nil {
 				logger.Error("[%v] PGW转发消息失败 %v %v", ctx.Value("Entity"), n, err)
 			}
+			logger.Info("[%v] PGW转发消息from %v to %v", ctx.Value("Entity"), src.LocalAddr().String(), dest.LocalAddr().String())
 		}
 	}
+}
+
+/*
+并发安全集合用来保存客户端连接
+新连接接入之后保存对方的IP到集合中
+当连接断开时没有从集合中删除???如何判断已经断开
+*/
+var clientMap *sync.Map
+
+// 通用网络中的功能实体与接收客户端数据的通用方法
+func ReceiveClientMessage(ctx context.Context, host string, coreIn chan *Package) {
+	clientMap = new(sync.Map)
+	lo, err := net.ResolveUDPAddr("udp4", host)
+	if err != nil {
+		logger.Fatal("解析地址失败 %v", err)
+	}
+	logger.Info("服务监听启动成功 %v", lo.String())
+	for {
+		conn, err := net.ListenUDP("udp4", lo)
+		if err != nil {
+			log.Panicln("udp server 监听失败", err)
+		}
+		logger.Info("服务器启动成功[%v]", lo)
+
+		data := make([]byte, 1024)
+		select {
+		case <-ctx.Done():
+			// 释放资源
+			logger.Warn("[%v] 与下级节点通信协程退出", ctx.Value("Entity"))
+			return
+		default:
+			n, _, err := conn.ReadFromUDP(data)
+			if err != nil {
+				logger.Error("[%v] Server读取数据错误 %v", ctx.Value("Entity"), err)
+			}
+			if n != 0 {
+				distribute(data[:n], coreIn)
+			} else {
+				logger.Info("[%v] Read Len[%v]", ctx.Value("Entity"), n)
+				time.Sleep(500 * time.Millisecond)
+			}
+		}
+	}
+}
+
+// 接收逻辑核心处理结果
+func ProcessDownStreamData(ctx context.Context, conn *net.UDPConn, out chan *Package) {
+	// 创建write buffer
+	var buffer bytes.Buffer
+	for {
+		select {
+		case <-ctx.Done():
+			// 释放资源
+			logger.Warn("[%v] 发送消息协程退出", ctx.Value("Entity"))
+			return
+		case pkg := <-out:
+			host := pkg.Destation
+			err := binary.Write(&buffer, binary.BigEndian, pkg.CommonMsg)
+			if err != nil {
+				logger.Error("[%v] 序列化失败 %v", ctx.Value("Entity"), err)
+				continue
+			}
+			// 下行
+			SendUDPMessage(ctx, host, buffer.Bytes())
+			buffer.Reset()
+		}
+	}
+}
+
+func ProcessUpStreamData(ctx context.Context, up chan *Package) {
+	var buffer bytes.Buffer
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Warn("[%v] 与上级节点通信协程退出...", ctx.Value("Entity"))
+			return
+		case pkt := <-up:
+			host := pkt.Destation
+			err := binary.Write(&buffer, binary.BigEndian, pkt.CommonMsg)
+			if err != nil {
+				logger.Error("[%v] 序列化失败 %v", ctx.Value("Entity"), err)
+				continue
+			}
+			err = SendUDPMessage(ctx, host, buffer.Bytes())
+			if err != nil {
+				logger.Error("[%v] 请求上级节点失败 %v", ctx.Value("Entity"), err)
+			}
+		}
+		buffer.Reset()
+	}
+}
+
+// 需要向其他功能实体发送数据是的通用方法
+func SendUDPMessage(ctx context.Context, host string, data []byte) (err error) {
+	var n int
+	ra, err := net.Dial("udp4", host)
+	if err != nil {
+		return err
+	}
+	defer ra.Close()
+	n, err = ra.Write(data)
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return errors.New("ErrSendEmpty")
+	}
+	return nil
+}
+
+// 采用分发订阅模式分发eps网络信令和sip信令
+func distribute(data []byte, c chan *Package) {
+	cmsg := new(CommonMsg)
+	cmsg.Init(data)
+	c <- &Package{cmsg, "CLIENT"}
 }

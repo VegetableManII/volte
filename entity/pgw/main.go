@@ -15,7 +15,9 @@ import (
 )
 
 var (
-	imsConn, eNodeBConn, mmeConn *net.UDPConn
+	laddr, raddr     *net.UDPAddr
+	loConn, cscfConn *net.UDPConn
+	cscf             string
 )
 
 /*
@@ -29,12 +31,19 @@ func main() {
 	// coreOC := make(chan *Msg, 2)
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	// TODO 开启与MME交互的协程
-	// go TransaportWithClient(ctx, mmeConn, coreIC, coreOC)
-	// go common.ExchangeWithClient(ctx, eNodeBConn, coreIC, coreOC) // debug
+
+	for {
+		cscfConn = connectCSCF(ctx, laddr, raddr)
+		if cscfConn == nil {
+			logger.Warn("[PGW] 连接至CSCF失败, 正在进行重试...")
+			continue
+		}
+		break
+	}
+
 	// 开启EPS域和IMS域的消息转发协程
-	go PGWProxyMessage(ctx, eNodeBConn, imsConn)
-	go PGWProxyMessage(ctx, imsConn, eNodeBConn)
+	go PGWProxyMessage(ctx, loConn, cscfConn)
+	go PGWProxyMessage(ctx, cscfConn, loConn)
 
 	<-quit
 	logger.Warn("[PGW] pgw 功能实体退出...")
@@ -50,10 +59,29 @@ func init() {
 		log.Panicln("配置文件读取失败", e)
 	}
 	host := viper.GetString("EPS.pgw.host")
-	imshost := viper.GetString("IMS.x-cscf.host")
+	cscf = viper.GetString("IMS.x-cscf.host")
 	logger.Info("配置文件读取成功", "")
 	// 启动 PGW 的UDP服务器
-	eNodeBConn = InitServer(host)
-	// 创建连接IMS域的客户端
-	imsConn, _ = ConnectServer(imshost)
+	loConn, laddr = initServer(host)
+}
+
+func initServer(h string) (*net.UDPConn, *net.UDPAddr) {
+	la, err := net.ResolveUDPAddr("udp4", h)
+	if err != nil {
+		log.Fatal("PGW 启动监听失败")
+	}
+	conn, err := net.ListenUDP("udp", la)
+	if err != nil {
+		log.Fatal("PGW 启动监听失败")
+	}
+	return conn, la
+}
+
+func connectCSCF(ctx context.Context, laddr, raddr *net.UDPAddr) *net.UDPConn {
+	conn, err := net.DialUDP("udp4", laddr, raddr)
+	if err != nil {
+		logger.Error("[%v] 连接至CSCF失败 %v", ctx.Value("Entity"), err)
+		return nil
+	}
+	return conn
 }

@@ -19,7 +19,7 @@ func (this *CscfEntity) Init() {
 }
 
 // HSS可以接收eps电路协议也可以接收SIP协议
-func (this *CscfEntity) CoreProcessor(ctx context.Context, in, out chan *common.Package) {
+func (this *CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *common.Package) {
 	for {
 		select {
 		case msg := <-in:

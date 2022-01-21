@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"log"
-	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -16,8 +15,8 @@ import (
 )
 
 var (
-	self    *controller.HssEntity
-	mmeConn *net.UDPConn
+	self      *controller.HssEntity
+	localHost string
 )
 
 /*
@@ -27,15 +26,15 @@ var (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	ctx = context.WithValue(ctx, "Entity", "HSS")
-	coreIChan := make(chan *Package, 2) // 原生数据输入
-	coreOChan := make(chan *Package, 2) // 解析后的数据输出
+	coreIn := make(chan *Package, 4)      // 原生数据输入核心处理器
+	coreOutUp := make(chan *Package, 2)   // 核心处理器解析后的数据输出上行结果
+	coreOutDown := make(chan *Package, 2) // 核心处理器解析后的数据输出下行结果
 	quit := make(chan os.Signal, 6)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	// 开启与mme交互的协程
-	go TransaportWithClient(ctx, mmeConn, coreIChan, coreOChan)
-	// go common.ExchangeWithClient(ctx, mmeConn, preParseC, preParseC) // debug
+	// 开启与客户端交互的协程
+	go ReceiveClientMessage(ctx, localHost, coreIn)
 
-	go self.CoreProcessor(ctx, coreIChan, coreOChan)
+	go self.CoreProcessor(ctx, coreIn, coreOutUp, coreOutDown)
 	<-quit
 	logger.Warn("[HSS] hss 功能实体退出...")
 	cancel()
@@ -49,15 +48,15 @@ func init() {
 	if e := viper.ReadInConfig(); e != nil {
 		log.Panicln("配置文件读取失败", e)
 	}
-	host := viper.GetString("EPS.hss.host")
+	localHost = viper.GetString("EPS.hss.host")
+	mmehost := viper.GetString("EPS.mme.host")
+
 	dbhost := viper.GetString("mysql.host")
 	logger.Info("配置文件读取成功", "")
-	// 启动 HSS 的UDP服务器
-	mmeConn = InitServer(host)
-	// 创建连接 HSS 的客户端
-	// hssConn = common.ConnectEPS(hssHost)
+
 	self = new(controller.HssEntity)
 	self.Init(dbhost)
+	self.Points["MME"] = mmehost
 	RegistRouter()
 }
 

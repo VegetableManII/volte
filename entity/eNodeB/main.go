@@ -19,9 +19,10 @@ import (
 )
 
 var (
-	loConn, mmeConn, pgwConn *net.UDPConn
+	loConn                   *net.UDPConn
 	ueBroadcastAddr          *net.UDPAddr
 	scanTime                 int
+	lohost, mmehost, pgwhost string
 )
 
 func main() {
@@ -32,10 +33,9 @@ func main() {
 	// 开启广播工作消息
 	go broadWorkingMessage(ctx, loConn, ueBroadcastAddr, scanTime, []byte("Broadcast to Ue"))
 	// 开启ue和mme/pgw的转发协程
-	go EnodebProxyMessage(ctx, loConn, loConn, loConn) // 转发用户上行数据
+	go EnodebProxyMessage(ctx, loConn, mmehost, pgwhost) // 转发用户上行数据
 	// 开启ue的信令广播协程
-	//go broadMessageFromNet(ctx, mmeConn, loConn, ueBroadcastAddr)
-	//go broadMessageFromNet(ctx, pgwConn, loConn, ueBroadcastAddr)
+	go broadMessageFromNet(ctx, lohost, loConn, ueBroadcastAddr)
 	<-quit
 	logger.Warn("[eNodeB] eNodeB 功能实体退出...")
 	cancel()
@@ -58,13 +58,14 @@ func init() {
 
 	// 启动与ue连接的服务器
 	loConn, ueBroadcastAddr = initUeServer(hostPort, enodebBroadcastPort)
+	lohost = viper.GetString("EPS.eNodeB.host")
 	// 作为客户端与eps网络连接
 	// 创建于MME的UDP连接
-	mme := viper.GetString("EPS.mme.host")
-	mmeConn, _ = ConnectServer(mme)
+	mmehost = viper.GetString("EPS.mme.host")
+	// mmeConn, _ = ConnectServer(mme)
 	// 创建于PGW的UDP连接
-	pgw := viper.GetString("EPS.pgw.host")
-	pgwConn, _ = ConnectServer(pgw)
+	pgwhost = viper.GetString("EPS.pgw.host")
+	// pgwConn, _ = ConnectServer(pgw)
 }
 
 // 与ue连接的UDP服务端
@@ -120,21 +121,31 @@ func broadWorkingMessage(ctx context.Context, conn *net.UDPConn, remote *net.UDP
 	}
 }
 
-func broadMessageFromNet(ctx context.Context, from *net.UDPConn, to *net.UDPConn, baddr *net.UDPAddr) {
-	data := make([]byte, 1024)
+func broadMessageFromNet(ctx context.Context, host string, bconn *net.UDPConn, baddr *net.UDPAddr) {
+	lo, err := net.ResolveUDPAddr("udp4", host)
+	if err != nil {
+		logger.Fatal("解析地址失败 %v", err)
+	}
+	logger.Info("服务监听启动成功 %v", lo.String())
 	for {
+		conn, err := net.ListenUDP("udp4", lo)
+		if err != nil {
+			log.Panicln("udp server 监听失败", err)
+		}
+		logger.Info("服务器启动成功[%v]", lo)
+		data := make([]byte, 1024)
 		select {
 		case <-ctx.Done():
 			logger.Warn("[%v] 基站转发广播网络侧消息协程退出...", ctx.Value("Entity"))
 			return
 		default:
-			n, remote, err := from.ReadFromUDP(data)
+			n, remote, err := conn.ReadFromUDP(data)
 			if err != nil {
 				logger.Error("[%v] 读取网络侧数据错误 %v", ctx.Value("Entity"), err)
 			}
 			if n != 0 && remote != nil {
 				// 将收到的消息广播出去
-				broadWorkingMessage(ctx, to, baddr, 0, data[:n])
+				broadWorkingMessage(ctx, bconn, baddr, 0, data[:n])
 			} else {
 				logger.Info("[%v] Remote[%v] Len[%v]", ctx.Value("Entity"), remote, n)
 				time.Sleep(2 * time.Second)
