@@ -69,7 +69,7 @@ func (e *CommonMsg) Init(data []byte) {
 					if strings.ToUpper(ss[2][:3]) == "SIP" {
 						e._method = SipRequest
 					}
-				} else if len(ss[0]) == 3 { // 响应
+				} else if len(ss) == 3 { // 响应
 					if strings.ToUpper(ss[0][:3]) == "SIP" {
 						e._method = SipResponse
 					}

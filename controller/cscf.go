@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"crypto/md5"
+	"errors"
 	"hash"
 	"log"
 	"sync"
@@ -55,11 +56,6 @@ func (this *CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *co
 				logger.Error("[%v] CSCF不支持的消息类型数据 %v", ctx.Value("Entity"), msg)
 				continue
 			}
-			sip, err := parser.ParseMessage(msg.GetData())
-			if err != nil {
-				logger.Error("[%v] SIP消息解析失败, %v", ctx.Value("Entity"), err)
-			}
-			logger.Info("[%v] %v", ctx.Value("Entity"), sip.String())
 			f(ctx, msg, up, down)
 		case <-ctx.Done():
 			// 释放资源
@@ -77,7 +73,39 @@ func (this *CscfEntity) SIPREQUESTF(ctx context.Context, m *common.Package, up, 
 		return err
 	}
 	req := sipm.(*base.Request)
+	vals := req.Headers("Call-Id")
+	if len(vals) == 0 {
+		return errors.New("ErrMissingParamCall-Id")
+	}
+	callid := vals[0].String()
+	// 查看本地是否存在鉴权缓存
+	this.ueMutex.Lock()
+	auth, ok := this.users[callid]
+	this.ueMutex.Unlock()
+	if !ok {
+		// 向HSS查询信息
+		host := this.Points["HSS"]
+		_ = auth
+		common.RawPackageOut(common.SIPPROTOCAL, common.SipRequest, m.GetData(), host, up) // 上行
+	}
+	vals = req.Headers("Authentication")
+	clientAuth := vals[0].(*base.GenericHeader)
+	log.Println(clientAuth.Contents)
+
+	return nil
+}
+
+func (this *CscfEntity) SIPRESPONSEF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
+	logger.Info("[%v] Receive From HSS: %v", ctx.Value("Entity"), string(m.GetData()))
+	// 解析SIP消息
+	sipm, err := parser.ParseMessage(m.GetData())
+	if err != nil {
+		return err
+	}
+	req := sipm.(*base.Response)
 	log.Println(req)
+	values := req.Headers("Call-Id")
+	log.Println(values[0].String())
 	// 查看本地是否存在鉴权缓存
 	host := this.Points["HSS"]
 	common.RawPackageOut(common.SIPPROTOCAL, common.SipRequest, m.GetData(), host, up) // 上行

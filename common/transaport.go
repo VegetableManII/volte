@@ -39,7 +39,7 @@ func EnodebProxyMessage(ctx context.Context, src *net.UDPConn, mme, pgw string) 
 				if err != nil {
 					logger.Error("[%v] 基站转发消息失败[to pgw] %v %v", ctx.Value("Entity"), n, err)
 				}
-				logger.Info("[%v] 基站转发消息[to pgw] %v", ctx.Value("Entity"), string(data[4:]))
+				logger.Info("[%v] 基站转发消息[to pgw] %v", ctx.Value("Entity"), string(data))
 			}
 		}
 	}
