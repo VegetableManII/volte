@@ -19,7 +19,6 @@ type BaseSignallingT func(context.Context, *common.Package, chan *common.Package
 // 路由转发器
 type Mux struct {
 	router map[[2]byte]BaseSignallingT
-	// mu     sync.Mutex
 }
 
 // 路由注册

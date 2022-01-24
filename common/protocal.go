@@ -2,6 +2,7 @@ package common
 
 import (
 	"encoding/binary"
+	"strings"
 )
 
 const (
@@ -26,19 +27,8 @@ const (
 
 // sip message的消息类型
 const (
-	INVITE    byte = 0x00
-	ACK       byte = 0x01
-	BYE       byte = 0x02
-	CANCEL    byte = 0x03
-	OPTIONS   byte = 0x04
-	PRACK     byte = 0x05
-	SUBSCRIBE byte = 0x06
-	NOTIFY    byte = 0x07
-	PUBLISH   byte = 0x08
-	INFO      byte = 0x09
-	MESSAGE   byte = 0x0A
-	UPDATE    byte = 0x0B
-	REGISTER  byte = 0x0C
+	SipRequest  byte = 0x00
+	SipResponse byte = 0x01
 )
 
 type Package struct {
@@ -58,11 +48,40 @@ func (p *Package) GetUniqueMethod() [2]byte {
 }
 
 func (e *CommonMsg) Init(data []byte) {
-	l := binary.BigEndian.Uint16(data[2:4])
-	e._type = data[0]
-	e._method = data[1]
-	e._size = l
-	copy(e._data[:], data[4:l+4])
+	if data[0] == EPSPROTOCAL {
+		l := binary.BigEndian.Uint16(data[2:4])
+		e._type = data[0]
+		e._method = data[1]
+		e._size = l
+		copy(e._data[:], data[4:l+4])
+	} else {
+		// SIP Header 格式如下
+		/*
+			请求：REGISTER sip:apn.sip.voice.ng4t.com SIP/2.0
+			响应：SIP/2.0 401 Unauthorized
+			找到第一个0x0d 0x0a的位置，	左边部分即为SIP Header部分
+		*/
+		startline := strings.Split(string(data), "\r\n")
+		if len(startline) >= 1 {
+			ss := strings.Split(startline[0], " ")
+			if len(ss) == 3 {
+				if len(ss[2]) == 3 { // 请求
+					if strings.ToUpper(ss[2][:3]) == "SIP" {
+						e._method = SipRequest
+					}
+				} else if len(ss[0]) == 3 { // 响应
+					if strings.ToUpper(ss[0][:3]) == "SIP" {
+						e._method = SipResponse
+					}
+				}
+				e._type = SIPPROTOCAL
+				e._size = uint16(len(data))
+				copy(e._data[:], data)
+			}
+		}
+
+	}
+
 }
 
 func (e *CommonMsg) Construct(t, m byte, s int, d []byte) {

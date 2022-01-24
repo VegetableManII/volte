@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"sync"
 
 	"github.com/VegetableManII/volte/common"
 
@@ -12,7 +11,6 @@ import (
 type PgwEntity struct {
 	*Mux
 	Points map[string]string
-	sync.Mutex
 }
 
 func (this *PgwEntity) Init() {
@@ -44,11 +42,9 @@ func (this *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 	}
 }
 
-func (this *PgwEntity) SIPREGISTERF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
+func (this *PgwEntity) SIPREQUESTF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
 	logger.Info("[%v] Receive From eNodeB: %v", ctx.Value("Entity"), string(m.GetData()))
-	this.Lock()
 	host := this.Points["CSCF"]
-	this.Unlock()
-	common.RawPackageOut(common.SIPPROTOCAL, common.REGISTER, m.GetData(), host, up) // 上行
+	common.RawPackageOut(common.SIPPROTOCAL, common.SipRequest, m.GetData(), host, up) // 上行
 	return nil
 }

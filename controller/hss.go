@@ -21,11 +21,10 @@ import (
 
 type HssEntity struct {
 	*Mux
-	csupport map[string]hash.Hash
-	Points   map[string]string
+	algMutex sync.Mutex
 	auth     string
 	dbclient *gorm.DB
-	sync.Mutex
+	Points   map[string]string
 }
 
 var defaultHash hash.Hash
@@ -36,7 +35,6 @@ func (this *HssEntity) Init(dbhost string) {
 	this.Mux = new(Mux)
 	this.router = make(map[[2]byte]BaseSignallingT)
 	// 初始化支持的加密算法
-	this.csupport = make(map[string]hash.Hash)
 	this.Points = make(map[string]string)
 	defaultHash = md5.New()
 	// 初始化数据库连接
@@ -101,9 +99,7 @@ func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *co
 		HSS_RESP_KASME: kasme,
 		HSS_RESP_XRES:  hex.EncodeToString(xres),
 	}
-	this.Lock()
 	host := this.Points["MME"]
-	this.Unlock()
 	common.PackageOut(common.EPSPROTOCAL, common.AuthenticationInformatResponse, response, host, down) // 下行
 	return nil
 }
@@ -123,9 +119,7 @@ func (this *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Pac
 		"IMSI": imsi,
 		"APN":  user.Apn,
 	}
-	this.Lock()
 	host := this.Points["MME"]
-	this.Unlock()
 	common.PackageOut(common.EPSPROTOCAL, common.UpdateLocationACK, response, host, down) // 下行
 	return nil
 }

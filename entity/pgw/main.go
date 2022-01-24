@@ -57,5 +57,5 @@ func init() {
 }
 
 func RegistRouter() {
-	self.Regist([2]byte{SIPPROTOCAL, REGISTER}, self.SIPREGISTERF)
+	self.Regist([2]byte{SIPPROTOCAL, SipRequest}, self.SIPREQUESTF)
 }

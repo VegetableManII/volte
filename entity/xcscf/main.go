@@ -47,5 +47,6 @@ func init() {
 	localHost = viper.GetString("IMS.x-cscf.host")
 	logger.Info("配置文件读取成功", "")
 	// 启动 CSCF 的UDP服务器
+	self = new(controller.CscfEntity)
 	self.Init()
 }

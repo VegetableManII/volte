@@ -27,20 +27,19 @@ func EnodebProxyMessage(ctx context.Context, src *net.UDPConn, mme, pgw string) 
 			if err != nil && n == 0 {
 				logger.Error("[%v] 基站接收消息失败 %v %v", ctx.Value("Entity"), n, err)
 			}
+			logger.Info("[%v] 基站接收消息%v(byte)", ctx.Value("Entity"), n)
 			if data[0] == EPSPROTOCAL {
-				err = SendUDPMessage(ctx, mme, data)
+				err = SendUDPMessage(ctx, mme, data[:n])
 				if err != nil {
 					logger.Error("[%v] 基站转发消息失败[to mme] %v %v", ctx.Value("Entity"), n, err)
 				}
 				logger.Info("[%v] 基站转发消息[to mme] %v", ctx.Value("Entity"), string(data[4:]))
-			} else if data[0] == SIPPROTOCAL {
-				err = SendUDPMessage(ctx, pgw, data)
+			} else {
+				err = SendUDPMessage(ctx, pgw, data[:n])
 				if err != nil {
 					logger.Error("[%v] 基站转发消息失败[to pgw] %v %v", ctx.Value("Entity"), n, err)
 				}
 				logger.Info("[%v] 基站转发消息[to pgw] %v", ctx.Value("Entity"), string(data[4:]))
-			} else {
-				logger.Error("[%v] 不支持的消息类型 %v %v", ctx.Value("Entity"), data)
 			}
 		}
 	}
@@ -76,6 +75,7 @@ func ReceiveClientMessage(ctx context.Context, host string, coreIn chan *Package
 			if err != nil {
 				logger.Error("[%v] Server读取数据错误 %v", ctx.Value("Entity"), err)
 			}
+			logger.Info("[%v] Server读取到%v(byte)数据", ctx.Value("Entity"), n)
 			if n != 0 {
 				distribute(data[:n], coreIn)
 			} else {
@@ -98,16 +98,24 @@ func ProcessDownStreamData(ctx context.Context, out chan *Package) {
 			return
 		case pkg := <-out:
 			host := pkg.Destation
-			err := binary.Write(&buffer, binary.BigEndian, pkg.CommonMsg)
-			if err != nil {
-				logger.Error("[%v] 序列化失败 %v", ctx.Value("Entity"), err)
-				continue
+			var err error
+			if pkg._type == SIPPROTOCAL {
+				err = binary.Write(&buffer, binary.BigEndian, pkg.CommonMsg)
+				if err != nil {
+					logger.Error("[%v] 序列化失败 %v", ctx.Value("Entity"), err)
+					continue
+				}
+				err = SendUDPMessage(ctx, host, buffer.Bytes())
+				if err != nil {
+					logger.Error("[%v] 请求下级节点失败 %v", ctx.Value("Entity"), err)
+				}
+			} else {
+				err = SendUDPMessage(ctx, host, pkg.GetData())
+				if err != nil {
+					logger.Error("[%v] 请求下级节点失败 %v", ctx.Value("Entity"), err)
+				}
 			}
-			// 下行
-			err = SendUDPMessage(ctx, host, buffer.Bytes())
-			if err != nil {
-				logger.Error("[%v] 请求下级节点失败 %v", ctx.Value("Entity"), err)
-			}
+
 		}
 		buffer.Reset()
 	}
@@ -122,15 +130,24 @@ func ProcessUpStreamData(ctx context.Context, up chan *Package) {
 			return
 		case pkt := <-up:
 			host := pkt.Destation
-			err := binary.Write(&buffer, binary.BigEndian, pkt.CommonMsg)
-			if err != nil {
-				logger.Error("[%v] 序列化失败 %v", ctx.Value("Entity"), err)
-				continue
+			var err error
+			if pkt._type == EPSPROTOCAL {
+				err = binary.Write(&buffer, binary.BigEndian, pkt.CommonMsg)
+				if err != nil {
+					logger.Error("[%v] 序列化失败 %v", ctx.Value("Entity"), err)
+					continue
+				}
+				err = SendUDPMessage(ctx, host, buffer.Bytes())
+				if err != nil {
+					logger.Error("[%v] 请求上级节点失败 %v", ctx.Value("Entity"), err)
+				}
+			} else {
+				err = SendUDPMessage(ctx, host, pkt.GetData())
+				if err != nil {
+					logger.Error("[%v] 请求上级节点失败 %v", ctx.Value("Entity"), err)
+				}
 			}
-			err = SendUDPMessage(ctx, host, buffer.Bytes())
-			if err != nil {
-				logger.Error("[%v] 请求上级节点失败 %v", ctx.Value("Entity"), err)
-			}
+
 		}
 		buffer.Reset()
 	}
@@ -158,5 +175,5 @@ func SendUDPMessage(ctx context.Context, host string, data []byte) (err error) {
 func distribute(data []byte, c chan *Package) {
 	cmsg := new(CommonMsg)
 	cmsg.Init(data)
-	c <- &Package{cmsg, "CLIENT"}
+	c <- &Package{cmsg, "CLIENT"} // 默认 发送给下行节点
 }
