@@ -45,7 +45,7 @@ func (this *HssEntity) Init(dbhost string) {
 	this.dbclient = db
 }
 
-// HSS可以接收eps电路协议也可以接收SIP协议
+// HSS可以接收epc电路协议也可以接收SIP协议
 func (this *HssEntity) CoreProcessor(ctx context.Context, in, up, down chan *common.Package) {
 	var err error
 	var f BaseSignallingT
@@ -100,7 +100,7 @@ func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *co
 		HSS_RESP_XRES:  hex.EncodeToString(xres),
 	}
 	host := this.Points["MME"]
-	common.PackageOut(common.EPSPROTOCAL, common.AuthenticationInformatResponse, response, host, down) // 下行
+	common.PackageOut(common.EPCPROTOCAL, common.AuthenticationInformatResponse, response, host, down) // 下行
 	return nil
 }
 
@@ -120,7 +120,7 @@ func (this *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Pac
 		"APN":  user.Apn,
 	}
 	host := this.Points["MME"]
-	common.PackageOut(common.EPSPROTOCAL, common.UpdateLocationACK, response, host, down) // 下行
+	common.PackageOut(common.EPCPROTOCAL, common.UpdateLocationACK, response, host, down) // 下行
 	return nil
 }
 

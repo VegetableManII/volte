@@ -43,8 +43,8 @@ func main() {
 }
 
 func init() {
-	localHost = viper.GetString("EPS.hss.host")
-	mmehost := viper.GetString("EPS.mme.host")
+	localHost = viper.GetString("EPC.hss.host")
+	mmehost := viper.GetString("EPC.mme.host")
 
 	dbhost := viper.GetString("mysql.host")
 	logger.Info("配置文件读取成功", "")
@@ -56,6 +56,6 @@ func init() {
 }
 
 func RegistRouter() {
-	self.Regist([2]byte{EPSPROTOCAL, AuthenticationInformatRequest}, self.AuthenticationInformatRequestF)
-	self.Regist([2]byte{EPSPROTOCAL, UpdateLocationRequest}, self.UpdateLocationRequestF)
+	self.Regist([2]byte{EPCPROTOCAL, AuthenticationInformatRequest}, self.AuthenticationInformatRequestF)
+	self.Regist([2]byte{EPCPROTOCAL, UpdateLocationRequest}, self.UpdateLocationRequestF)
 }

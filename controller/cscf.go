@@ -29,25 +29,28 @@ type CscfEntity struct {
 	users     map[string]UserAuthentication
 	ueMutex   sync.Mutex
 	Points    map[string]string
-	route     *Mux
+	*Mux
 }
 
 // 暂时先试用固定的uri，后期实现dns使用域名加IP的映射方式
 func (this *CscfEntity) Init() {
+	this.Mux = new(Mux)
+
 	this.SipURI = "x-cscf.hebeiyidong.3gpp.net"
 	this.algorithm = make(map[string]hash.Hash)
 	md5 := md5.New()
 	this.algorithm["AKAv1-MD5"] = md5
 	this.users = make(map[string]UserAuthentication)
 	this.Points = make(map[string]string)
+	this.router = make(map[[2]byte]BaseSignallingT)
 }
 
-// HSS可以接收eps电路协议也可以接收SIP协议
+// HSS可以接收epc电路协议也可以接收SIP协议
 func (this *CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *common.Package) {
 	for {
 		select {
 		case msg := <-in:
-			f, ok := this.route.router[msg.GetUniqueMethod()]
+			f, ok := this.router[msg.GetUniqueMethod()]
 			if !ok {
 				logger.Error("[%v] CSCF不支持的消息类型数据 %v", ctx.Value("Entity"), msg)
 				continue

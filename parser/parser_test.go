@@ -972,7 +972,7 @@ func TestViaHeaders(t *testing.T) {
 // Basic test of unstreamed parsing, using empty INVITE.
 func TestUnstreamedParse1(t *testing.T) {
 	test := ParserTest{false, []parserTestStep{
-		// Steps each have: Input, result, sent error, returned error
+		// Stepc each have: Input, result, sent error, returned error
 		parserTestStep{"INVITE sip:bob@biloxi.com SIP/2.0\r\n\r\n",
 			base.NewRequest(base.INVITE,
 				&base.SipUri{false, base.String{"bob"}, base.NoString{}, "biloxi.com", nil, noParams, noParams},
@@ -989,7 +989,7 @@ func TestUnstreamedParse1(t *testing.T) {
 // Test unstreamed parsing with a header and body.
 func TestUnstreamedParse2(t *testing.T) {
 	test := ParserTest{false, []parserTestStep{
-		// Steps each have: Input, result, sent error, returned error
+		// Stepc each have: Input, result, sent error, returned error
 		parserTestStep{"INVITE sip:bob@biloxi.com SIP/2.0\r\n" +
 			"CSeq: 13 INVITE\r\n" +
 			"\r\n" +
@@ -1009,7 +1009,7 @@ func TestUnstreamedParse2(t *testing.T) {
 // Test unstreamed parsing of a base.Request object (rather than a base.Response).
 func TestUnstreamedParse3(t *testing.T) {
 	test := ParserTest{false, []parserTestStep{
-		// Steps each have: Input, result, sent error, returned error
+		// Stepc each have: Input, result, sent error, returned error
 		parserTestStep{"SIP/2.0 200 OK\r\n" +
 			"CSeq: 2 INVITE\r\n" +
 			"\r\n" +
@@ -1031,7 +1031,7 @@ func TestUnstreamedParse4(t *testing.T) {
 	callId := base.CallId("cheesecake1729")
 	maxForwards := base.MaxForwards(65)
 	test := ParserTest{false, []parserTestStep{
-		// Steps each have: Input, result, sent error, returned error
+		// Stepc each have: Input, result, sent error, returned error
 		parserTestStep{"SIP/2.0 200 OK\r\n" +
 			"CSeq: 2 INVITE\r\n" +
 			"Call-ID: cheesecake1729\r\n" +
@@ -1059,7 +1059,7 @@ func TestUnstreamedParse5(t *testing.T) {
 	callId := base.CallId("cheesecake1729")
 	maxForwards := base.MaxForwards(63)
 	test := ParserTest{false, []parserTestStep{
-		// Steps each have: Input, result, sent error, returned error
+		// Stepc each have: Input, result, sent error, returned error
 		parserTestStep{"SIP/2.0 200 OK\r\n" +
 			"CSeq:   2     \r\n" +
 			"    INVITE\r\n" +
@@ -1122,7 +1122,7 @@ func TestUnstreamedParse7(t *testing.T) {
 func TestStreamedParse1(t *testing.T) {
 	contentLength := base.ContentLength(0)
 	test := ParserTest{true, []parserTestStep{
-		// Steps each have: Input, result, sent error, returned error
+		// Stepc each have: Input, result, sent error, returned error
 		parserTestStep{"INVITE sip:bob@biloxi.com SIP/2.0\r\n" +
 			"Content-Length: 0\r\n\r\n",
 			base.NewRequest(base.INVITE,
@@ -1141,7 +1141,7 @@ func TestStreamedParse1(t *testing.T) {
 func TestStreamedParse2(t *testing.T) {
 	contentLength := base.ContentLength(0)
 	test := ParserTest{true, []parserTestStep{
-		// Steps each have: Input, result, sent error, returned error
+		// Stepc each have: Input, result, sent error, returned error
 		parserTestStep{"INVITE sip:bob@biloxi.com SIP/2.0\r\n", nil, nil, nil},
 		parserTestStep{"Content-Length: 0\r\n\r\n",
 			base.NewRequest(base.INVITE,
@@ -1161,7 +1161,7 @@ func TestStreamedParse3(t *testing.T) {
 	contentLength23 := base.ContentLength(23)
 	contentLength33 := base.ContentLength(33)
 	test := ParserTest{true, []parserTestStep{
-		// Steps each have: Input, result, sent error, returned error
+		// Stepc each have: Input, result, sent error, returned error
 		parserTestStep{"INVITE sip:bob@biloxi.com SIP/2.0\r\n", nil, nil, nil},
 		parserTestStep{"Content-Length: 23\r\n\r\n" +
 			"Hello!\r\nThis is a test.",
@@ -1801,7 +1801,7 @@ func (expected *viaResult) equals(other result) (equal bool, reason string) {
 
 type ParserTest struct {
 	streamed bool
-	steps    []parserTestStep
+	stepc    []parserTestStep
 }
 
 func (test *ParserTest) Test(t *testing.T) {
@@ -1812,7 +1812,7 @@ func (test *ParserTest) Test(t *testing.T) {
 	p := NewParser(output, errs, test.streamed)
 	defer p.Stop()
 
-	for stepIdx, step := range test.steps {
+	for stepIdx, step := range test.stepc {
 		success, reason := step.Test(p, output, errs)
 		if !success {
 			t.Errorf("failure in test step %d of input:\n%s\n\nfailure was: %s", stepIdx, test.String(), reason)
@@ -1827,7 +1827,7 @@ func (test *ParserTest) Test(t *testing.T) {
 func (t *ParserTest) String() string {
 	var buffer bytes.Buffer
 	buffer.WriteString("[")
-	for _, step := range t.steps {
+	for _, step := range t.stepc {
 		buffer.WriteString(step.input)
 		buffer.WriteString(",")
 	}

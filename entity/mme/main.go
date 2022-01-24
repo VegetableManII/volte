@@ -44,9 +44,9 @@ func main() {
 }
 
 func init() {
-	localHost = viper.GetString("EPS.mme.host")
-	hssHost := viper.GetString("EPS.hss.host")
-	eNodeBhost := viper.GetString("EPS.eNodeB.host")
+	localHost = viper.GetString("EPC.mme.host")
+	hssHost := viper.GetString("HSS.host")
+	eNodeBhost := viper.GetString("EPC.eNodeB.host")
 	logger.Info("配置文件读取成功", "")
 	// 创建自身逻辑实体
 	self = new(controller.MmeEntity)
@@ -57,7 +57,7 @@ func init() {
 }
 
 func RegistRouter() {
-	self.Regist([2]byte{EPSPROTOCAL, AttachRequest}, self.AttachRequestF)
-	self.Regist([2]byte{EPSPROTOCAL, AuthenticationInformatResponse}, self.AuthenticationInformatResponseF)
-	self.Regist([2]byte{EPSPROTOCAL, AuthenticationResponse}, self.AuthenticationResponseF)
+	self.Regist([2]byte{EPCPROTOCAL, AttachRequest}, self.AttachRequestF)
+	self.Regist([2]byte{EPCPROTOCAL, AuthenticationInformatResponse}, self.AuthenticationInformatResponseF)
+	self.Regist([2]byte{EPCPROTOCAL, AuthenticationResponse}, self.AuthenticationResponseF)
 }

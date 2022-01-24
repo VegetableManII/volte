@@ -45,8 +45,8 @@ func main() {
 }
 
 func init() {
-	localHost = viper.GetString("EPS.pgw.host")
-	eNodeBhost = viper.GetString("EPS.eNodeB.host")
+	localHost = viper.GetString("EPC.pgw.host")
+	eNodeBhost = viper.GetString("EPC.eNodeB.host")
 	cscfHost = viper.GetString("IMS.x-cscf.host")
 	logger.Info("配置文件读取成功", "")
 	self = new(controller.PgwEntity)

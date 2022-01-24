@@ -6,12 +6,15 @@ eNodeB:
 # 广播扫描参数
   scan.time: 10
 
-# eps 网络功能实体
-EPS: 
+# epc 网络功能实体
+EPC: 
   eNodeB.host: 127.0.0.1:12345
   mme.host: 127.0.0.1:12346
   pgw.host: 127.0.0.1:12347
-  hss.host: 127.0.0.1:12348
+
+# 归属地查询服务器
+HSS:
+  host: 127.0.0.1:12348
 
 # ims 网络功能实体
 # P-CSCF和I-CSCF对于SIP消息主要进行转发，功能很少

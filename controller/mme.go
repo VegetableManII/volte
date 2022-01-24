@@ -32,7 +32,7 @@ func (this *MmeEntity) Init() {
 	this.Points = make(map[string]string)
 }
 
-// eps 域功能实体 MME 的逻辑代码，判断eNodeB转发过来的数据类型，如果是SIP类型则不做处理丢弃
+// epc 域功能实体 MME 的逻辑代码，判断eNodeB转发过来的数据类型，如果是SIP类型则不做处理丢弃
 func (this *MmeEntity) CoreProcessor(ctx context.Context, in, up, down chan *common.Package) {
 	var err error
 	for {
@@ -72,7 +72,7 @@ func (this *MmeEntity) AttachRequestF(ctx context.Context, m *common.Package, up
 	this.Lock()
 	host := this.Points["HSS"]
 	this.Unlock()
-	common.PackageOut(common.EPSPROTOCAL, common.AuthenticationInformatRequest, req, host, up) // 上行
+	common.PackageOut(common.EPCPROTOCAL, common.AuthenticationInformatRequest, req, host, up) // 上行
 	return nil
 }
 
@@ -93,7 +93,7 @@ func (this *MmeEntity) AuthenticationInformatResponseF(ctx context.Context, m *c
 	this.Lock()
 	host := this.Points["eNodeB"]
 	this.Unlock()                                                                                      // 删除XRES项s
-	common.PackageOut(common.EPSPROTOCAL, common.AuthenticationInformatRequest, hashtable, host, down) // 下行
+	common.PackageOut(common.EPCPROTOCAL, common.AuthenticationInformatRequest, hashtable, host, down) // 下行
 	return nil
 }
 
@@ -115,7 +115,7 @@ func (this *MmeEntity) AuthenticationResponseF(ctx context.Context, m *common.Pa
 	this.Lock()
 	host := this.Points["HSS"]
 	this.Unlock()
-	common.PackageOut(common.EPSPROTOCAL, common.UpdateLocationRequest, nil, host, up) // 上行
+	common.PackageOut(common.EPCPROTOCAL, common.UpdateLocationRequest, nil, host, up) // 上行
 	return nil
 }
 
@@ -130,6 +130,6 @@ func (this *MmeEntity) UpdateLocationACKF(ctx context.Context, m *common.Package
 	this.Lock()
 	host := this.Points["eNodeB"]
 	this.Unlock()
-	common.PackageOut(common.EPSPROTOCAL, common.AttachAccept, nil, host, up) // 下行
+	common.PackageOut(common.EPCPROTOCAL, common.AttachAccept, nil, host, up) // 下行
 	return nil
 }

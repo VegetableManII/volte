@@ -34,7 +34,7 @@ func StrLineMarshal(m map[string]string) string {
 	return strings.Join(lines, "\r\n")
 }
 
-// EPS 网络通用发送消息方法
+// EPC 网络通用发送消息方法
 func PackageOut(protocal, method byte, data map[string]string, dest string, out chan *Package) {
 	cmsg := new(CommonMsg)
 	res := StrLineMarshal(data)

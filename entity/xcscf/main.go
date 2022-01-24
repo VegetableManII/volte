@@ -44,9 +44,18 @@ func main() {
 }
 
 func init() {
+	hss := viper.GetString("HSS.host")
+	pgw := viper.GetString("EPC.pgw.host")
 	localHost = viper.GetString("IMS.x-cscf.host")
 	logger.Info("配置文件读取成功", "")
 	// 启动 CSCF 的UDP服务器
 	self = new(controller.CscfEntity)
 	self.Init()
+	self.Points["HSS"] = hss
+	self.Points["PGW"] = pgw
+	RegistRouter()
+}
+
+func RegistRouter() {
+	self.Regist([2]byte{SIPPROTOCAL, SipRequest}, self.SIPREQUESTF)
 }

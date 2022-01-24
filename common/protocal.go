@@ -6,11 +6,11 @@ import (
 )
 
 const (
-	EPSPROTOCAL byte = 0x01
+	EPCPROTOCAL byte = 0x01
 	SIPPROTOCAL byte = 0x00
 )
 
-// eps message的消息类型
+// epc message的消息类型
 const (
 	AttachRequest                  byte = 0x00
 	AuthenticationInformatRequest  byte = 0x01
@@ -48,7 +48,7 @@ func (p *Package) GetUniqueMethod() [2]byte {
 }
 
 func (e *CommonMsg) Init(data []byte) {
-	if data[0] == EPSPROTOCAL {
+	if data[0] == EPCPROTOCAL {
 		l := binary.BigEndian.Uint16(data[2:4])
 		e._type = data[0]
 		e._method = data[1]

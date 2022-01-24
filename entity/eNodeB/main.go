@@ -52,13 +52,13 @@ func init() {
 
 	// 启动与ue连接的服务器
 	loConn, ueBroadcastAddr = initUeServer(hostPort, enodebBroadcastPort)
-	lohost = viper.GetString("EPS.eNodeB.host")
-	// 作为客户端与eps网络连接
+	lohost = viper.GetString("EPC.eNodeB.host")
+	// 作为客户端与epc网络连接
 	// 创建于MME的UDP连接
-	mmehost = viper.GetString("EPS.mme.host")
+	mmehost = viper.GetString("EPC.mme.host")
 	// mmeConn, _ = ConnectServer(mme)
 	// 创建于PGW的UDP连接
-	pgwhost = viper.GetString("EPS.pgw.host")
+	pgwhost = viper.GetString("EPC.pgw.host")
 	// pgwConn, _ = ConnectServer(pgw)
 }
 

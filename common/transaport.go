@@ -28,7 +28,7 @@ func EnodebProxyMessage(ctx context.Context, src *net.UDPConn, mme, pgw string) 
 				logger.Error("[%v] 基站接收消息失败 %v %v", ctx.Value("Entity"), n, err)
 			}
 			logger.Info("[%v] 基站接收消息%v(byte)", ctx.Value("Entity"), n)
-			if data[0] == EPSPROTOCAL {
+			if data[0] == EPCPROTOCAL {
 				err = SendUDPMessage(ctx, mme, data[:n])
 				if err != nil {
 					logger.Error("[%v] 基站转发消息失败[to mme] %v %v", ctx.Value("Entity"), n, err)
@@ -131,7 +131,7 @@ func ProcessUpStreamData(ctx context.Context, up chan *Package) {
 		case pkt := <-up:
 			host := pkt.Destation
 			var err error
-			if pkt._type == EPSPROTOCAL {
+			if pkt._type == EPCPROTOCAL {
 				err = binary.Write(&buffer, binary.BigEndian, pkt.CommonMsg)
 				if err != nil {
 					logger.Error("[%v] 序列化失败 %v", ctx.Value("Entity"), err)
@@ -171,7 +171,7 @@ func SendUDPMessage(ctx context.Context, host string, data []byte) (err error) {
 	return nil
 }
 
-// 采用分发订阅模式分发eps网络信令和sip信令
+// 采用分发订阅模式分发epc网络信令和sip信令
 func distribute(data []byte, c chan *Package) {
 	cmsg := new(CommonMsg)
 	cmsg.Init(data)
