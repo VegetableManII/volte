@@ -15,7 +15,7 @@ import (
 
 var (
 	self      *controller.MmeEntity
-	localHost string
+	localhost string
 )
 
 /*
@@ -31,11 +31,17 @@ func main() {
 	quit := make(chan os.Signal, 6)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
-	go ReceiveClientMessage(ctx, localHost, coreIn)
-	go ProcessDownStreamData(ctx, coreOutDown)
-	go ProcessUpStreamData(ctx, coreOutUp)
-	// 开启逻辑处理协程
-	go self.CoreProcessor(ctx, coreIn, coreOutUp, coreOutDown)
+	// go ReceiveClientMessage(ctx, localhost, coreIn)
+	// go ProcessDownStreamData(ctx, coreOutDown)
+	// go ProcessUpStreamData(ctx, coreOutUp)
+	// // 开启逻辑处理协程
+	// go self.CoreProcessor(ctx, coreIn, coreOutUp, coreOutDown)
+
+	Recover(ctx, localhost, coreIn, coreOutUp, coreOutDown,
+		ReceiveClientMessage,
+		ProcessDownStreamData,
+		ProcessUpStreamData,
+		self.CoreProcessor)
 
 	<-quit
 	logger.Warn("[MME] mme 功能实体退出...")
@@ -44,7 +50,7 @@ func main() {
 }
 
 func init() {
-	localHost = viper.GetString("EPC.mme.host")
+	localhost = viper.GetString("EPC.mme.host")
 	hssHost := viper.GetString("HSS.host")
 	eNodeBhost := viper.GetString("EPC.eNodeB.host")
 	logger.Info("配置文件读取成功", "")

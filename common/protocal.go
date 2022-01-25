@@ -23,6 +23,8 @@ const (
 	CreateSessionResponse          byte = 0x08
 	QCI                            byte = 0x09
 	AttachAccept                   byte = 0x0A
+	UserAuthorizationRequest       byte = 0x0B
+	UserAuthorizationAnswer        byte = 0x0C
 )
 
 // sip message的消息类型

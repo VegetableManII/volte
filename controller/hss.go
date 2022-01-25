@@ -50,6 +50,14 @@ func (this *HssEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 	var err error
 	var f BaseSignallingT
 	var ok bool
+	// panic恢复
+	defer func() {
+		err := recover()
+		if err != nil {
+			logger.Error(err)
+		}
+	}()
+
 	for {
 		select {
 		case msg := <-in:
@@ -108,8 +116,8 @@ func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *co
 func (this *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
 	logger.Info("[%v] Receive From MME: %v", ctx.Value("Entity"), string(p.GetData()))
 	data := p.GetData()
-	hashtable := common.StrLineUnmarshal(data)
-	imsi := hashtable["IMSI"]
+	table := common.StrLineUnmarshal(data)
+	imsi := table["IMSI"]
 	// 查询数据库
 	user, err := GetUserByIMSI(ctx, this.dbclient, imsi)
 	if err != nil {
@@ -120,6 +128,23 @@ func (this *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Pac
 		"APN":  user.Apn,
 	}
 	host := this.Points["MME"]
+	common.PackageOut(common.EPCPROTOCAL, common.UpdateLocationACK, response, host, down) // 下行
+	return nil
+}
+
+func (this *HssEntity) UserAuthorizationRequestF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
+	logger.Info("[%v] Receive From x-CSCF: %v", ctx.Value("Entity"), string(p.GetData()))
+	table := common.StrLineUnmarshal(p.GetData())
+	un := table["username"]
+	user, err := GetUserBySipUserName(ctx, this.dbclient, un)
+	if err != nil {
+		return err
+	}
+	var response = map[string]string{
+		"APN":      user.Apn,
+		"UserName": un,
+	}
+	host := this.Points["CSCF"]
 	common.PackageOut(common.EPCPROTOCAL, common.UpdateLocationACK, response, host, down) // 下行
 	return nil
 }
@@ -152,6 +177,16 @@ func GetUserByIMSI(ctx context.Context, db *gorm.DB, imsi string) (*User, error)
 	err := db.Model(User{}).Where("imsi=?", imsi).Find(ret).Error
 	if err != nil {
 		logger.Error("[%v] HSS获取用户信息失败,IMSI=%v,ERR=%v", ctx.Value("Entity"), imsi, err)
+		return nil, err
+	}
+	return ret, nil
+}
+
+func GetUserBySipUserName(ctx context.Context, db *gorm.DB, un string) (*User, error) {
+	ret := new(User)
+	err := db.Model(User{}).Where("username=?", un).Find(ret).Error
+	if err != nil {
+		logger.Error("[%v] HSS获取用户信息失败,Sip_User_Name=%v,ERR=%v", ctx.Value("Entity"), un, err)
 		return nil, err
 	}
 	return ret, nil

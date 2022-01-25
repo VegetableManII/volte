@@ -34,6 +34,14 @@ func (this *MmeEntity) Init() {
 
 // epc 域功能实体 MME 的逻辑代码，判断eNodeB转发过来的数据类型，如果是SIP类型则不做处理丢弃
 func (this *MmeEntity) CoreProcessor(ctx context.Context, in, up, down chan *common.Package) {
+	// panic恢复
+	defer func() {
+		err := recover()
+		if err != nil {
+			logger.Error(err)
+		}
+	}()
+
 	var err error
 	for {
 		select {

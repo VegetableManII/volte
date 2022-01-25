@@ -3,31 +3,23 @@ package controller
 import (
 	"context"
 	"crypto/md5"
-	"errors"
 	"hash"
 	"log"
+	"strings"
 	"sync"
 
-	"github.com/VegetableManII/volte/base"
 	"github.com/VegetableManII/volte/common"
-	"github.com/VegetableManII/volte/parser"
+	"github.com/VegetableManII/volte/sip"
 
 	_ "github.com/go-sql-driver/mysql"
 
 	"github.com/wonderivan/logger"
 )
 
-type UserAuthentication struct {
-	Nonce     string
-	RealM     string
-	QOP       string
-	Algorithm string
-}
-
 type CscfEntity struct {
 	SipURI    string
 	algorithm map[string]hash.Hash
-	users     map[string]UserAuthentication
+	users     map[string]string
 	ueMutex   sync.Mutex
 	Points    map[string]string
 	*Mux
@@ -41,13 +33,21 @@ func (this *CscfEntity) Init() {
 	this.algorithm = make(map[string]hash.Hash)
 	md5 := md5.New()
 	this.algorithm["AKAv1-MD5"] = md5
-	this.users = make(map[string]UserAuthentication)
+	this.users = make(map[string]string)
 	this.Points = make(map[string]string)
 	this.router = make(map[[2]byte]BaseSignallingT)
 }
 
 // HSS可以接收epc电路协议也可以接收SIP协议
 func (this *CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *common.Package) {
+	// panic恢复
+	defer func() {
+		err := recover()
+		if err != nil {
+			logger.Error(err)
+		}
+	}()
+
 	for {
 		select {
 		case msg := <-in:
@@ -68,46 +68,63 @@ func (this *CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *co
 func (this *CscfEntity) SIPREQUESTF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
 	logger.Info("[%v] Receive From PGW: %v", ctx.Value("Entity"), string(m.GetData()))
 	// 解析SIP消息
-	sipm, err := parser.ParseMessage(m.GetData())
+	sreq, err := sip.NewMessage(strings.NewReader(string(m.GetData())))
 	if err != nil {
 		return err
 	}
-	req := sipm.(*base.Request)
-	vals := req.Headers("Call-Id")
-	if len(vals) == 0 {
-		return errors.New("ErrMissingParamCall-Id")
-	}
-	callid := vals[0].String()
 	// 查看本地是否存在鉴权缓存
 	this.ueMutex.Lock()
-	auth, ok := this.users[callid]
+	auth, ok := this.users[sreq.Header.CallID]
 	this.ueMutex.Unlock()
 	if !ok {
 		// 向HSS查询信息
 		host := this.Points["HSS"]
-		_ = auth
-		common.RawPackageOut(common.SIPPROTOCAL, common.SipRequest, m.GetData(), host, up) // 上行
+		username := sreq.Header.From.Username()
+		table := map[string]string{
+			"username": username,
+		}
+		common.PackageOut(common.EPCPROTOCAL, common.UserAuthorizationRequest, table, host, up) // 上行
 	}
-	vals = req.Headers("Authentication")
-	clientAuth := vals[0].(*base.GenericHeader)
-	log.Println(clientAuth.Contents)
+	respauth := parseAuthentication(sreq.Header.Authorization)
+	log.Println(sreq.Header.CallID, auth)
 
+	if auth != respauth {
+		sresp := sip.NewResponse(sip.StatusUnauthorized, &sreq)
+		common.RawPackageOut(common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), this.Points["PGW"], down)
+	} else {
+		sresp := sip.NewResponse(sip.StatusOK, &sreq)
+		common.RawPackageOut(common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), this.Points["PGW"], down)
+	}
 	return nil
 }
 
 func (this *CscfEntity) SIPRESPONSEF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
 	logger.Info("[%v] Receive From HSS: %v", ctx.Value("Entity"), string(m.GetData()))
 	// 解析SIP消息
-	sipm, err := parser.ParseMessage(m.GetData())
-	if err != nil {
-		return err
-	}
-	req := sipm.(*base.Response)
-	log.Println(req)
-	values := req.Headers("Call-Id")
-	log.Println(values[0].String())
 	// 查看本地是否存在鉴权缓存
-	host := this.Points["HSS"]
-	common.RawPackageOut(common.SIPPROTOCAL, common.SipRequest, m.GetData(), host, up) // 上行
+	host := this.Points["PGW"]
+	common.RawPackageOut(common.SIPPROTOCAL, common.SipRequest, m.GetData(), host, down)
+	return nil
+}
+
+func parseAuthentication(authHeader string) string {
+	items := strings.Split(authHeader, " ")
+	for _, item := range items {
+		val := strings.Split(strings.Trim(item, ","), "=")
+		if len(val) >= 2 {
+			if val[0] == "response" {
+				return val[1]
+			}
+		}
+	}
+	return ""
+}
+
+func (this *CscfEntity) UserAuthorizationAnswerF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
+	logger.Info("[%v] Receive From HSS: %v", ctx.Value("Entity"), string(m.GetData()))
+	// 获得用户鉴权信息
+	// 查看本地是否存在鉴权缓存
+	host := this.Points["PGW"]
+	common.RawPackageOut(common.SIPPROTOCAL, common.SipRequest, m.GetData(), host, down)
 	return nil
 }

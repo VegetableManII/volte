@@ -15,7 +15,7 @@ import (
 
 var (
 	self                            *controller.PgwEntity
-	localHost, eNodeBhost, cscfHost string
+	localhost, eNodeBhost, cscfHost string
 )
 
 /*
@@ -31,12 +31,18 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
-	go ReceiveClientMessage(ctx, localHost, coreIn)
+	// go ReceiveClientMessage(ctx, localhost, coreIn)
 
-	go ProcessDownStreamData(ctx, coreOutDown)
-	go ProcessUpStreamData(ctx, coreOutUp)
+	// go ProcessDownStreamData(ctx, coreOutDown)
+	// go ProcessUpStreamData(ctx, coreOutUp)
 
-	go self.CoreProcessor(ctx, coreIn, coreOutUp, coreOutDown)
+	// go self.CoreProcessor(ctx, coreIn, coreOutUp, coreOutDown)
+
+	Recover(ctx, localhost, coreIn, coreOutUp, coreOutDown,
+		ReceiveClientMessage,
+		ProcessDownStreamData,
+		ProcessUpStreamData,
+		self.CoreProcessor)
 
 	<-quit
 	logger.Warn("[PGW] pgw 功能实体退出...")
@@ -45,7 +51,7 @@ func main() {
 }
 
 func init() {
-	localHost = viper.GetString("EPC.pgw.host")
+	localhost = viper.GetString("EPC.pgw.host")
 	eNodeBhost = viper.GetString("EPC.eNodeB.host")
 	cscfHost = viper.GetString("IMS.x-cscf.host")
 	logger.Info("配置文件读取成功", "")

@@ -21,6 +21,14 @@ func (this *PgwEntity) Init() {
 }
 
 func (this *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *common.Package) {
+	// panic恢复
+	defer func() {
+		err := recover()
+		if err != nil {
+			logger.Error(err)
+		}
+	}()
+
 	var err error
 	for {
 		select {

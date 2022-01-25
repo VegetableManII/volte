@@ -15,7 +15,7 @@ import (
 
 var (
 	self      *controller.CscfEntity
-	localHost string
+	localhost string
 )
 
 /*
@@ -31,11 +31,17 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
-	go ReceiveClientMessage(ctx, localHost, coreIn)
-	go ProcessDownStreamData(ctx, coreOutDown)
-	go ProcessUpStreamData(ctx, coreOutUp)
-	// 开启IMS域的逻辑处理协程
-	go self.CoreProcessor(ctx, coreIn, coreOutUp, coreOutDown)
+	// go ReceiveClientMessage(ctx, localHost, coreIn)
+	// go ProcessDownStreamData(ctx, coreOutDown)
+	// go ProcessUpStreamData(ctx, coreOutUp)
+	// // 开启IMS域的逻辑处理协程
+	// go self.CoreProcessor(ctx, coreIn, coreOutUp, coreOutDown)
+
+	Recover(ctx, localhost, coreIn, coreOutUp, coreOutDown,
+		ReceiveClientMessage,
+		ProcessDownStreamData,
+		ProcessUpStreamData,
+		self.CoreProcessor)
 
 	<-quit
 	logger.Warn("[X-CSCF] x-cscf 功能实体退出...")
@@ -46,7 +52,7 @@ func main() {
 func init() {
 	hss := viper.GetString("HSS.host")
 	pgw := viper.GetString("EPC.pgw.host")
-	localHost = viper.GetString("IMS.x-cscf.host")
+	localhost = viper.GetString("IMS.x-cscf.host")
 	logger.Info("配置文件读取成功", "")
 	// 启动 CSCF 的UDP服务器
 	self = new(controller.CscfEntity)

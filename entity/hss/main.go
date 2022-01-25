@@ -15,7 +15,7 @@ import (
 
 var (
 	self      *controller.HssEntity
-	localHost string
+	localhost string
 )
 
 /*
@@ -31,11 +31,17 @@ func main() {
 	quit := make(chan os.Signal, 6)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
-	go ReceiveClientMessage(ctx, localHost, coreIn)
-	go ProcessDownStreamData(ctx, coreOutDown)
-	go ProcessUpStreamData(ctx, coreOutUp)
+	// go ReceiveClientMessage(ctx, localhost, coreIn)
+	// go ProcessDownStreamData(ctx, coreOutDown)
+	// go ProcessUpStreamData(ctx, coreOutUp)
 
-	go self.CoreProcessor(ctx, coreIn, coreOutUp, coreOutDown)
+	// go self.CoreProcessor(ctx, coreIn, coreOutUp, coreOutDown)
+	Recover(ctx, localhost, coreIn, coreOutUp, coreOutDown,
+		ReceiveClientMessage,
+		ProcessDownStreamData,
+		ProcessUpStreamData,
+		self.CoreProcessor)
+
 	<-quit
 	logger.Warn("[HSS] hss 功能实体退出...")
 	cancel()
@@ -43,19 +49,22 @@ func main() {
 }
 
 func init() {
-	localHost = viper.GetString("EPC.hss.host")
-	mmehost := viper.GetString("EPC.mme.host")
+	localhost = viper.GetString("EPC.hss.host")
+	mme := viper.GetString("EPC.mme.host")
+	cscf := viper.GetString("IMS.x-cscf.host")
 
 	dbhost := viper.GetString("mysql.host")
 	logger.Info("配置文件读取成功", "")
 
 	self = new(controller.HssEntity)
 	self.Init(dbhost)
-	self.Points["MME"] = mmehost
+	self.Points["MME"] = mme
+	self.Points["CSCF"] = cscf
 	RegistRouter()
 }
 
 func RegistRouter() {
 	self.Regist([2]byte{EPCPROTOCAL, AuthenticationInformatRequest}, self.AuthenticationInformatRequestF)
 	self.Regist([2]byte{EPCPROTOCAL, UpdateLocationRequest}, self.UpdateLocationRequestF)
+	self.Regist([2]byte{EPCPROTOCAL, UserAuthorizationRequest}, self.UserAuthorizationRequestF)
 }
