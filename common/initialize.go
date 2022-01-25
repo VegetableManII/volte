@@ -1,6 +1,7 @@
 package common
 
 import (
+	"flag"
 	"log"
 	"os"
 
@@ -9,19 +10,23 @@ import (
 )
 
 func init() {
+	var confile string
+	flag.StringVar(&confile, "f", "", "配置文件路径")
+	flag.Parse()
+
 	path, err := os.Getwd()
 	if err != nil {
 		log.Fatal("获取运行目录失败")
 	}
+	logger.SetLogger(logconf)
 	logger.SetLogPathTrim(path)
-	viper.SetConfigType("yml")
-	viper.AddConfigPath(".") // 设置配置文件与可执行文件在同一目录可供编译后的程序使用
+	viper.SetConfigFile(confile)
 	if e := viper.ReadInConfig(); e != nil {
 		log.Panicln("配置文件读取失败", e)
 	}
 }
 
-var logcong string = `{
+var logconf string = `{
     "TimeFormat":"2006-01-02 15:04:05", // 输出日志开头时间格式
     "Console": {            // 控制台日志配置
         "level": "TRAC",    // 控制台日志输出等级
