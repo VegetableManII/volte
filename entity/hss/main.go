@@ -31,16 +31,11 @@ func main() {
 	quit := make(chan os.Signal, 6)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
-	// go ReceiveClientMessage(ctx, localhost, coreIn)
-	// go ProcessDownStreamData(ctx, coreOutDown)
-	// go ProcessUpStreamData(ctx, coreOutUp)
+	go ReceiveClientMessage(ctx, localhost, coreIn)
+	go ProcessDownStreamData(ctx, coreOutDown)
+	go ProcessUpStreamData(ctx, coreOutUp)
 
-	// go self.CoreProcessor(ctx, coreIn, coreOutUp, coreOutDown)
-	Recover(ctx, localhost, coreIn, coreOutUp, coreOutDown,
-		ReceiveClientMessage,
-		ProcessDownStreamData,
-		ProcessUpStreamData,
-		self.CoreProcessor)
+	go self.CoreProcessor(ctx, coreIn, coreOutUp, coreOutDown)
 
 	<-quit
 	logger.Warn("[HSS] hss 功能实体退出...")

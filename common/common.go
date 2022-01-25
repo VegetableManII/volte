@@ -9,21 +9,11 @@ import (
 )
 
 // 异常恢复
-func Recover(ctx context.Context, host string, in, up, down chan *Package,
-	recvf func(ctx context.Context, host string, in chan *Package),
-	procdownf func(ctx context.Context, down chan *Package),
-	procupf func(ctx context.Context, up chan *Package),
-	proccore func(ctx context.Context, in, up, down chan *Package)) {
-	defer func() {
-		err := recover()
-		if err != nil {
-			logger.Error("程序异常Panic %v", err)
-		}
-	}()
-	go recvf(ctx, host, in)
-	go procdownf(ctx, down)
-	go procupf(ctx, up)
-	go proccore(ctx, in, up, down)
+func Recover(ctx context.Context) {
+	err := recover()
+	if err != nil {
+		logger.Error("[%v] 程序异常Panic %v", ctx.Value("Entity"), err)
+	}
 }
 
 // 按行分割，获取键值对内容，需要明确给出字节流边界，防止把 ‘\0’ 字符识别为字符串中的字符

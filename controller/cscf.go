@@ -40,14 +40,6 @@ func (this *CscfEntity) Init() {
 
 // HSS可以接收epc电路协议也可以接收SIP协议
 func (this *CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *common.Package) {
-	// panic恢复
-	defer func() {
-		err := recover()
-		if err != nil {
-			logger.Error(err)
-		}
-	}()
-
 	for {
 		select {
 		case msg := <-in:
@@ -66,6 +58,8 @@ func (this *CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *co
 }
 
 func (this *CscfEntity) SIPREQUESTF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
+	defer common.Recover(ctx)
+
 	logger.Info("[%v] Receive From PGW: %v", ctx.Value("Entity"), string(m.GetData()))
 	// 解析SIP消息
 	sreq, err := sip.NewMessage(strings.NewReader(string(m.GetData())))
@@ -99,6 +93,8 @@ func (this *CscfEntity) SIPREQUESTF(ctx context.Context, m *common.Package, up, 
 }
 
 func (this *CscfEntity) SIPRESPONSEF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
+	defer common.Recover(ctx)
+
 	logger.Info("[%v] Receive From HSS: %v", ctx.Value("Entity"), string(m.GetData()))
 	// 解析SIP消息
 	// 查看本地是否存在鉴权缓存
@@ -121,6 +117,8 @@ func parseAuthentication(authHeader string) string {
 }
 
 func (this *CscfEntity) UserAuthorizationAnswerF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
+	defer common.Recover(ctx)
+
 	logger.Info("[%v] Receive From HSS: %v", ctx.Value("Entity"), string(m.GetData()))
 	// 获得用户鉴权信息
 	// 查看本地是否存在鉴权缓存

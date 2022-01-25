@@ -31,18 +31,12 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
-	// go ReceiveClientMessage(ctx, localhost, coreIn)
+	go ReceiveClientMessage(ctx, localhost, coreIn)
 
-	// go ProcessDownStreamData(ctx, coreOutDown)
-	// go ProcessUpStreamData(ctx, coreOutUp)
+	go ProcessDownStreamData(ctx, coreOutDown)
+	go ProcessUpStreamData(ctx, coreOutUp)
 
-	// go self.CoreProcessor(ctx, coreIn, coreOutUp, coreOutDown)
-
-	Recover(ctx, localhost, coreIn, coreOutUp, coreOutDown,
-		ReceiveClientMessage,
-		ProcessDownStreamData,
-		ProcessUpStreamData,
-		self.CoreProcessor)
+	go self.CoreProcessor(ctx, coreIn, coreOutUp, coreOutDown)
 
 	<-quit
 	logger.Warn("[PGW] pgw 功能实体退出...")

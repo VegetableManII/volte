@@ -50,14 +50,6 @@ func (this *HssEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 	var err error
 	var f BaseSignallingT
 	var ok bool
-	// panic恢复
-	defer func() {
-		err := recover()
-		if err != nil {
-			logger.Error(err)
-		}
-	}()
-
 	for {
 		select {
 		case msg := <-in:
@@ -80,6 +72,8 @@ func (this *HssEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 
 // HSS 接收Authentication Informat Request请求，然后查询数据库获得用户信息，生成nonce，选择加密算法，
 func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
+	defer common.Recover(ctx)
+
 	logger.Info("[%v] Receive From MME: %v", ctx.Value("Entity"), string(m.GetData()))
 	data := m.GetData()
 	hashtable := common.StrLineUnmarshal(data)
@@ -114,6 +108,8 @@ func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *co
 
 // HSS 接收Update Location Request请求，将用户APN信息响应给MME用于和PGW建立承载
 func (this *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
+	defer common.Recover(ctx)
+
 	logger.Info("[%v] Receive From MME: %v", ctx.Value("Entity"), string(p.GetData()))
 	data := p.GetData()
 	table := common.StrLineUnmarshal(data)
@@ -133,6 +129,8 @@ func (this *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Pac
 }
 
 func (this *HssEntity) UserAuthorizationRequestF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
+	defer common.Recover(ctx)
+
 	logger.Info("[%v] Receive From x-CSCF: %v", ctx.Value("Entity"), string(p.GetData()))
 	table := common.StrLineUnmarshal(p.GetData())
 	un := table["username"]

@@ -31,17 +31,11 @@ func main() {
 	quit := make(chan os.Signal, 6)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
-	// go ReceiveClientMessage(ctx, localhost, coreIn)
-	// go ProcessDownStreamData(ctx, coreOutDown)
-	// go ProcessUpStreamData(ctx, coreOutUp)
-	// // 开启逻辑处理协程
-	// go self.CoreProcessor(ctx, coreIn, coreOutUp, coreOutDown)
-
-	Recover(ctx, localhost, coreIn, coreOutUp, coreOutDown,
-		ReceiveClientMessage,
-		ProcessDownStreamData,
-		ProcessUpStreamData,
-		self.CoreProcessor)
+	go ReceiveClientMessage(ctx, localhost, coreIn)
+	go ProcessDownStreamData(ctx, coreOutDown)
+	go ProcessUpStreamData(ctx, coreOutUp)
+	// 开启逻辑处理协程
+	go self.CoreProcessor(ctx, coreIn, coreOutUp, coreOutDown)
 
 	<-quit
 	logger.Warn("[MME] mme 功能实体退出...")

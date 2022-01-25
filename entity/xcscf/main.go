@@ -31,17 +31,11 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
-	// go ReceiveClientMessage(ctx, localHost, coreIn)
-	// go ProcessDownStreamData(ctx, coreOutDown)
-	// go ProcessUpStreamData(ctx, coreOutUp)
-	// // 开启IMS域的逻辑处理协程
-	// go self.CoreProcessor(ctx, coreIn, coreOutUp, coreOutDown)
-
-	Recover(ctx, localhost, coreIn, coreOutUp, coreOutDown,
-		ReceiveClientMessage,
-		ProcessDownStreamData,
-		ProcessUpStreamData,
-		self.CoreProcessor)
+	go ReceiveClientMessage(ctx, localhost, coreIn)
+	go ProcessDownStreamData(ctx, coreOutDown)
+	go ProcessUpStreamData(ctx, coreOutUp)
+	// 开启IMS域的逻辑处理协程
+	go self.CoreProcessor(ctx, coreIn, coreOutUp, coreOutDown)
 
 	<-quit
 	logger.Warn("[X-CSCF] x-cscf 功能实体退出...")

@@ -21,14 +21,6 @@ func (this *PgwEntity) Init() {
 }
 
 func (this *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *common.Package) {
-	// panic恢复
-	defer func() {
-		err := recover()
-		if err != nil {
-			logger.Error(err)
-		}
-	}()
-
 	var err error
 	for {
 		select {
@@ -51,6 +43,8 @@ func (this *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 }
 
 func (this *PgwEntity) SIPREQUESTF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
+	defer common.Recover(ctx)
+
 	logger.Info("[%v] Receive From eNodeB: %v", ctx.Value("Entity"), string(m.GetData()))
 	host := this.Points["CSCF"]
 	common.RawPackageOut(common.SIPPROTOCAL, common.SipRequest, m.GetData(), host, up) // 上行

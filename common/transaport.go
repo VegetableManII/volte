@@ -14,14 +14,6 @@ import (
 
 // 主要用于基站实现消息的代理转发, 将ue消息转发至网络侧
 func EnodebProxyMessage(ctx context.Context, src *net.UDPConn, mme, pgw string) {
-	// panic恢复
-	defer func() {
-		err := recover()
-		if err != nil {
-			logger.Error(err)
-		}
-	}()
-
 	var n int
 	var err error
 	for {
@@ -61,14 +53,6 @@ func EnodebProxyMessage(ctx context.Context, src *net.UDPConn, mme, pgw string) 
 
 // 通用网络中的功能实体与接收客户端数据的通用方法
 func ReceiveClientMessage(ctx context.Context, host string, in chan *Package) {
-	// panic恢复
-	defer func() {
-		err := recover()
-		if err != nil {
-			logger.Error(err)
-		}
-	}()
-
 	lo, err := net.ResolveUDPAddr("udp4", host)
 	if err != nil {
 		logger.Fatal("解析地址失败 %v", err)
@@ -93,7 +77,7 @@ func ReceiveClientMessage(ctx context.Context, host string, in chan *Package) {
 			}
 			logger.Info("[%v] Server读取到%v(byte)数据", ctx.Value("Entity"), n)
 			if n != 0 {
-				distribute(data[:n], in)
+				distribute(ctx, data[:n], in)
 			} else {
 				logger.Info("[%v] Read Len[%v]", ctx.Value("Entity"), n)
 				time.Sleep(500 * time.Millisecond)
@@ -104,14 +88,6 @@ func ReceiveClientMessage(ctx context.Context, host string, in chan *Package) {
 
 // 接收逻辑核心处理结果
 func ProcessDownStreamData(ctx context.Context, down chan *Package) {
-	// panic恢复
-	defer func() {
-		err := recover()
-		if err != nil {
-			logger.Error(err)
-		}
-	}()
-
 	// 创建write buffer
 	var buffer bytes.Buffer
 	for {
@@ -139,21 +115,12 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 					logger.Error("[%v] 请求下级节点失败 %v", ctx.Value("Entity"), err)
 				}
 			}
-
 		}
 		buffer.Reset()
 	}
 }
 
 func ProcessUpStreamData(ctx context.Context, up chan *Package) {
-	// panic恢复
-	defer func() {
-		err := recover()
-		if err != nil {
-			logger.Error(err)
-		}
-	}()
-
 	var buffer bytes.Buffer
 	for {
 		select {
@@ -187,6 +154,7 @@ func ProcessUpStreamData(ctx context.Context, up chan *Package) {
 
 // 需要向其他功能实体发送数据是的通用方法
 func sendUDPMessage(ctx context.Context, host string, data []byte) (err error) {
+	defer Recover(ctx)
 	var n int
 	ra, err := net.Dial("udp4", host)
 	if err != nil {
@@ -204,7 +172,8 @@ func sendUDPMessage(ctx context.Context, host string, data []byte) (err error) {
 }
 
 // 采用分发订阅模式分发epc网络信令和sip信令
-func distribute(data []byte, c chan *Package) {
+func distribute(ctx context.Context, data []byte, c chan *Package) {
+	defer Recover(ctx)
 	cmsg := new(CommonMsg)
 	cmsg.Init(data)
 	c <- &Package{cmsg, "CLIENT"} // 默认 发送给下行节点

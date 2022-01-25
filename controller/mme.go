@@ -34,14 +34,6 @@ func (this *MmeEntity) Init() {
 
 // epc 域功能实体 MME 的逻辑代码，判断eNodeB转发过来的数据类型，如果是SIP类型则不做处理丢弃
 func (this *MmeEntity) CoreProcessor(ctx context.Context, in, up, down chan *common.Package) {
-	// panic恢复
-	defer func() {
-		err := recover()
-		if err != nil {
-			logger.Error(err)
-		}
-	}()
-
 	var err error
 	for {
 		select {
@@ -68,6 +60,8 @@ func (this *MmeEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 
 // 附着请求，携带IMSI，和客户端支持的加密方法，拿到IMSI向HSS发起Authentication Informat Request请求
 func (this *MmeEntity) AttachRequestF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
+	defer common.Recover(ctx)
+
 	logger.Info("[%v] Receive From eNodeB: %v", ctx.Value("Entity"), string(m.GetData()))
 	data := m.GetData()
 	hashtable := common.StrLineUnmarshal(data)
@@ -86,6 +80,8 @@ func (this *MmeEntity) AttachRequestF(ctx context.Context, m *common.Package, up
 
 // HSS 响应Authentication Informat Response，拿到用户签名XRES、HSS服务器的Auth信息、随机数nonce和加密方法Kasme
 func (this *MmeEntity) AuthenticationInformatResponseF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
+	defer common.Recover(ctx)
+
 	logger.Info("[%v] Receive From HSS: %v", ctx.Value("Entity"), string(m.GetData()))
 	// 获取data部分的响应信息
 	data := m.GetData()
@@ -107,6 +103,8 @@ func (this *MmeEntity) AuthenticationInformatResponseF(ctx context.Context, m *c
 
 // UE终端 响应AuthenticationResponse，比较用户RES是否与XRES一致
 func (this *MmeEntity) AuthenticationResponseF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
+	defer common.Recover(ctx)
+
 	logger.Info("[%v] Receive From eNodeB: %v", ctx.Value("Entity"), string(m.GetData()))
 	data := m.GetData()
 	hashtbale := common.StrLineUnmarshal(data)
@@ -129,6 +127,8 @@ func (this *MmeEntity) AuthenticationResponseF(ctx context.Context, m *common.Pa
 
 // 接收HSS的 Update Location ACK 响应得到用户的APN，再请求PGW完成承载的建立（该部分暂不实现，得到ACK后直接向用户发送Attach Accept）
 func (this *MmeEntity) UpdateLocationACKF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
+	defer common.Recover(ctx)
+
 	logger.Info("[%v] Receive From HSS: %v", ctx.Value("Entity"), string(m.GetData()))
 	/*
 		1.获得APN
