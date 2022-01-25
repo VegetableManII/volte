@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/VegetableManII/volte/common"
-	sip "github.com/VegetableManII/volte/sip2"
+	sip "github.com/VegetableManII/volte/sip"
 
 	_ "github.com/go-sql-driver/mysql"
 
