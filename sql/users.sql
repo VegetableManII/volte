@@ -15,3 +15,5 @@ CREATE TABLE `users` (
   UNIQUE KEY `uqidx_sip_username` (`sip_username`),
   KEY `idx_ctime_utime` (`ctime`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4
+
+INSERT INTO `users` (`id`, `imsi`, `mnc`, `mcc`, `apn`, `ip`, `sip_username`, `sip_dns`, `ctime`, `utime`) VALUES (1, '123456789', '01', 86, 'hebeiyidong', '2.2.2.2', 'jiqimao', '3gpp.net', '2022-01-18 11:48:54', '2022-01-18 11:48:54');

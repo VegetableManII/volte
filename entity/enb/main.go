@@ -162,7 +162,7 @@ func getLocalInternelIPNet() (*net.IPNet, error) {
 			return nil, e
 		}
 		for _, address := range addrs {
-			if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.To4().IsLoopback() && !isLan(ipnet.IP.String()) {
+			if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.To4().IsLoopback() && isLan(ipnet.IP.String()) {
 				return ipnet, nil
 			}
 		}
