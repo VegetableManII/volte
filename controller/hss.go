@@ -8,6 +8,7 @@ import (
 	"hash"
 	"log"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,6 +27,8 @@ type HssEntity struct {
 	dbclient *gorm.DB
 	Points   map[string]string
 }
+
+const dict string = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPGRSTUVWXYZ0123456789="
 
 var defaultHash hash.Hash
 var defaultAuth string = "offical@hebeiyidong.3gpp.net"
@@ -138,13 +141,32 @@ func (this *HssEntity) UserAuthorizationRequestF(ctx context.Context, p *common.
 	if err != nil {
 		return err
 	}
+	// 生成nonce
+	nonce := generateSipAuthNonce(16)
+	data := fmt.Sprintf("%s %s %s %s", user.SipUserName, user.Apn, user.SipDNS, nonce)
+	defaultHash.Write([]byte(data))
+	cbytes := defaultHash.Sum(nil)
+
 	var response = map[string]string{
-		"APN":      user.Apn,
 		"UserName": un,
+		"Nonce":    nonce,
+		"Realm":    user.Apn + "." + user.SipDNS,
+		"Code":     hex.EncodeToString(cbytes),
 	}
 	host := this.Points["CSCF"]
 	common.PackageOut(common.EPCPROTOCAL, common.UpdateLocationACK, response, host, down) // 下行
 	return nil
+}
+
+func generateSipAuthNonce(n int) string {
+	build := new(strings.Builder)
+	rand.Seed(time.Now().UnixNano())
+	for i := 0; i < n; i++ {
+		idx := rand.Int()
+		char := dict[idx]
+		build.WriteByte(char)
+	}
+	return build.String()
 }
 
 /*
