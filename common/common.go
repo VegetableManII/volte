@@ -3,6 +3,7 @@ package common
 import (
 	"context"
 	"errors"
+	"runtime"
 	"strings"
 
 	"github.com/wonderivan/logger"
@@ -13,6 +14,9 @@ func Recover(ctx context.Context) {
 	err := recover()
 	if err != nil {
 		logger.Error("[%v] 程序异常Panic %v", ctx.Value("Entity"), err)
+		data := make([]byte, 2048)
+		n := runtime.Stack(data[:], false)
+		logger.Error("Stack Informmation %s", string(data[:n]))
 	}
 }
 

@@ -27,7 +27,7 @@ func EnodebProxyMessage(ctx context.Context, src *net.UDPConn, mme, pgw string) 
 			if err != nil && n == 0 {
 				logger.Error("[%v] 基站接收消息失败 %v %v", ctx.Value("Entity"), n, err)
 			}
-			logger.Info("[%v] 基站接收消息%v(byte)", ctx.Value("Entity"), n)
+			logger.Info("[%v] 基站接收消息%v(%v byte)", ctx.Value("Entity"), string(data[:n]), n)
 			if data[0] == EPCPROTOCAL {
 				err = sendUDPMessage(ctx, mme, data[:n])
 				if err != nil {
@@ -75,7 +75,7 @@ func ReceiveClientMessage(ctx context.Context, host string, in chan *Package) {
 			if err != nil {
 				logger.Error("[%v] Server读取数据错误 %v", ctx.Value("Entity"), err)
 			}
-			logger.Info("[%v] Server读取到%v(byte)数据", ctx.Value("Entity"), n)
+			logger.Info("[%v] Server读取到数据%v(%v byte)", ctx.Value("Entity"), string(data[:n]), n)
 			if n != 0 {
 				distribute(ctx, data[:n], in)
 			} else {
@@ -99,7 +99,7 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 		case pkg := <-down:
 			host := pkg.Destation
 			var err error
-			if pkg._type == SIPPROTOCAL {
+			if pkg._type == EPCPROTOCAL {
 				err = binary.Write(&buffer, binary.BigEndian, pkg.CommonMsg)
 				if err != nil {
 					logger.Error("[%v] 序列化失败 %v", ctx.Value("Entity"), err)

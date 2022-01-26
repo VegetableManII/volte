@@ -5,7 +5,6 @@ import (
 	"crypto/md5"
 	"fmt"
 	"hash"
-	"log"
 	"strings"
 	"sync"
 
@@ -80,17 +79,6 @@ func (this *CscfEntity) SIPREQUESTF(ctx context.Context, m *common.Package, up, 
 	return nil
 }
 
-func (this *CscfEntity) SIPRESPONSEF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
-	defer common.Recover(ctx)
-
-	logger.Info("[%v] Receive From HSS: %v", ctx.Value("Entity"), string(m.GetData()))
-	// 解析SIP消息
-	// 查看本地是否存在鉴权缓存
-	host := this.Points["PGW"]
-	common.RawPackageOut(common.SIPPROTOCAL, common.SipRequest, m.GetData(), host, down)
-	return nil
-}
-
 func parseAuthentication(authHeader string) string {
 	items := strings.Split(authHeader, " ")
 	for _, item := range items {
@@ -152,16 +140,17 @@ func regist(ctx context.Context, ua map[string]string, uamux *sync.Mutex, ur map
 			"UserName": username,
 		}
 		common.PackageOut(common.EPCPROTOCAL, common.UserAuthorizationRequest, table, hss, up) // 上行
-	}
-	respauth := parseAuthentication(req.Header.Authorization)
-	log.Println(req.Header.CallID, auth)
-
-	if auth != respauth {
-		sresp := sip.NewResponse(sip.StatusUnauthorized, req)
-		common.RawPackageOut(common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), pgw, down)
+		return nil
 	} else {
-		sresp := sip.NewResponse(sip.StatusOK, req)
-		common.RawPackageOut(common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), pgw, down)
+		respauth := parseAuthentication(req.Header.Authorization)
+		if auth != respauth {
+			sresp := sip.NewResponse(sip.StatusUnauthorized, req)
+			common.RawPackageOut(common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), pgw, down)
+		} else {
+			sresp := sip.NewResponse(sip.StatusOK, req)
+			common.RawPackageOut(common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), pgw, down)
+		}
+		return nil
 	}
-	return nil
+
 }

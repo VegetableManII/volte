@@ -50,3 +50,12 @@ func (this *PgwEntity) SIPREQUESTF(ctx context.Context, m *common.Package, up, d
 	common.RawPackageOut(common.SIPPROTOCAL, common.SipRequest, m.GetData(), host, up) // 上行
 	return nil
 }
+
+func (this *CscfEntity) SIPRESPONSEF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
+	defer common.Recover(ctx)
+
+	logger.Info("[%v] Receive From CSCF: %v", ctx.Value("Entity"), string(m.GetData()))
+	host := this.Points["eNodeB"]
+	common.RawPackageOut(common.SIPPROTOCAL, common.SipResponse, m.GetData(), host, down)
+	return nil
+}
