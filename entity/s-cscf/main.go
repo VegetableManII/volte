@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	self      *controller.CscfEntity
+	self      *controller.S_CscfEntity
 	localhost string
 )
 
@@ -49,7 +49,7 @@ func init() {
 	localhost = viper.GetString("IMS.x-cscf.host")
 	logger.Info("配置文件读取成功", "")
 	// 启动 CSCF 的UDP服务器
-	self = new(controller.CscfEntity)
+	self = new(controller.S_CscfEntity)
 	self.Init(localhost)
 	self.Points["HSS"] = hss
 	self.Points["ICSCF"] = icscf
@@ -58,5 +58,5 @@ func init() {
 
 func RegistRouter() {
 	self.Regist([2]byte{SIPPROTOCAL, SipRequest}, self.SIPREQUESTF)
-	self.Regist([2]byte{SIPPROTOCAL, SipResponse}, self.SIPRESPONSEF)
+	//self.Regist([2]byte{SIPPROTOCAL, SipResponse}, self.SIPRESPONSEF)
 }
