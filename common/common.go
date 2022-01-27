@@ -3,8 +3,10 @@ package common
 import (
 	"context"
 	"errors"
+	"math/rand"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/wonderivan/logger"
 )
@@ -74,4 +76,9 @@ func GetIMSI(data []byte) (string, error) {
 		return "", errors.New("ErrEmptyIMSI")
 	}
 	return imsi, nil
+}
+
+func GenerateSipBranch() int64 {
+	rand.Seed(time.Now().UnixNano())
+	return rand.Int63()
 }

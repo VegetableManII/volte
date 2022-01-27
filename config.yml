@@ -20,7 +20,9 @@ HSS:
 # P-CSCF和I-CSCF对于SIP消息主要进行转发，功能很少
 # S-CSCF为最上行的节点，功能较多，把IMS域的所有功能实体坐在一起叫CSCF
 IMS: 
-  x-cscf.host: 127.0.0.1:54321
+  p-cscf.host: 127.0.0.1:54321
+  i-cscf.host: 127.0.0.1:54322
+  s-cscf.host: 127.0.0.1:54323
   pcrf.host: 127.0.0.1:54324
 
 # 数据库配置信息

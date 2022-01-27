@@ -51,7 +51,7 @@ func (this *PgwEntity) SIPREQUESTF(ctx context.Context, m *common.Package, up, d
 	return nil
 }
 
-func (this *CscfEntity) SIPRESPONSEF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
+func (this *P_CscfEntity) SIPRESPONSEF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
 	logger.Info("[%v] Receive From CSCF: %v", ctx.Value("Entity"), string(m.GetData()))

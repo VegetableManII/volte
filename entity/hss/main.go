@@ -46,7 +46,8 @@ func main() {
 func init() {
 	localhost = viper.GetString("EPC.hss.host")
 	mme := viper.GetString("EPC.mme.host")
-	cscf := viper.GetString("IMS.x-cscf.host")
+	icscf := viper.GetString("IMS.i-cscf.host")
+	scscf := viper.GetString("IMS.s-cscf.host")
 
 	dbhost := viper.GetString("mysql.host")
 	logger.Info("配置文件读取成功", "")
@@ -54,7 +55,8 @@ func init() {
 	self = new(controller.HssEntity)
 	self.Init(dbhost)
 	self.Points["MME"] = mme
-	self.Points["CSCF"] = cscf
+	self.Points["I-CSCF"] = icscf
+	self.Points["S-CSCF"] = scscf
 	RegistRouter()
 }
 

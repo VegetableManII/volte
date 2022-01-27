@@ -28,7 +28,7 @@ type HssEntity struct {
 	Points   map[string]string
 }
 
-const dict string = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPGRSTUVWXYZ0123456789="
+const dict string = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPGRSTUVWXYZ0123456789=/"
 
 var defaultHash hash.Hash
 var defaultAuth string = "offical@hebeiyidong.3gpp.net"
