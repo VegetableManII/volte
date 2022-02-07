@@ -3,16 +3,16 @@ package controller
 import (
 	"context"
 	"crypto/md5"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"hash"
 	"log"
 	"math/rand"
-	"strings"
-	"sync"
 	"time"
 
 	"github.com/VegetableManII/volte/common"
+	"github.com/wmnsk/milenage"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jinzhu/gorm"
@@ -22,13 +22,9 @@ import (
 
 type HssEntity struct {
 	*Mux
-	algMutex sync.Mutex
-	auth     string
 	dbclient *gorm.DB
 	Points   map[string]string
 }
-
-const dict string = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPGRSTUVWXYZ0123456789=/"
 
 var defaultHash hash.Hash
 var defaultAuth string = "offical@hebeiyidong.3gpp.net"
@@ -141,32 +137,91 @@ func (this *HssEntity) MultimediaAuthorizationRequestF(ctx context.Context, p *c
 	if err != nil {
 		return err
 	}
-	// 生成nonce
-	nonce := generateSipAuthNonce(16)
-	data := fmt.Sprintf("%s %s %s %s", user.SipUserName, user.Apn, user.SipDNS, nonce)
-	defaultHash.Write([]byte(data))
-	cbytes := defaultHash.Sum(nil)
-
+	AUTN, XRES, CK, IK, err := generateAV(user.RootK, user.Opc)
+	if err != nil {
+		return err
+	}
 	var response = map[string]string{
 		"UserName": un,
-		"Nonce":    nonce,
-		"Realm":    user.Apn + "." + user.SipDNS,
-		"Code":     hex.EncodeToString(cbytes),
+		"AUTN":     hex.EncodeToString(AUTN),
+		"XRES":     hex.EncodeToString(XRES),
+		"CK":       hex.EncodeToString(CK),
+		"IK":       hex.EncodeToString(IK),
 	}
 	host := this.Points["SCSCF"]
 	common.PackageOut(common.EPCPROTOCAL, common.UpdateLocationACK, response, host, down) // 下行
 	return nil
 }
 
-func generateSipAuthNonce(n int) string {
-	build := new(strings.Builder)
-	rand.Seed(time.Now().UnixNano())
+func generateRandN(n int) []byte {
+	r := make([]byte, 0, 16)
 	for i := 0; i < n; i++ {
-		idx := rand.Int()
-		char := dict[idx]
-		build.WriteByte(char)
+		rand.Seed(time.Now().UnixNano())
+		i := rand.Intn(128)
+		r = append(r, byte(i))
 	}
-	return build.String()
+	return r
+}
+
+func generateAV(K, Opc string) (AUTN, XRES, CK, IK []byte, err error) {
+	// 生成固定SQN
+	SQN := []byte{0x01}
+	// 生成16字节随机数RAND
+	ran := generateRandN(16)
+	// 根据Milenage算法生成四元鉴权向量组
+	kbs, err := hex.DecodeString(K)
+	if err != nil {
+		return
+	}
+	opcbs, err := hex.DecodeString(Opc)
+	if err != nil {
+		return
+	}
+	milenage := milenage.NewWithOPc(
+		kbs,
+		opcbs,
+		ran,
+		binary.BigEndian.Uint64(SQN),
+		0x0000,
+	)
+	MAC, err := milenage.F1()
+	if err != nil {
+		return
+	}
+	XRES, CK, IK, AK, err := milenage.F2345()
+	if err != nil {
+		return
+	}
+	AUTN = xor(SQN, AK)
+	AUTN = append(AUTN, []byte{0x00, 0x00}...)
+	AUTN = append(AUTN, MAC...)
+	return
+}
+
+func xor(a []byte, b []byte) []byte {
+	l3 := 0
+	l1 := len(a)
+	l2 := len(b)
+	if l1 > l2 {
+		l3 = l1
+		// b补全0
+		sub := l1 - l2
+		for ; sub > 0; sub-- {
+			b = append([]byte{0x00}, b...)
+		}
+	} else {
+		l3 = l2
+		// a补全0
+		sub := l1 - l2
+		for ; sub > 0; sub-- {
+			a = append([]byte{0x00}, a...)
+		}
+	}
+	c := make([]byte, 0, l3)
+	for i := 0; i < l3; i++ {
+		c = append(c, a[i]^b[i])
+	}
+	return c
 }
 
 /*
@@ -178,6 +233,8 @@ func generateSipAuthNonce(n int) string {
 type User struct {
 	ID          int64     `gorm:"column:id"`
 	IMSI        string    `gorm:"column:imsi" json:"imsi"`
+	RootK       string    `gorm:"column:root_k"`
+	Opc         string    `gorm:"column:opc"`
 	Mnc         string    `gorm:"column:mnc" json:"mnc"` // 移动网号
 	Mcc         int32     `gorm:"column:mcc" json:"mcc"` // 国家码
 	Apn         string    `gorm:"column:apn" json:"apn"`

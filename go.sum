@@ -343,6 +343,8 @@ github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/
 github.com/subosito/gotenv v1.2.0 h1:Slr1R9HxAlEKefgq5jn9U+DnETlIUa6HfgEzj0g5d7s=
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
 github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926/go.mod h1:9ESjWnEqriFuLhtthL60Sar/7RFoluCcXsuvEwTV5KM=
+github.com/wmnsk/milenage v1.2.0 h1:Gbwmu9AViuQ0lKFN+I/kkui30lPB9U8hyjw1BCNLsIc=
+github.com/wmnsk/milenage v1.2.0/go.mod h1:NanM2J42t4iL33yMj69OG2WoikNGztMScQBkBqoD4SI=
 github.com/wonderivan/logger v1.0.0 h1:Z6Nz+3SNcizolx3ARH11axdD4DXjFpb2J+ziGUVlv/U=
 github.com/wonderivan/logger v1.0.0/go.mod h1:NObMfQ3WOLKfYEZuGeZQfuQfSPE5+QNgRddVMzsAT/k=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=

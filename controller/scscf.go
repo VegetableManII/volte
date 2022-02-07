@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"hash"
 	"strings"
@@ -93,23 +95,26 @@ func (s *S_CscfEntity) MutimediaAuthorizationAnswerF(ctx context.Context, m *com
 	host := s.Points["ICSCF"]
 	// 获得用户鉴权信息
 	resp := common.StrLineUnmarshal(m.GetData())
-	un := resp["UserName"]
-	nonce := resp["Nonce"]
-	realm := resp["Realm"]
-	XRES := resp["Code"]
-
+	user := resp["UserName"]
+	AUTN := resp["AUTN"]
+	XRES := resp["XRES"]
+	CK := resp["CK"]
+	IK := resp["IK"]
+	// TODO  使用CK和IK完成与UE的IPSec隧道的建立
+	_, _ = CK, IK
 	// 组装WWW-Authenticate
-	wwwAuth := fmt.Sprintf(`Digest realm="%v", nonce="%v", qop="auth-int", algorithm=AKAv1-MD5`, realm, nonce)
+	abs, _ := hex.DecodeString(AUTN)
+	wwwAuth := fmt.Sprintf(`Digest realm=hebeiyidomg.3gpp.net nonce=%s qop=auth-int algorithm=AKAv1-MD5`, base64.StdEncoding.EncodeToString(abs))
 	// 获取用户请求缓存
 	s.reqMutex.Lock()
-	sipreq, ok := s.userReqCache[un]
+	sipreq, ok := s.userReqCache[user]
 	s.reqMutex.Unlock()
 	if !ok {
-		logger.Error("[%v] Lose User Request Cache %v", ctx.Value("Entity"), un)
+		logger.Error("[%v] Lose User Request Cache %v", ctx.Value("Entity"), user)
 	}
 	// 保存用户鉴权
 	s.authMutex.Lock()
-	s.userAuthCache[un] = XRES
+	s.userAuthCache[user] = XRES
 	s.authMutex.Unlock()
 	// 响应终端鉴权失败
 	sipresp := sip.NewResponse(sip.StatusUnauthorized, sipreq)
@@ -120,17 +125,17 @@ func (s *S_CscfEntity) MutimediaAuthorizationAnswerF(ctx context.Context, m *com
 
 func regist(ctx context.Context, via string, authCache map[string]string, auMux *sync.Mutex, reqCache map[string]*sip.Message, reqMux *sync.Mutex, req *sip.Message, hss, downlink string, up, down chan *common.Package) error {
 	// 查看本地是否存在鉴权缓存
+	auth := req.Header.Authorization
+	values := parseAuthentication(auth)
 	auMux.Lock()
-	RES, ok := authCache[req.Header.From.Username()]
+	RES, ok := authCache[values["username"]]
 	auMux.Unlock()
 	if !ok {
 		// 向HSS发起MAR，再收到MAA，异步实现
-		auth := req.Header.Authorization
 		// 缓存本次请求
 		reqMux.Lock()
 		reqCache[auth] = req
 		// 向HSS查询信息
-		values := parseAuthentication(auth)
 		table := map[string]string{
 			"UserName": values["username"],
 		}
