@@ -69,3 +69,19 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, m *common.Package, up, d
 	}
 	return nil
 }
+
+func (i *I_CscfEntity) SIPRESPONSEF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
+	defer common.Recover(ctx)
+
+	logger.Info("[%v] Receive From S-CSCF: %v", ctx.Value("Entity"), string(m.GetData()))
+	// 解析SIP消息
+	sipreq, err := sip.NewMessage(strings.NewReader(string(m.GetData())))
+	if err != nil {
+		return err
+	}
+	// 删除Via头部信息
+	sipreq.Header.Via.RemoveFirst()
+	sipreq.Header.MaxForwards.Reduce()
+	common.RawPackageOut(common.SIPPROTOCAL, common.SipResponse, []byte(sipreq.String()), i.Points["PCSCF"], down)
+	return nil
+}

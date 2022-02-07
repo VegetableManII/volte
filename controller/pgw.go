@@ -2,8 +2,10 @@ package controller
 
 import (
 	"context"
+	"strings"
 
 	"github.com/VegetableManII/volte/common"
+	sip "github.com/VegetableManII/volte/sip"
 
 	"github.com/wonderivan/logger"
 )
@@ -48,5 +50,18 @@ func (this *PgwEntity) SIPREQUESTF(ctx context.Context, m *common.Package, up, d
 	logger.Info("[%v] Receive From eNodeB: %v", ctx.Value("Entity"), string(m.GetData()))
 	host := this.Points["CSCF"]
 	common.RawPackageOut(common.SIPPROTOCAL, common.SipRequest, m.GetData(), host, up) // 上行
+	return nil
+}
+
+func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
+	defer common.Recover(ctx)
+
+	logger.Info("[%v] Receive From P-CSCF: %v", ctx.Value("Entity"), string(m.GetData()))
+	// 解析SIP消息
+	sipreq, err := sip.NewMessage(strings.NewReader(string(m.GetData())))
+	if err != nil {
+		return err
+	}
+	common.RawPackageOut(common.SIPPROTOCAL, common.SipResponse, []byte(sipreq.String()), p.Points["eNodeB"], down)
 	return nil
 }
