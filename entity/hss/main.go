@@ -44,13 +44,13 @@ func main() {
 }
 
 func init() {
-	localhost = viper.GetString("EPC.hss.host")
+	localhost = viper.GetString("HSS.host")
 	mme := viper.GetString("EPC.mme.host")
 	icscf := viper.GetString("IMS.i-cscf.host")
 	scscf := viper.GetString("IMS.s-cscf.host")
 
 	dbhost := viper.GetString("mysql.host")
-	logger.Info("配置文件读取成功", "")
+	logger.Info("配置文件读取成功 HSS.host: %v EPC.mme.host: %v IMS.i-cscf.host: %v IMS.s-cscf.host: %v", localhost, mme, icscf, scscf)
 
 	self = new(controller.HssEntity)
 	self.Init(dbhost)
