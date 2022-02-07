@@ -131,10 +131,10 @@ func (this *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Pac
 	return nil
 }
 
-func (this *HssEntity) UserAuthorizationRequestF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
+func (this *HssEntity) MultimediaAuthorizationRequestF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
-	logger.Info("[%v] Receive From x-CSCF: %v", ctx.Value("Entity"), string(p.GetData()))
+	logger.Info("[%v] Receive From S-CSCF: %v", ctx.Value("Entity"), string(p.GetData()))
 	table := common.StrLineUnmarshal(p.GetData())
 	un := table["username"]
 	user, err := GetUserBySipUserName(ctx, this.dbclient, un)
@@ -153,7 +153,7 @@ func (this *HssEntity) UserAuthorizationRequestF(ctx context.Context, p *common.
 		"Realm":    user.Apn + "." + user.SipDNS,
 		"Code":     hex.EncodeToString(cbytes),
 	}
-	host := this.Points["CSCF"]
+	host := this.Points["SCSCF"]
 	common.PackageOut(common.EPCPROTOCAL, common.UpdateLocationACK, response, host, down) // 下行
 	return nil
 }

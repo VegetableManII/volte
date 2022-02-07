@@ -12,19 +12,21 @@ const (
 
 // epc message的消息类型
 const (
-	AttachRequest                  byte = 0x00
-	AuthenticationInformatRequest  byte = 0x01
-	AuthenticationInformatResponse byte = 0x02
-	AuthenticationRequest          byte = 0x03
-	AuthenticationResponse         byte = 0x04
-	UpdateLocationRequest          byte = 0x05
-	UpdateLocationACK              byte = 0x06
-	CreateSessionRequest           byte = 0x07
-	CreateSessionResponse          byte = 0x08
-	QCI                            byte = 0x09
-	AttachAccept                   byte = 0x0A
-	UserAuthorizationRequest       byte = 0x0B
-	UserAuthorizationAnswer        byte = 0x0C
+	AttachRequest                   byte = 0x00
+	AuthenticationInformatRequest   byte = 0x01
+	AuthenticationInformatResponse  byte = 0x02
+	AuthenticationRequest           byte = 0x03
+	AuthenticationResponse          byte = 0x04
+	UpdateLocationRequest           byte = 0x05
+	UpdateLocationACK               byte = 0x06
+	CreateSessionRequest            byte = 0x07
+	CreateSessionResponse           byte = 0x08
+	QCI                             byte = 0x09
+	AttachAccept                    byte = 0x0A
+	UserAuthorizationRequest        byte = 0x0B
+	UserAuthorizationAnswer         byte = 0x0C
+	MultiMediaAuthenticationRequest byte = 0x0D
+	MultiMediaAuthenticationAnswer  byte = 0x0E
 )
 
 // sip message的消息类型

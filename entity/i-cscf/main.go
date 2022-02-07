@@ -52,8 +52,8 @@ func init() {
 	// 启动 CSCF 的UDP服务器
 	self = new(controller.I_CscfEntity)
 	self.Init(localhost)
-	self.Points["P-CSCF"] = pcscf
-	self.Points["S-CSCF"] = scscf
+	self.Points["PCSCF"] = pcscf
+	self.Points["SCSCF"] = scscf
 	self.Points["HSS"] = hss
 	RegistRouter()
 }

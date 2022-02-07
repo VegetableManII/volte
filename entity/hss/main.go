@@ -55,13 +55,13 @@ func init() {
 	self = new(controller.HssEntity)
 	self.Init(dbhost)
 	self.Points["MME"] = mme
-	self.Points["I-CSCF"] = icscf
-	self.Points["S-CSCF"] = scscf
+	self.Points["ICSCF"] = icscf
+	self.Points["SCSCF"] = scscf
 	RegistRouter()
 }
 
 func RegistRouter() {
 	self.Regist([2]byte{EPCPROTOCAL, AuthenticationInformatRequest}, self.AuthenticationInformatRequestF)
 	self.Regist([2]byte{EPCPROTOCAL, UpdateLocationRequest}, self.UpdateLocationRequestF)
-	self.Regist([2]byte{EPCPROTOCAL, UserAuthorizationRequest}, self.UserAuthorizationRequestF)
+	self.Regist([2]byte{EPCPROTOCAL, UserAuthorizationRequest}, self.MultimediaAuthorizationRequestF)
 }
