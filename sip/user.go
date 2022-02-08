@@ -56,4 +56,6 @@ func (u *User) parse(str string) (err error) {
 	return
 }
 
+// 匹配 xxx <xxx>xxxx 三个区域，例如 "1011" <sip:1011@192.168.0.2>;tag=213788011b，中User=“1011”可以不存在，
+// 但是<xxx>这个内容必须有，<xxx>区域后面的第三个区域匹配任意个数的非\r\n字符
 var nameRegexp = regexp.MustCompile("^([^<]*)<([^>]+)>(.*)$")

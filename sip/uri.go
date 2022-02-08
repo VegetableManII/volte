@@ -68,5 +68,11 @@ func (u *URI) parse(str string) (err error) {
 	return
 }
 
+// xxx:xxx@xxxx
+//       xxxx 例如：sip:user:password@host:port;uri-parameters?headers
+// 第一部分匹配协议，有至少一个字母组成，sip
+// 第二部分匹配用户名和密码，除了@字符之外的至少一个任意字符
+// 第三部分匹配域名，排除空格、制表符\t、换行符\r\n、换页符\v\f和;字符之外的至少一个任意字符，即遇到空格、制表符和;就停止
+// 第四部分匹配餐护士，匹配排除\r\n之外的任意个字符，参数可能在多个空格或换行之后
 var uriRegExpWithUser = regexp.MustCompile("^([A-Za-z]+):([^@]+)@([^\\s;]+)(.*)$")
 var uriRegExpNoUser = regexp.MustCompile("^([A-Za-z]+):([^\\s;]+)(.*)$")
