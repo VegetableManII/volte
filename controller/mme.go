@@ -62,7 +62,7 @@ func (this *MmeEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 func (this *MmeEntity) AttachRequestF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
-	logger.Info("[%v] Receive From eNodeB: %v", ctx.Value("Entity"), string(m.GetData()))
+	logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(m.GetData()))
 	data := m.GetData()
 	hashtable := common.StrLineUnmarshal(data)
 	imsi := hashtable["IMSI"]
@@ -82,7 +82,7 @@ func (this *MmeEntity) AttachRequestF(ctx context.Context, m *common.Package, up
 func (this *MmeEntity) AuthenticationInformatResponseF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
-	logger.Info("[%v] Receive From HSS: %v", ctx.Value("Entity"), string(m.GetData()))
+	logger.Info("[%v] Receive From HSS: \n%v", ctx.Value("Entity"), string(m.GetData()))
 	// 获取data部分的响应信息
 	data := m.GetData()
 	hashtable := common.StrLineUnmarshal(data)
@@ -105,7 +105,7 @@ func (this *MmeEntity) AuthenticationInformatResponseF(ctx context.Context, m *c
 func (this *MmeEntity) AuthenticationResponseF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
-	logger.Info("[%v] Receive From eNodeB: %v", ctx.Value("Entity"), string(m.GetData()))
+	logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(m.GetData()))
 	data := m.GetData()
 	hashtbale := common.StrLineUnmarshal(data)
 	imsi := hashtbale["IMSI"]
@@ -129,7 +129,7 @@ func (this *MmeEntity) AuthenticationResponseF(ctx context.Context, m *common.Pa
 func (this *MmeEntity) UpdateLocationACKF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
-	logger.Info("[%v] Receive From HSS: %v", ctx.Value("Entity"), string(m.GetData()))
+	logger.Info("[%v] Receive From HSS: \n%v", ctx.Value("Entity"), string(m.GetData()))
 	/*
 		1.获得APN
 		2.请求PGW建立承载

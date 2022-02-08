@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"hash"
 	"strings"
 	"sync"
 
@@ -20,7 +19,6 @@ import (
 type S_CscfEntity struct {
 	SipURI        string
 	SipVia        string
-	algorithm     map[string]hash.Hash
 	userAuthCache map[string]string
 	authMutex     sync.Mutex
 	userReqCache  map[string]*sip.Message
@@ -36,6 +34,8 @@ func (s *S_CscfEntity) Init(host string) {
 	s.SipVia = "SIP/2.0/UDP " + host + ";branch="
 	s.Points = make(map[string]string)
 	s.router = make(map[[2]byte]BaseSignallingT)
+	s.userAuthCache = make(map[string]string)
+	s.userReqCache = make(map[string]*sip.Message)
 }
 
 func (s *S_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *common.Package) {
@@ -59,7 +59,7 @@ func (s *S_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
-	logger.Info("[%v] Receive From PGW: %v", ctx.Value("Entity"), string(m.GetData()))
+	logger.Info("[%v] Receive From PGW: \n%v", ctx.Value("Entity"), string(m.GetData()))
 	// 解析SIP消息
 	sipreq, err := sip.NewMessage(strings.NewReader(string(m.GetData())))
 	if err != nil {
@@ -91,7 +91,7 @@ func parseAuthentication(authHeader string) map[string]string {
 func (s *S_CscfEntity) MutimediaAuthorizationAnswerF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
-	logger.Info("[%v] Receive From HSS: %v", ctx.Value("Entity"), string(m.GetData()))
+	logger.Info("[%v] Receive From HSS: \n%v", ctx.Value("Entity"), string(m.GetData()))
 	host := s.Points["ICSCF"]
 	// 获得用户鉴权信息
 	resp := common.StrLineUnmarshal(m.GetData())

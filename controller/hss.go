@@ -73,7 +73,7 @@ func (this *HssEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
-	logger.Info("[%v] Receive From MME: %v", ctx.Value("Entity"), string(m.GetData()))
+	logger.Info("[%v] Receive From MME: \n%v", ctx.Value("Entity"), string(m.GetData()))
 	data := m.GetData()
 	hashtable := common.StrLineUnmarshal(data)
 	imsi := hashtable["IMSI"]
@@ -109,7 +109,7 @@ func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *co
 func (this *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
-	logger.Info("[%v] Receive From MME: %v", ctx.Value("Entity"), string(p.GetData()))
+	logger.Info("[%v] Receive From MME: \n%v", ctx.Value("Entity"), string(p.GetData()))
 	data := p.GetData()
 	table := common.StrLineUnmarshal(data)
 	imsi := table["IMSI"]
@@ -130,7 +130,7 @@ func (this *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Pac
 func (this *HssEntity) MultimediaAuthorizationRequestF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
-	logger.Info("[%v] Receive From S-CSCF: %v", ctx.Value("Entity"), string(p.GetData()))
+	logger.Info("[%v] Receive From S-CSCF: \n%v", ctx.Value("Entity"), string(p.GetData()))
 	table := common.StrLineUnmarshal(p.GetData())
 	un := table["username"]
 	user, err := GetUserBySipUserName(ctx, this.dbclient, un)
@@ -261,7 +261,7 @@ func GetUserByIMSI(ctx context.Context, db *gorm.DB, imsi string) (*User, error)
 
 func GetUserBySipUserName(ctx context.Context, db *gorm.DB, un string) (*User, error) {
 	ret := new(User)
-	err := db.Model(User{}).Where("username=?", un).Find(ret).Error
+	err := db.Model(User{}).Where("sip_username=?", un).Find(ret).Error
 	if err != nil {
 		logger.Error("[%v] HSS获取用户信息失败,Sip_User_Name=%v,ERR=%v", ctx.Value("Entity"), un, err)
 		return nil, err

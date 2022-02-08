@@ -75,7 +75,6 @@ func ReceiveClientMessage(ctx context.Context, host string, in chan *Package) {
 			if err != nil {
 				logger.Error("[%v] Server读取数据错误 %v", ctx.Value("Entity"), err)
 			}
-			logger.Info("[%v] Server读取到数据%v(%v byte)", ctx.Value("Entity"), string(data[:n]), n)
 			if n != 0 {
 				distribute(ctx, data[:n], in)
 			} else {

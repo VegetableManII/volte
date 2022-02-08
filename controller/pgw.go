@@ -47,7 +47,7 @@ func (this *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 func (this *PgwEntity) SIPREQUESTF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
-	logger.Info("[%v] Receive From eNodeB: %v", ctx.Value("Entity"), string(m.GetData()))
+	logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(m.GetData()))
 	host := this.Points["CSCF"]
 	common.RawPackageOut(common.SIPPROTOCAL, common.SipRequest, m.GetData(), host, up) // 上行
 	return nil
@@ -56,7 +56,7 @@ func (this *PgwEntity) SIPREQUESTF(ctx context.Context, m *common.Package, up, d
 func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
-	logger.Info("[%v] Receive From P-CSCF: %v", ctx.Value("Entity"), string(m.GetData()))
+	logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(m.GetData()))
 	// 解析SIP消息
 	sipreq, err := sip.NewMessage(strings.NewReader(string(m.GetData())))
 	if err != nil {
