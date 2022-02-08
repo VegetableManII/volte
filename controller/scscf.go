@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 
@@ -114,7 +113,6 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, up, down ch
 			sipresp := sip.NewResponse(sip.StatusNoResponse, req)
 			common.RawPackageOut(common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()), s.Points["ICSCF"], down)
 		} else {
-			log.Println(m.GetData(), m.GetType())
 			// 获得用户鉴权信息
 			resp := common.StrLineUnmarshal(m.GetData())
 			user := resp["UserName"]
