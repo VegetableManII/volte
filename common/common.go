@@ -1,7 +1,9 @@
 package common
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"math/rand"
 	"runtime"
@@ -57,7 +59,25 @@ func PackageOut(protocal, method byte, data map[string]string, dest string, out 
 	res := StrLineMarshal(data)
 	size := len([]byte(res))
 	cmsg.Construct(protocal, method, size, []byte(res))
-	out <- &Package{cmsg, dest}
+	out <- &Package{cmsg, dest, nil, nil}
+}
+
+// EPC 网络通用发送消息方法,同步接收响应
+func PackageOutWithResponse(ctx context.Context, protocal, method byte, data map[string]string, dest string) (*CommonMsg, error) {
+	cmsg := new(CommonMsg)
+	res := StrLineMarshal(data)
+	size := len([]byte(res))
+	cmsg.Construct(protocal, method, size, []byte(res))
+	buf := new(bytes.Buffer)
+	buf.Grow(1024)
+	binary.Write(buf, binary.BigEndian, cmsg)
+	err, resp := sendUDPMessageWaitResp(ctx, dest, buf.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	m := new(CommonMsg)
+	m.Init(resp)
+	return m, nil
 }
 
 // IMS 网络通用发送消息方法
@@ -65,7 +85,7 @@ func RawPackageOut(protocal, method byte, data []byte, dest string, out chan *Pa
 	cmsg := new(CommonMsg)
 	size := len(data)
 	cmsg.Construct(protocal, method, size, data)
-	out <- &Package{cmsg, dest}
+	out <- &Package{cmsg, dest, nil, nil}
 
 }
 

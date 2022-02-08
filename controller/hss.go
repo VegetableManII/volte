@@ -59,7 +59,7 @@ func (this *HssEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 			}
 			err = f(ctx, msg, up, down)
 			if err != nil {
-				logger.Error("[%v] HSS消息处理失败 %v %v", ctx.Value("Entity"), msg, err)
+				logger.Error("[%v] HSS消息处理失败 %v", ctx.Value("Entity"), err)
 			}
 		case <-ctx.Done():
 			// 释放资源
@@ -132,7 +132,7 @@ func (this *HssEntity) MultimediaAuthorizationRequestF(ctx context.Context, p *c
 
 	logger.Info("[%v] Receive From S-CSCF: \n%v", ctx.Value("Entity"), string(p.GetData()))
 	table := common.StrLineUnmarshal(p.GetData())
-	un := table["username"]
+	un := table["UserName"]
 	user, err := GetUserBySipUserName(ctx, this.dbclient, un)
 	if err != nil {
 		return err
@@ -169,6 +169,9 @@ func generateAV(K, Opc string) (AUTN, XRES, CK, IK []byte, err error) {
 	// 生成16字节随机数RAND
 	ran := generateRandN(16)
 	// 根据Milenage算法生成四元鉴权向量组
+
+	log.Println("k", K, "opc", Opc)
+
 	kbs, err := hex.DecodeString(K)
 	if err != nil {
 		return

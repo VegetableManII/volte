@@ -2,6 +2,7 @@ package common
 
 import (
 	"encoding/binary"
+	"net"
 	"strings"
 )
 
@@ -37,7 +38,9 @@ const (
 
 type Package struct {
 	*CommonMsg
-	Destation string // true上行、false下行
+	Destation  string       // 异步响应
+	RemoteAddr *net.UDPAddr // 客户端地址
+	Conn       *net.UDPConn // 客户端连接，同步响应
 }
 type CommonMsg struct {
 	_type   uint8 // 0x01 表示电路域协议

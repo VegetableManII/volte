@@ -19,10 +19,9 @@ import (
 type S_CscfEntity struct {
 	SipURI        string
 	SipVia        string
+	core          chan *common.Package
 	userAuthCache map[string]string
 	authMutex     sync.Mutex
-	userReqCache  map[string]*sip.Message
-	reqMutex      sync.Mutex
 	Points        map[string]string
 	*Mux
 }
@@ -35,10 +34,10 @@ func (s *S_CscfEntity) Init(host string) {
 	s.Points = make(map[string]string)
 	s.router = make(map[[2]byte]BaseSignallingT)
 	s.userAuthCache = make(map[string]string)
-	s.userReqCache = make(map[string]*sip.Message)
 }
 
 func (s *S_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *common.Package) {
+	s.core = in
 	for {
 		select {
 		case msg := <-in:
@@ -59,7 +58,7 @@ func (s *S_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
-	logger.Info("[%v] Receive From PGW: \n%v", ctx.Value("Entity"), string(m.GetData()))
+	logger.Info("[%v] Receive From ICSCF: \n%v", ctx.Value("Entity"), string(m.GetData()))
 	// 解析SIP消息
 	sipreq, err := sip.NewMessage(strings.NewReader(string(m.GetData())))
 	if err != nil {
@@ -67,8 +66,7 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, m *common.Package, up, d
 	}
 	switch sipreq.RequestLine.Method {
 	case "REGISTER":
-		return regist(ctx, s.SipVia, s.userAuthCache, &s.authMutex, s.userReqCache, &s.reqMutex, &sipreq,
-			s.Points["HSS"], s.Points["ICSCF"], up, down)
+		return s.regist(ctx, &sipreq, up, down)
 	case "INVITE":
 		return nil
 	}
@@ -84,63 +82,63 @@ func parseAuthentication(authHeader string) map[string]string {
 			res[val[0]] = val[1]
 		}
 	}
-	_ = res
-	return nil
+	return res
 }
 
 func (s *S_CscfEntity) MutimediaAuthorizationAnswerF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
 	logger.Info("[%v] Receive From HSS: \n%v", ctx.Value("Entity"), string(m.GetData()))
-	host := s.Points["ICSCF"]
-	// 获得用户鉴权信息
-	resp := common.StrLineUnmarshal(m.GetData())
-	user := resp["UserName"]
-	AUTN := resp["AUTN"]
-	XRES := resp["XRES"]
-	CK := resp["CK"]
-	IK := resp["IK"]
 	// TODO  使用CK和IK完成与UE的IPSec隧道的建立
-	_, _ = CK, IK
-	// 组装WWW-Authenticate
-	abs, _ := hex.DecodeString(AUTN)
-	wwwAuth := fmt.Sprintf(`Digest realm=hebeiyidomg.3gpp.net nonce=%s qop=auth-int algorithm=AKAv1-MD5`, base64.StdEncoding.EncodeToString(abs))
-	// 获取用户请求缓存
-	s.reqMutex.Lock()
-	sipreq, ok := s.userReqCache[user]
-	s.reqMutex.Unlock()
-	if !ok {
-		logger.Error("[%v] Lose User Request Cache %v", ctx.Value("Entity"), user)
-	}
-	// 保存用户鉴权
-	s.authMutex.Lock()
-	s.userAuthCache[user] = XRES
-	s.authMutex.Unlock()
-	// 响应终端鉴权失败
-	sipresp := sip.NewResponse(sip.StatusUnauthorized, sipreq)
-	sipresp.Header.WWWAuthenticate = wwwAuth
-	common.RawPackageOut(common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()), host, down)
 	return nil
 }
 
-func regist(ctx context.Context, via string, authCache map[string]string, auMux *sync.Mutex, reqCache map[string]*sip.Message, reqMux *sync.Mutex, req *sip.Message, hss, downlink string, up, down chan *common.Package) error {
+func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, up, down chan *common.Package) error {
+	user := req.Header.From.Username()
+	downlink := s.Points["ICSCF"]
+	uplink := s.Points["HSS"]
 	// 查看本地是否存在鉴权缓存
-	auth := req.Header.Authorization
-	values := parseAuthentication(auth)
-	auMux.Lock()
-	RES, ok := authCache[values["username"]]
-	auMux.Unlock()
+	s.authMutex.Lock()
+	RES, ok := s.userAuthCache[user]
+	s.authMutex.Unlock()
 	if !ok {
-		// 向HSS发起MAR，再收到MAA，异步实现
-		// 缓存本次请求
-		reqMux.Lock()
-		reqCache[auth] = req
+		// 向HSS发起MAR，再收到MAA，同步实现
 		// 向HSS查询信息
 		table := map[string]string{
-			"UserName": values["username"],
+			"UserName": user,
 		}
-		common.PackageOut(common.EPCPROTOCAL, common.MultiMediaAuthenticationRequest, table, hss, up) // 上行
-		return nil
+		m, err := common.PackageOutWithResponse(ctx, common.EPCPROTOCAL, common.MultiMediaAuthenticationRequest, table, uplink)
+		if err != nil {
+			logger.Error("[%v] HSS Response Error %v", ctx.Value("Entity"), err)
+			sipresp := sip.NewResponse(sip.StatusNoResponse, req)
+			common.RawPackageOut(common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()), s.Points["ICSCF"], down)
+		} else {
+			// 获得用户鉴权信息
+			resp := common.StrLineUnmarshal(m.GetData())
+			user := resp["UserName"]
+			AUTN := resp["AUTN"]
+			XRES := resp["XRES"]
+			// 保存用户鉴权
+			s.authMutex.Lock()
+			s.userAuthCache[user] = XRES
+			s.authMutex.Unlock()
+
+			// 组装WWW-Authenticate
+			abs, _ := hex.DecodeString(AUTN)
+			wwwAuth := fmt.Sprintf(`Digest realm=hebeiyidomg.3gpp.net nonce=%s qop=auth-int algorithm=AKAv1-MD5`, base64.StdEncoding.EncodeToString(abs))
+			// 向终端发起鉴权
+			sipresp := sip.NewResponse(sip.StatusUnauthorized, req)
+			sipresp.Header.WWWAuthenticate = wwwAuth
+			common.RawPackageOut(common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()), downlink, down)
+			// 透传MAA响应给自己的路由
+			p := &common.Package{
+				Destation:  downlink,
+				RemoteAddr: nil,
+				Conn:       nil,
+			}
+			p.CommonMsg = m
+			s.core <- p
+		}
 	} else {
 		values := parseAuthentication(req.Header.Authorization)
 		if RES != "" && RES == values["response"] {
@@ -150,6 +148,6 @@ func regist(ctx context.Context, via string, authCache map[string]string, auMux 
 			sresp := sip.NewResponse(sip.StatusUnauthorized, req)
 			common.RawPackageOut(common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), downlink, down)
 		}
-		return nil
 	}
+	return nil
 }

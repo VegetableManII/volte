@@ -71,12 +71,12 @@ func ReceiveClientMessage(ctx context.Context, host string, in chan *Package) {
 			logger.Warn("[%v] 与下级节点通信协程退出", ctx.Value("Entity"))
 			return
 		default:
-			n, _, err := conn.ReadFromUDP(data)
+			n, ra, err := conn.ReadFromUDP(data)
 			if err != nil {
 				logger.Error("[%v] Server读取数据错误 %v", ctx.Value("Entity"), err)
 			}
 			if n != 0 {
-				distribute(ctx, data[:n], in)
+				distribute(ctx, data[:n], ra, conn, in)
 			} else {
 				logger.Info("[%v] Read Len[%v]", ctx.Value("Entity"), n)
 				time.Sleep(500 * time.Millisecond)
@@ -104,10 +104,19 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 					logger.Error("[%v] 序列化失败 %v", ctx.Value("Entity"), err)
 					continue
 				}
-				err = sendUDPMessage(ctx, host, buffer.Bytes())
-				if err != nil {
-					logger.Error("[%v] 请求下级节点失败 %v", ctx.Value("Entity"), err)
+				// 同步响应结果
+				if pkg.RemoteAddr != nil && pkg.Conn != nil {
+					n, err := pkg.Conn.WriteToUDP(buffer.Bytes(), pkg.RemoteAddr)
+					if err != nil || n == 0 {
+						logger.Error("[%v] 同步响应下级节点失败 %v", ctx.Value("Entity"), err)
+					}
+				} else {
+					err = sendUDPMessage(ctx, host, buffer.Bytes())
+					if err != nil {
+						logger.Error("[%v] 请求下级节点失败 %v", ctx.Value("Entity"), err)
+					}
 				}
+
 			} else {
 				err = sendUDPMessage(ctx, host, pkg.GetData())
 				if err != nil {
@@ -151,7 +160,7 @@ func ProcessUpStreamData(ctx context.Context, up chan *Package) {
 	}
 }
 
-// 需要向其他功能实体发送数据是的通用方法
+// 需要向其他功能实体发送数据是的通用方法，异步接收
 func sendUDPMessage(ctx context.Context, host string, data []byte) (err error) {
 	defer Recover(ctx)
 	var n int
@@ -170,10 +179,34 @@ func sendUDPMessage(ctx context.Context, host string, data []byte) (err error) {
 	return nil
 }
 
+// 同步接收响应
+func sendUDPMessageWaitResp(ctx context.Context, host string, data []byte) (err error, response []byte) {
+	defer Recover(ctx)
+	var n int
+	ra, err := net.Dial("udp4", host)
+	if err != nil {
+		return err, nil
+	}
+	n, err = ra.Write(data)
+	if n == 0 {
+		return errors.New("ErrSendEmpty"), nil
+	}
+	ra.SetReadDeadline(time.Now().Add(3 * time.Second)) // 等待响应的过期时间为3秒
+	buf := make([]byte, 1024)
+	n, err = ra.Read(buf)
+	if err != nil {
+		return err, nil
+	}
+	if n == 0 {
+		return errors.New("ErrReceiveEmpty"), nil
+	}
+	return nil, buf[:n]
+}
+
 // 采用分发订阅模式分发epc网络信令和sip信令
-func distribute(ctx context.Context, data []byte, c chan *Package) {
+func distribute(ctx context.Context, data []byte, ra *net.UDPAddr, conn *net.UDPConn, c chan *Package) {
 	defer Recover(ctx)
 	cmsg := new(CommonMsg)
 	cmsg.Init(data)
-	c <- &Package{cmsg, "CLIENT"} // 默认 发送给下行节点
+	c <- &Package{cmsg, "CLIENT", ra, conn} // 默认 发送给下行节点
 }
