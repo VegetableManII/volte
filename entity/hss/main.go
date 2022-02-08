@@ -28,7 +28,7 @@ func main() {
 	coreIn := make(chan *Package, 4)      // 原生数据输入核心处理器
 	coreOutUp := make(chan *Package, 2)   // 核心处理器解析后的数据输出上行结果
 	coreOutDown := make(chan *Package, 2) // 核心处理器解析后的数据输出下行结果
-	quit := make(chan os.Signal, 6)
+	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	go ReceiveClientMessage(ctx, localhost, coreIn)

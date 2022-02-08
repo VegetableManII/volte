@@ -28,7 +28,7 @@ func main() {
 	coreIn := make(chan *Package, 4)
 	coreOutUp := make(chan *Package, 2)
 	coreOutDown := make(chan *Package, 2)
-	quit := make(chan os.Signal, 6)
+	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	go ReceiveClientMessage(ctx, localhost, coreIn)
