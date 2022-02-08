@@ -191,7 +191,7 @@ func sendUDPMessageWaitResp(ctx context.Context, host string, data []byte) (err 
 	if n == 0 {
 		return errors.New("ErrSendEmpty"), nil
 	}
-	ra.SetReadDeadline(time.Now().Add(3 * time.Second)) // 等待响应的过期时间为3秒
+	ra.SetReadDeadline(time.Now().Add(5 * time.Second)) // 等待响应的过期时间为3秒
 	buf := make([]byte, 1024)
 	n, err = ra.Read(buf)
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 
@@ -43,7 +44,7 @@ func (s *S_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 		case msg := <-in:
 			f, ok := s.router[msg.GetUniqueMethod()]
 			if !ok {
-				logger.Error("[%v] S-CSCF不支持的消息类型数据 %v", ctx.Value("Entity"), msg)
+				logger.Error("[%v] S-CSCF不支持的消息类型数据 %v", ctx.Value("Entity"), string(msg.GetData()))
 				continue
 			}
 			f(ctx, msg, up, down)
@@ -107,12 +108,13 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, up, down ch
 		table := map[string]string{
 			"UserName": user,
 		}
-		m, err := common.PackageOutWithResponse(ctx, common.EPCPROTOCAL, common.MultiMediaAuthenticationRequest, table, uplink)
+		m, err := common.MARSyncRequest(ctx, common.EPCPROTOCAL, common.MultiMediaAuthenticationRequest, table, uplink)
 		if err != nil {
 			logger.Error("[%v] HSS Response Error %v", ctx.Value("Entity"), err)
 			sipresp := sip.NewResponse(sip.StatusNoResponse, req)
 			common.RawPackageOut(common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()), s.Points["ICSCF"], down)
 		} else {
+			log.Println(m.GetData(), m.GetType())
 			// 获得用户鉴权信息
 			resp := common.StrLineUnmarshal(m.GetData())
 			user := resp["UserName"]

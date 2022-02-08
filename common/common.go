@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"math/rand"
+	"net"
 	"runtime"
 	"strings"
 	"time"
@@ -62,8 +63,15 @@ func PackageOut(protocal, method byte, data map[string]string, dest string, out 
 	out <- &Package{cmsg, dest, nil, nil}
 }
 
-// EPC 网络通用发送消息方法,同步接收响应
-func PackageOutWithResponse(ctx context.Context, protocal, method byte, data map[string]string, dest string) (*CommonMsg, error) {
+func MAASyncResponse(protocal, method byte, data map[string]string, ra *net.UDPAddr, conn *net.UDPConn, out chan *Package) {
+	cmsg := new(CommonMsg)
+	res := StrLineMarshal(data)
+	size := len([]byte(res))
+	cmsg.Construct(protocal, method, size, []byte(res))
+	out <- &Package{cmsg, "", ra, conn}
+}
+
+func MARSyncRequest(ctx context.Context, protocal, method byte, data map[string]string, dest string) (*CommonMsg, error) {
 	cmsg := new(CommonMsg)
 	res := StrLineMarshal(data)
 	size := len([]byte(res))

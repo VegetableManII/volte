@@ -148,8 +148,8 @@ func (this *HssEntity) MultimediaAuthorizationRequestF(ctx context.Context, p *c
 		"CK":       hex.EncodeToString(CK),
 		"IK":       hex.EncodeToString(IK),
 	}
-	host := this.Points["SCSCF"]
-	common.PackageOut(common.EPCPROTOCAL, common.UpdateLocationACK, response, host, down) // 下行
+
+	common.MAASyncResponse(common.EPCPROTOCAL, common.MultiMediaAuthenticationAnswer, response, p.RemoteAddr, p.Conn, down)
 	return nil
 }
 
@@ -165,7 +165,7 @@ func generateRandN(n int) []byte {
 
 func generateAV(K, Opc string) (AUTN, XRES, CK, IK []byte, err error) {
 	// 生成固定SQN
-	SQN := []byte{0x01}
+	SQN := []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}
 	// 生成16字节随机数RAND
 	ran := generateRandN(16)
 	// 根据Milenage算法生成四元鉴权向量组
