@@ -12,45 +12,6 @@ import (
 	"github.com/wonderivan/logger"
 )
 
-// 主要用于基站实现消息的代理转发, 将ue消息转发至网络侧
-func EnodebProxyMessage(ctx context.Context, src *net.UDPConn, mme, pgw string) {
-	var n int
-	var err error
-	for {
-		data := make([]byte, 1024)
-		select {
-		case <-ctx.Done():
-			logger.Warn("[%v] 基站转发协程退出...", ctx.Value("Entity"))
-			return
-		default:
-			n, _, err = src.ReadFromUDP(data)
-			if err != nil && n == 0 {
-				logger.Error("[%v] 基站接收消息失败 %v %v", ctx.Value("Entity"), n, err)
-			}
-			logger.Info("[%v] 基站接收消息%v(%v byte)", ctx.Value("Entity"), string(data[:n]), n)
-			if data[0] == EPCPROTOCAL {
-				err = sendUDPMessage(ctx, mme, data[:n])
-				if err != nil {
-					logger.Error("[%v] 基站转发消息失败[to mme] %v %v", ctx.Value("Entity"), n, err)
-				}
-				logger.Info("[%v] 基站转发消息[to mme] %v", ctx.Value("Entity"), string(data[4:]))
-			} else {
-				err = sendUDPMessage(ctx, pgw, data[:n])
-				if err != nil {
-					logger.Error("[%v] 基站转发消息失败[to pgw] %v %v", ctx.Value("Entity"), n, err)
-				}
-				logger.Info("[%v] 基站转发消息[to pgw] %v", ctx.Value("Entity"), string(data))
-			}
-		}
-	}
-}
-
-/*
-并发安全集合用来保存客户端连接
-新连接接入之后保存对方的IP到集合中
-当连接断开时没有从集合中删除???如何判断已经断开
-*/
-
 // 通用网络中的功能实体与接收客户端数据的通用方法
 func ReceiveClientMessage(ctx context.Context, host string, in chan *Package) {
 	lo, err := net.ResolveUDPAddr("udp4", host)
@@ -158,6 +119,10 @@ func ProcessUpStreamData(ctx context.Context, up chan *Package) {
 		}
 		buffer.Reset()
 	}
+}
+
+func UpLinkTransportEnb(ctx context.Context, host string, data []byte) error {
+	return sendUDPMessage(ctx, host, data)
 }
 
 // 需要向其他功能实体发送数据是的通用方法，异步接收

@@ -2,11 +2,8 @@ package controller
 
 import (
 	"context"
-	"crypto/md5"
 	"encoding/binary"
 	"encoding/hex"
-	"fmt"
-	"hash"
 	"log"
 	"math/rand"
 	"time"
@@ -26,16 +23,11 @@ type HssEntity struct {
 	Points   map[string]string
 }
 
-var defaultHash hash.Hash
-var defaultAuth string = "offical@hebeiyidong.3gpp.net"
-
 func (this *HssEntity) Init(dbhost string) {
 	// 初始化路由
 	this.Mux = new(Mux)
 	this.router = make(map[[2]byte]BaseSignallingT)
-	// 初始化支持的加密算法
 	this.Points = make(map[string]string)
-	defaultHash = md5.New()
 	// 初始化数据库连接
 	db, err := gorm.Open("mysql", dbhost)
 	if err != nil {
@@ -77,28 +69,23 @@ func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *co
 	data := m.GetData()
 	hashtable := common.StrLineUnmarshal(data)
 	imsi := hashtable["IMSI"]
-	// TODO ue携带自身支持的加密算法方式
 	// 查询数据库
 	user, err := GetUserByIMSI(ctx, this.dbclient, imsi)
 	if err != nil {
 		return err
 	}
-	// 针对该用户生成随机数nonce
-	rand.Seed(time.Now().UnixNano())
-	nonce := rand.Int31()
-	// 加密得到密文
-	seed := fmt.Sprintf("%s %s %d %s %s %s %d", user.IMSI,
-		user.Mnc, user.Mcc, user.Apn, user.SipUserName, user.SipDNS, nonce)
-	defaultHash.Write([]byte(seed))
-	xres := defaultHash.Sum(nil)
-	auth := defaultAuth
-	kasme := "md5"
+	AUTN, XRES, CK, IK, RAND, err := generateAV(user.RootK, user.Opc)
+	if err != nil {
+		return err
+	}
+	_, _ = CK, IK
 	var response = map[string]string{
-		"IMSI":         imsi,
-		HSS_RESP_AUTH:  auth,
-		HSS_RESP_RAND:  fmt.Sprintf("%d", nonce),
-		HSS_RESP_KASME: kasme,
-		HSS_RESP_XRES:  hex.EncodeToString(xres),
+		"IMSI":  imsi,
+		AV_AUTN: hex.EncodeToString(AUTN),
+		AV_XRES: hex.EncodeToString(XRES),
+		AV_RAND: hex.EncodeToString(RAND),
+		AV_CK:   hex.EncodeToString(CK),
+		AV_IK:   hex.EncodeToString(IK),
 	}
 	host := this.Points["MME"]
 	common.PackageOut(common.EPCPROTOCAL, common.AuthenticationInformatResponse, response, host, down) // 下行
@@ -118,9 +105,12 @@ func (this *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Pac
 	if err != nil {
 		return err
 	}
+	_ = user
 	var response = map[string]string{
 		"IMSI": imsi,
-		"APN":  user.Apn,
+		"APN":  "127.0.0.1:12347", // 根据用户的APN返回对应的PGW，hebeiyidong ==> 127.0.0.1:12347
+		"QCI":  "5",               // 默认EPC承载
+		"IP":   "123.123.123.123",
 	}
 	host := this.Points["MME"]
 	common.PackageOut(common.EPCPROTOCAL, common.UpdateLocationACK, response, host, down) // 下行
@@ -137,16 +127,17 @@ func (this *HssEntity) MultimediaAuthorizationRequestF(ctx context.Context, p *c
 	if err != nil {
 		return err
 	}
-	AUTN, XRES, CK, IK, err := generateAV(user.RootK, user.Opc)
+	AUTN, XRES, CK, IK, RAND, err := generateAV(user.RootK, user.Opc)
 	if err != nil {
 		return err
 	}
 	var response = map[string]string{
 		"UserName": un,
-		"AUTN":     hex.EncodeToString(AUTN),
-		"XRES":     hex.EncodeToString(XRES),
-		"CK":       hex.EncodeToString(CK),
-		"IK":       hex.EncodeToString(IK),
+		AV_AUTN:    hex.EncodeToString(AUTN),
+		AV_XRES:    hex.EncodeToString(XRES),
+		AV_RAND:    hex.EncodeToString(RAND),
+		AV_CK:      hex.EncodeToString(CK),
+		AV_IK:      hex.EncodeToString(IK),
 	}
 
 	common.MAASyncResponse(common.EPCPROTOCAL, common.MultiMediaAuthenticationAnswer, response, p.RemoteAddr, p.Conn, down)
@@ -163,14 +154,12 @@ func generateRandN(n int) []byte {
 	return r
 }
 
-func generateAV(K, Opc string) (AUTN, XRES, CK, IK []byte, err error) {
+func generateAV(K, Opc string) (AUTN, XRES, CK, IK, RAND []byte, err error) {
 	// 生成固定SQN
 	SQN := []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}
 	// 生成16字节随机数RAND
-	ran := generateRandN(16)
+	RAND = generateRandN(16)
 	// 根据Milenage算法生成四元鉴权向量组
-
-	log.Println("k", K, "opc", Opc)
 
 	kbs, err := hex.DecodeString(K)
 	if err != nil {
@@ -183,7 +172,7 @@ func generateAV(K, Opc string) (AUTN, XRES, CK, IK []byte, err error) {
 	milenage := milenage.NewWithOPc(
 		kbs,
 		opcbs,
-		ran,
+		RAND,
 		binary.BigEndian.Uint64(SQN),
 		0x0000,
 	)

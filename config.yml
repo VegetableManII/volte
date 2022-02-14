@@ -1,10 +1,13 @@
 # 基站
-eNodeB:
+eNodeB_1:
   host.port: 10000
 # 基站广播网段
   broadcast.port: 65533
 # 广播扫描参数
   scan.time: 10
+  TAI: 1
+# 修改TAI值模拟不同的基站
+# 统一局域网内的不同设备上部署不同基站
 
 # epc 网络功能实体
 EPC: 

@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
+	"hash/fnv"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"strconv"
+	"sync"
 	"syscall"
 	"time"
 
@@ -22,7 +25,10 @@ var (
 	loConn                   *net.UDPConn
 	ueBroadcastAddr          *net.UDPAddr
 	scanTime                 int
+	TAI                      int
 	lohost, mmehost, pgwhost string
+	ues                      map[uint32]struct{}
+	mu                       sync.Mutex
 )
 
 func main() {
@@ -30,10 +36,13 @@ func main() {
 	ctx = context.WithValue(ctx, "Entity", "eNodeB")
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	sysinfo := fmt.Sprintf("TAI=%d", TAI)
 	// 开启广播工作消息
-	go broadWorkingMessage(ctx, loConn, ueBroadcastAddr, scanTime, []byte("Broadcast to Ue"))
+	go downLinkMessage(ctx, loConn, ueBroadcastAddr, scanTime, []byte(sysinfo))
+	// 接收用户随机接入消息
+
 	// 开启ue和mme/pgw的转发协程
-	go EnodebProxyMessage(ctx, loConn, mmehost, pgwhost) // 转发用户上行数据
+	go enodebProxyMessage(ctx, loConn, mmehost, pgwhost) // 转发用户上行数据
 	// 开启ue的信令广播协程
 	go broadMessageFromNet(ctx, lohost, loConn, ueBroadcastAddr)
 	<-quit
@@ -48,18 +57,15 @@ func init() {
 	hostPort := viper.GetInt("eNodeB.host.port")
 	enodebBroadcastPort := viper.GetInt("eNodeB.broadcast.port")
 	scanTime = viper.GetInt("eNodeB.scan.time")
-	logger.Info("配置文件读取成功", "")
-
+	TAI = viper.GetInt("eNodeB.TAI")
 	// 启动与ue连接的服务器
 	loConn, ueBroadcastAddr = initUeServer(hostPort, enodebBroadcastPort)
 	lohost = viper.GetString("EPC.eNodeB.host")
-	// 作为客户端与epc网络连接
 	// 创建于MME的UDP连接
 	mmehost = viper.GetString("EPC.mme.host")
-	// mmeConn, _ = ConnectServer(mme)
 	// 创建于PGW的UDP连接
 	pgwhost = viper.GetString("EPC.pgw.host")
-	// pgwConn, _ = ConnectServer(pgw)
+	logger.Info("配置文件读取成功", "")
 }
 
 // 与ue连接的UDP服务端
@@ -92,9 +98,68 @@ func initUeServer(port int, bport int) (*net.UDPConn, *net.UDPAddr) {
 	return conn, ra
 }
 
+// 主要用于基站实现消息的代理转发, 将ue消息转发至网络侧
+func enodebProxyMessage(ctx context.Context, src *net.UDPConn, mme, pgw string) {
+	var n int
+	var err error
+	var raddr *net.UDPAddr
+
+	var RandomAccess uint32 = 0xFFFFFFFF
+	f := func(data []byte) (num uint32) {
+		var i uint8 = 0
+		for offset, v := range data {
+			i = uint8(v)
+			num += uint32(i << uint8(offset))
+		}
+		return
+	}
+	for {
+		data := make([]byte, 1024)
+		select {
+		case <-ctx.Done():
+			logger.Warn("[%v] 基站转发协程退出...", ctx.Value("Entity"))
+			return
+		default:
+			n, raddr, err = src.ReadFromUDP(data)
+			if err != nil && n == 0 {
+				logger.Error("[%v] 基站接收消息失败 %v %v", ctx.Value("Entity"), n, err)
+			}
+			logger.Info("[%v] 基站接收消息%v %v(%v byte)", ctx.Value("Entity"), data[0:4], string(data[4:n]), n)
+			// 如果用户随机接入则响应给用户分配的唯一ID
+			rand := f(data[0:4])
+
+			if rand == RandomAccess {
+				sum := fnv.New32().Sum([]byte(raddr.String()))
+				ueid := f(sum)
+				mu.Lock()
+				ues[uint32(ueid)] = struct{}{}
+				mu.Unlock()
+				downLinkMessage(ctx, src, raddr, -1, sum)
+				continue
+			}
+
+			if data[4] == EPCPROTOCAL {
+				err = UpLinkTransportEnb(ctx, mme, data[:n])
+				if err != nil {
+					logger.Error("[%v] 基站转发消息失败[to mme] %v %v", ctx.Value("Entity"), n, err)
+				}
+				logger.Info("[%v] 基站转发消息[to mme] %v", ctx.Value("Entity"), string(data[4:]))
+			} else {
+				err = UpLinkTransportEnb(ctx, pgw, data[:n])
+				if err != nil {
+					logger.Error("[%v] 基站转发消息失败[to pgw] %v %v", ctx.Value("Entity"), n, err)
+				}
+				logger.Info("[%v] 基站转发消息[to pgw] %v", ctx.Value("Entity"), string(data))
+			}
+		}
+	}
+}
+
 // 广播基站工作消息
 // scan = 0, 广播网络侧消息
-func broadWorkingMessage(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, scan int, msg []byte) {
+// scan = >0, 间断广播工作消息让UE捕获
+// scan = -1, 此时remote为具体的ue，为端到端发送
+func downLinkMessage(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, scan int, msg []byte) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -105,8 +170,7 @@ func broadWorkingMessage(ctx context.Context, conn *net.UDPConn, remote *net.UDP
 			if err != nil {
 				logger.Error("[%v] 广播开始工作消息失败... %v", ctx.Value("Entity"), err)
 			}
-			if scan == 0 {
-				logger.Info("[%v] 广播网络侧消息... [%v]", ctx.Value("Entity"), n)
+			if scan <= 0 {
 				return
 			}
 			time.Sleep(time.Duration(scan) * time.Second)
@@ -139,7 +203,7 @@ func broadMessageFromNet(ctx context.Context, host string, bconn *net.UDPConn, b
 			}
 			if n != 0 && remote != nil {
 				// 将收到的消息广播出去
-				broadWorkingMessage(ctx, bconn, baddr, 0, data[:n])
+				downLinkMessage(ctx, bconn, baddr, 0, data[:n])
 			} else {
 				logger.Info("[%v] Remote[%v] Len[%v]", ctx.Value("Entity"), remote, n)
 				time.Sleep(2 * time.Second)

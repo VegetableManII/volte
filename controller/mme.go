@@ -19,7 +19,6 @@ type MmeEntity struct {
 	*Mux
 	ue     *UeAuthXRES
 	Points map[string]string
-	sync.Mutex
 }
 
 func (this *MmeEntity) Init() {
@@ -64,16 +63,15 @@ func (this *MmeEntity) AttachRequestF(ctx context.Context, m *common.Package, up
 
 	logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(m.GetData()))
 	data := m.GetData()
-	hashtable := common.StrLineUnmarshal(data)
-	imsi := hashtable["IMSI"]
+	args := common.StrLineUnmarshal(data)
+	imsi := args["IMSI"]
 	// TODO ue携带自身支持的加密算法方式
 	// 组装请求内容
 	req := map[string]string{
 		"IMSI": imsi,
 	}
-	this.Lock()
+
 	host := this.Points["HSS"]
-	this.Unlock()
 	common.PackageOut(common.EPCPROTOCAL, common.AuthenticationInformatRequest, req, host, up) // 上行
 	return nil
 }
@@ -85,19 +83,18 @@ func (this *MmeEntity) AuthenticationInformatResponseF(ctx context.Context, m *c
 	logger.Info("[%v] Receive From HSS: \n%v", ctx.Value("Entity"), string(m.GetData()))
 	// 获取data部分的响应信息
 	data := m.GetData()
-	hashtable := common.StrLineUnmarshal(data)
-	imsi := hashtable["IMSI"]
-	xres := hashtable[HSS_RESP_XRES]
+	args := common.StrLineUnmarshal(data)
+	imsi := args["IMSI"]
+	xres := args[AV_XRES]
 	this.ue.mu.Lock()
 	this.ue.xres[imsi] = xres
 	this.ue.mu.Unlock()
 	// 下行发送给ue三项，HSS服务器的Auth信息、随机数nonce和加密方法Kasme
 	// 组装下行数据内容
-	delete(hashtable, HSS_RESP_XRES)
-	this.Lock()
+	delete(args, AV_XRES)
+
 	host := this.Points["eNodeB"]
-	this.Unlock()                                                                                      // 删除XRES项s
-	common.PackageOut(common.EPCPROTOCAL, common.AuthenticationInformatRequest, hashtable, host, down) // 下行
+	common.PackageOut(common.EPCPROTOCAL, common.AuthenticationInformatRequest, args, host, down) // 下行
 	return nil
 }
 
@@ -107,20 +104,21 @@ func (this *MmeEntity) AuthenticationResponseF(ctx context.Context, m *common.Pa
 
 	logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(m.GetData()))
 	data := m.GetData()
-	hashtbale := common.StrLineUnmarshal(data)
-	imsi := hashtbale["IMSI"]
-	res := hashtbale["RES"]
+	args := common.StrLineUnmarshal(data)
+	imsi := args["IMSI"]
+	res := args["RES"]
 	// 对比RES和XRES
 	this.ue.mu.Lock()
 	xres := this.ue.xres[imsi]
 	this.ue.mu.Unlock()
 	if res != xres {
+		// 鉴权失败，重新发起鉴权请求
+		host := this.Points["eNodeB"]
+		common.PackageOut(common.EPCPROTOCAL, common.AuthenticationInformatRequest, nil, host, down)
 		return errors.New("ErrAuthenFailed")
 	}
 	// 向上行HSS发送位置更新请求
-	this.Lock()
 	host := this.Points["HSS"]
-	this.Unlock()
 	common.PackageOut(common.EPCPROTOCAL, common.UpdateLocationRequest, nil, host, up) // 上行
 	return nil
 }
@@ -130,14 +128,21 @@ func (this *MmeEntity) UpdateLocationACKF(ctx context.Context, m *common.Package
 	defer common.Recover(ctx)
 
 	logger.Info("[%v] Receive From HSS: \n%v", ctx.Value("Entity"), string(m.GetData()))
+	data := m.GetData()
+	args := common.StrLineUnmarshal(data)
 	/*
 		1.获得APN
 		2.请求PGW建立承载
 	*/
-	// 直接响应UE终端附着允许的响应
-	this.Lock()
+	pgwaddr := args["APN"]
+	ueip := args["IP"]
+	// 请求PGW建立IMS信令承载
+	common.PackageOut(common.EPCPROTOCAL, common.CreateSessionRequest, args, pgwaddr, up)
+	// 响应UE终端附着允许的响应
 	host := this.Points["eNodeB"]
-	this.Unlock()
-	common.PackageOut(common.EPCPROTOCAL, common.AttachAccept, nil, host, up) // 下行
+	t2 := map[string]string{
+		"IP": ueip,
+	}
+	common.PackageOut(common.EPCPROTOCAL, common.AttachAccept, t2, host, up)
 	return nil
 }

@@ -6,11 +6,13 @@ import (
 	"github.com/VegetableManII/volte/common"
 )
 
+// 鉴权向量
 const (
-	HSS_RESP_AUTH  string = "AUTH"
-	HSS_RESP_XRES  string = "XRES"
-	HSS_RESP_RAND  string = "RAND"
-	HSS_RESP_KASME string = "Kasme"
+	AV_AUTN = "AUTN"
+	AV_RAND = "RAND"
+	AV_XRES = "XRES"
+	AV_IK   = "IK"
+	AV_CK   = "CK"
 )
 
 // 定义基础路由转发方法
