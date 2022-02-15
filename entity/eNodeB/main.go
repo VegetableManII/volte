@@ -5,30 +5,27 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"hash/fnv"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"strconv"
-	"sync"
 	"syscall"
 	"time"
 
-	. "github.com/VegetableManII/volte/common"
+	"github.com/VegetableManII/volte/common"
+	"github.com/VegetableManII/volte/controller"
 
 	"github.com/spf13/viper"
 	"github.com/wonderivan/logger"
 )
 
 var (
+	entity                   *controller.EnodebEntity
 	loConn                   *net.UDPConn
 	ueBroadcastAddr          *net.UDPAddr
 	scanTime                 int
-	TAI                      int
 	lohost, mmehost, pgwhost string
-	ues                      map[uint32]struct{}
-	mu                       sync.Mutex
 )
 
 func main() {
@@ -36,7 +33,7 @@ func main() {
 	ctx = context.WithValue(ctx, "Entity", "eNodeB")
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	sysinfo := fmt.Sprintf("TAI=%d", TAI)
+	sysinfo := fmt.Sprintf("TAI=%d", entity.TAI)
 	// 开启广播工作消息
 	go downLinkMessage(ctx, loConn, ueBroadcastAddr, scanTime, []byte(sysinfo))
 	// 接收用户随机接入消息
@@ -54,10 +51,12 @@ func main() {
 
 // 读取配置文件
 func init() {
+	entity = new(controller.EnodebEntity)
+
 	hostPort := viper.GetInt("eNodeB.host.port")
 	enodebBroadcastPort := viper.GetInt("eNodeB.broadcast.port")
 	scanTime = viper.GetInt("eNodeB.scan.time")
-	TAI = viper.GetInt("eNodeB.TAI")
+	entity.TAI = viper.GetInt("eNodeB.TAI")
 	// 启动与ue连接的服务器
 	loConn, ueBroadcastAddr = initUeServer(hostPort, enodebBroadcastPort)
 	lohost = viper.GetString("EPC.eNodeB.host")
@@ -104,15 +103,6 @@ func enodebProxyMessage(ctx context.Context, src *net.UDPConn, mme, pgw string) 
 	var err error
 	var raddr *net.UDPAddr
 
-	var RandomAccess uint32 = 0xFFFFFFFF
-	f := func(data []byte) (num uint32) {
-		var i uint8 = 0
-		for offset, v := range data {
-			i = uint8(v)
-			num += uint32(i << uint8(offset))
-		}
-		return
-	}
 	for {
 		data := make([]byte, 1024)
 		select {
@@ -126,30 +116,27 @@ func enodebProxyMessage(ctx context.Context, src *net.UDPConn, mme, pgw string) 
 			}
 			logger.Info("[%v] 基站接收消息%v %v(%v byte)", ctx.Value("Entity"), data[0:4], string(data[4:n]), n)
 			// 如果用户随机接入则响应给用户分配的唯一ID
-			rand := f(data[0:4])
-
-			if rand == RandomAccess {
-				sum := fnv.New32().Sum([]byte(raddr.String()))
-				ueid := f(sum)
-				mu.Lock()
-				ues[uint32(ueid)] = struct{}{}
-				mu.Unlock()
-				downLinkMessage(ctx, src, raddr, -1, sum)
+			if ok, id := entity.UeRandAccess(data, raddr); ok {
+				downLinkMessage(ctx, src, raddr, -1, id)
 				continue
 			}
-
-			if data[4] == EPCPROTOCAL {
-				err = UpLinkTransportEnb(ctx, mme, data[:n])
+			message, dest, err := entity.Transport(data, n, mme, pgw)
+			if err != nil {
+				logger.Info("[%v] 基站转发消息[to %v] %v", ctx.Value("Entity"), dest, string(data[8:]))
+				return
+			}
+			if dest == mme {
+				err = common.UpLinkTransportEnb(ctx, mme, message)
 				if err != nil {
 					logger.Error("[%v] 基站转发消息失败[to mme] %v %v", ctx.Value("Entity"), n, err)
 				}
-				logger.Info("[%v] 基站转发消息[to mme] %v", ctx.Value("Entity"), string(data[4:]))
-			} else {
-				err = UpLinkTransportEnb(ctx, pgw, data[:n])
+				logger.Info("[%v] 基站转发消息[to mme] %v", ctx.Value("Entity"), string(data[8:]))
+			} else if dest == pgw {
+				err = common.UpLinkTransportEnb(ctx, pgw, data[4:n])
 				if err != nil {
 					logger.Error("[%v] 基站转发消息失败[to pgw] %v %v", ctx.Value("Entity"), n, err)
 				}
-				logger.Info("[%v] 基站转发消息[to pgw] %v", ctx.Value("Entity"), string(data))
+				logger.Info("[%v] 基站转发消息[to pgw] %v", ctx.Value("Entity"), string(data[8:]))
 			}
 		}
 	}

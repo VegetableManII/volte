@@ -48,12 +48,12 @@ func (p *P_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 	}
 }
 
-func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
+func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
-	logger.Info("[%v] Receive From PGW: \n%v", ctx.Value("Entity"), string(m.GetData()))
+	logger.Info("[%v] Receive From PGW: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 	// 解析SIP消息
-	sipreq, err := sip.NewMessage(strings.NewReader(string(m.GetData())))
+	sipreq, err := sip.NewMessage(strings.NewReader(string(pkg.GetData())))
 	if err != nil {
 		return err
 	}
@@ -76,25 +76,25 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, m *common.Package, up, d
 			// common.RawPackageOut(common.SIPPROTOCAL, common.SipRequest, []byte(sipreq.String()), p.Points["ICSCF"], up)
 		}
 		// 先统一转发给ICSCF，待后期完善与HSS的交互之后实现第二次注册直接转发给SCSCF
-		common.RawPackageOut(common.SIPPROTOCAL, common.SipRequest, []byte(sipreq.String()), p.Points["ICSCF"], up)
+		common.PackUpImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipRequest, []byte(sipreq.String()), p.Points["ICSCF"], up)
 	case "INVITE":
 		return nil
 	}
 	return nil
 }
 
-func (p *P_CscfEntity) SIPRESPONSEF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
+func (p *P_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
-	logger.Info("[%v] Receive From I-CSCF: \n%v", ctx.Value("Entity"), string(m.GetData()))
+	logger.Info("[%v] Receive From I-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 	// 解析SIP消息
-	sipreq, err := sip.NewMessage(strings.NewReader(string(m.GetData())))
+	sipreq, err := sip.NewMessage(strings.NewReader(string(pkg.GetData())))
 	if err != nil {
 		return err
 	}
 	// 删除Via头部信息
 	sipreq.Header.Via.RemoveFirst()
 	sipreq.Header.MaxForwards.Reduce()
-	common.RawPackageOut(common.SIPPROTOCAL, common.SipResponse, []byte(sipreq.String()), p.Points["PGW"], down)
+	common.PackUpImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipResponse, []byte(sipreq.String()), p.Points["PGW"], down)
 	return nil
 }

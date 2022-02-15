@@ -1,12 +1,11 @@
 package common
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"math/rand"
-	"net"
 	"runtime"
 	"strings"
 	"time"
@@ -54,53 +53,10 @@ func StrLineMarshal(m map[string]string) string {
 	return strings.Join(lines, "\r\n")
 }
 
-// EPC 网络通用发送消息方法
-func PackageOut(protocal, method byte, data map[string]string, dest string, out chan *Package) {
-	cmsg := new(CommonMsg)
-	res := StrLineMarshal(data)
-	size := len([]byte(res))
-	cmsg.Construct(protocal, method, size, []byte(res))
-	out <- &Package{cmsg, dest, nil, nil}
-}
-
-func MAASyncResponse(protocal, method byte, data map[string]string, ra *net.UDPAddr, conn *net.UDPConn, out chan *Package) {
-	cmsg := new(CommonMsg)
-	res := StrLineMarshal(data)
-	size := len([]byte(res))
-	cmsg.Construct(protocal, method, size, []byte(res))
-	out <- &Package{cmsg, "", ra, conn}
-}
-
-func MARSyncRequest(ctx context.Context, protocal, method byte, data map[string]string, dest string) (*CommonMsg, error) {
-	cmsg := new(CommonMsg)
-	res := StrLineMarshal(data)
-	size := len([]byte(res))
-	cmsg.Construct(protocal, method, size, []byte(res))
-	buf := new(bytes.Buffer)
-	buf.Grow(1024)
-	binary.Write(buf, binary.BigEndian, cmsg)
-	err, resp := sendUDPMessageWaitResp(ctx, dest, buf.Bytes())
-	if err != nil {
-		return nil, err
-	}
-	m := new(CommonMsg)
-	m.Init(resp)
-	return m, nil
-}
-
-// IMS 网络通用发送消息方法
-func RawPackageOut(protocal, method byte, data []byte, dest string, out chan *Package) {
-	cmsg := new(CommonMsg)
-	size := len(data)
-	cmsg.Construct(protocal, method, size, data)
-	out <- &Package{cmsg, dest, nil, nil}
-
-}
-
 func GetIMSI(data []byte) (string, error) {
 	m := StrLineUnmarshal(data)
 	imsi, ok := m["imsi"]
-	if !ok {
+	if !ok || imsi == "" {
 		return "", errors.New("ErrEmptyIMSI")
 	}
 	return imsi, nil
@@ -109,4 +65,11 @@ func GetIMSI(data []byte) (string, error) {
 func GenerateSipBranch() int64 {
 	rand.Seed(time.Now().UnixNano())
 	return rand.Int63()
+}
+
+func GenerateRequestID() string {
+	t := time.Now().Unix()
+	src := make([]byte, 8)
+	binary.BigEndian.PutUint64(src, uint64(t))
+	return hex.EncodeToString(src)
 }

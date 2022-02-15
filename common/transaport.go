@@ -59,7 +59,7 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 		case pkg := <-down:
 			host := pkg.Destation
 			var err error
-			if pkg._type == EPCPROTOCAL {
+			if pkg._protocal == EPCPROTOCAL {
 				err = binary.Write(&buffer, binary.BigEndian, pkg.CommonMsg)
 				if err != nil {
 					logger.Error("[%v] 序列化失败 %v", ctx.Value("Entity"), err)
@@ -99,7 +99,7 @@ func ProcessUpStreamData(ctx context.Context, up chan *Package) {
 		case pkt := <-up:
 			host := pkt.Destation
 			var err error
-			if pkt._type == EPCPROTOCAL {
+			if pkt._protocal == EPCPROTOCAL {
 				err = binary.Write(&buffer, binary.BigEndian, pkt.CommonMsg)
 				if err != nil {
 					logger.Error("[%v] 序列化失败 %v", ctx.Value("Entity"), err)

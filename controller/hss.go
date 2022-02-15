@@ -62,11 +62,11 @@ func (this *HssEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 }
 
 // HSS 接收Authentication Informat Request请求，然后查询数据库获得用户信息，生成nonce，选择加密算法，
-func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
+func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
-	logger.Info("[%v] Receive From MME: \n%v", ctx.Value("Entity"), string(m.GetData()))
-	data := m.GetData()
+	logger.Info("[%v] Receive From MME: \n%v", ctx.Value("Entity"), string(p.GetData()))
+	data := p.GetData()
 	hashtable := common.StrLineUnmarshal(data)
 	imsi := hashtable["IMSI"]
 	// 查询数据库
@@ -88,7 +88,7 @@ func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, m *co
 		AV_IK:   hex.EncodeToString(IK),
 	}
 	host := this.Points["MME"]
-	common.PackageOut(common.EPCPROTOCAL, common.AuthenticationInformatResponse, response, host, down) // 下行
+	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.AuthenticationInformatResponse, response, host, down) // 下行
 	return nil
 }
 
@@ -113,7 +113,7 @@ func (this *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Pac
 		"IP":   "123.123.123.123",
 	}
 	host := this.Points["MME"]
-	common.PackageOut(common.EPCPROTOCAL, common.UpdateLocationACK, response, host, down) // 下行
+	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.UpdateLocationACK, response, host, down) // 下行
 	return nil
 }
 
@@ -140,7 +140,7 @@ func (this *HssEntity) MultimediaAuthorizationRequestF(ctx context.Context, p *c
 		AV_IK:      hex.EncodeToString(IK),
 	}
 
-	common.MAASyncResponse(common.EPCPROTOCAL, common.MultiMediaAuthenticationAnswer, response, p.RemoteAddr, p.Conn, down)
+	common.MAASyncResponse(p.CommonMsg, common.EPCPROTOCAL, common.MultiMediaAuthenticationAnswer, response, p.RemoteAddr, p.Conn, down)
 	return nil
 }
 

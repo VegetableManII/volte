@@ -1,6 +1,8 @@
 package common
 
 import (
+	"bytes"
+	"context"
 	"encoding/binary"
 	"net"
 	"strings"
@@ -43,24 +45,26 @@ type Package struct {
 	Conn       *net.UDPConn // 客户端连接，同步响应
 }
 type CommonMsg struct {
-	_type   uint8 // 0x01 表示电路域协议
-	_method uint8
-	_size   uint16     // data字段的长度
-	_data   [1020]byte // 最大65535字节大小
+	_protocal uint8 // 0x01 表示电路域协议
+	_method   uint8
+	_size     uint16     // data字段的长度
+	_reqid    uint32     // 全局唯一请求ID，供基站区分不同用户请求使用
+	_data     [1020]byte // 最大65535字节大小
 }
 
 func (p *Package) GetUniqueMethod() [2]byte {
-	uniq := [2]byte{p._type, p._method}
+	uniq := [2]byte{p._protocal, p._method}
 	return uniq
 }
 
-func (e *CommonMsg) Init(data []byte) {
+func (m *CommonMsg) Init(data []byte) {
 	if data[0] == EPCPROTOCAL {
 		l := binary.BigEndian.Uint16(data[2:4])
-		e._type = data[0]
-		e._method = data[1]
-		e._size = l
-		copy(e._data[:], data[4:l+4])
+		m._protocal = data[0]
+		m._method = data[1]
+		m._size = l
+		m._reqid = binary.BigEndian.Uint32(data[4:8])
+		copy(m._data[:], data[8:l+8])
 	} else {
 		// SIP Header 格式如下
 		/*
@@ -68,40 +72,82 @@ func (e *CommonMsg) Init(data []byte) {
 			响应：SIP/2.0 401 Unauthorized
 			找到第一个0x0d 0x0a的位置，	左边部分即为SIP Header部分
 		*/
-		startline := strings.Split(string(data), "\r\n")
+		startline := strings.Split(string(data[4:]), "\r\n")
 		if len(startline) >= 1 {
 			ss := strings.Split(startline[0], " ")
 			if len(ss) == 3 {
 				if len(ss[2]) == 3 { // 请求
 					if strings.ToUpper(ss[2][:3]) == "SIP" {
-						e._method = SipRequest
+						m._method = SipRequest
 					}
 				} else if len(ss) == 3 { // 响应
 					if strings.ToUpper(ss[0][:3]) == "SIP" {
-						e._method = SipResponse
+						m._method = SipResponse
 					}
 				}
-				e._type = SIPPROTOCAL
-				e._size = uint16(len(data))
-				copy(e._data[:], data)
+				m._protocal = SIPPROTOCAL
+				m._size = uint16(len(data[4:]))
+				m._reqid = binary.BigEndian.Uint32(data[0:4])
+				copy(m._data[:], data[4:])
 			}
 		}
-
 	}
 
 }
 
-func (e *CommonMsg) Construct(t, m byte, s int, d []byte) {
-	e._type = t
-	e._method = m
-	e._size = uint16(s)
-	copy(e._data[:], d[0:e._size])
+func (msg *CommonMsg) Construct(_type, _method byte, size int, d []byte) {
+	msg._data = [1020]byte{0}
+	msg._protocal = _type
+	msg._method = _method
+	msg._size = uint16(size)
+	copy(msg._data[:], d[0:msg._size])
 }
 
-func (e *CommonMsg) GetData() []byte {
-	return e._data[:e._size]
+func (msg *CommonMsg) GetData() []byte {
+	return msg._data[:msg._size]
 }
 
-func (e *CommonMsg) GetType() byte {
-	return e._type
+func (msg *CommonMsg) GetType() byte {
+	return msg._protocal
+}
+func (msg *CommonMsg) GetReqID() uint32 {
+	return msg._reqid
+}
+
+// 打包 EPC 网络通用发送消息方法
+func PackUpEpcMsg(msg *CommonMsg, _p, _m byte, data map[string]string, dest string, out chan *Package) {
+	res := StrLineMarshal(data)
+	size := len([]byte(res))
+	msg.Construct(_p, _m, size, []byte(res))
+	out <- &Package{msg, dest, nil, nil}
+}
+
+func MAASyncResponse(msg *CommonMsg, _p, _m byte, data map[string]string, ra *net.UDPAddr, conn *net.UDPConn, out chan *Package) {
+	res := StrLineMarshal(data)
+	size := len([]byte(res))
+	msg.Construct(_p, _m, size, []byte(res))
+	out <- &Package{msg, "", ra, conn}
+}
+
+func MARSyncRequest(ctx context.Context, msg *CommonMsg, _p, _m byte, data map[string]string, dest string) (*CommonMsg, error) {
+	res := StrLineMarshal(data)
+	size := len([]byte(res))
+	msg.Construct(_p, _m, size, []byte(res))
+	buf := new(bytes.Buffer)
+	buf.Grow(1024)
+	binary.Write(buf, binary.BigEndian, msg)
+	err, resp := sendUDPMessageWaitResp(ctx, dest, buf.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	m := new(CommonMsg)
+	m.Init(resp)
+	return m, nil
+}
+
+// IMS 网络通用发送消息方法
+func PackUpImsMsg(msg *CommonMsg, _p, _m byte, data []byte, dest string, out chan *Package) {
+	size := len(data)
+	msg.Construct(_p, _m, size, data)
+	out <- &Package{msg, dest, nil, nil}
 }

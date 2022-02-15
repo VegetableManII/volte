@@ -67,10 +67,10 @@ func (this *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 	}
 }
 
-func (p *PgwEntity) CreateSessionRequestF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
+func (p *PgwEntity) CreateSessionRequestF(ctx context.Context, pkg *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
-	logger.Info("[%v] Receive From MME: \n%v", ctx.Value("Entity"), string(m.GetData()))
-	data := m.GetData()
+	logger.Info("[%v] Receive From MME: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+	data := pkg.GetData()
 	args := common.StrLineUnmarshal(data)
 	ueip := args["IP"]
 	/* apn := args["APN"]
@@ -85,24 +85,24 @@ func (p *PgwEntity) CreateSessionRequestF(ctx context.Context, m *common.Package
 	return nil
 }
 
-func (p *PgwEntity) SIPREQUESTF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
+func (p *PgwEntity) SIPREQUESTF(ctx context.Context, pkg *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
-	logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(m.GetData()))
+	logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 	host := p.Points["CSCF"]
-	common.RawPackageOut(common.SIPPROTOCAL, common.SipRequest, m.GetData(), host, up) // 上行
+	common.PackUpImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipRequest, pkg.GetData(), host, up) // 上行
 	return nil
 }
 
-func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
+func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
-	logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(m.GetData()))
+	logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 	// 解析SIP消息
-	sipreq, err := sip.NewMessage(strings.NewReader(string(m.GetData())))
+	sipreq, err := sip.NewMessage(strings.NewReader(string(pkg.GetData())))
 	if err != nil {
 		return err
 	}
-	common.RawPackageOut(common.SIPPROTOCAL, common.SipResponse, []byte(sipreq.String()), p.Points["eNodeB"], down)
+	common.PackUpImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipResponse, []byte(sipreq.String()), p.Points["eNodeB"], down)
 	return nil
 }

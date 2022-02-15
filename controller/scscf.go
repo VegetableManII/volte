@@ -55,18 +55,18 @@ func (s *S_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 	}
 }
 
-func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
+func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
-	logger.Info("[%v] Receive From ICSCF: \n%v", ctx.Value("Entity"), string(m.GetData()))
+	logger.Info("[%v] Receive From ICSCF: \n%v", ctx.Value("Entity"), string(p.GetData()))
 	// 解析SIP消息
-	sipreq, err := sip.NewMessage(strings.NewReader(string(m.GetData())))
+	sipreq, err := sip.NewMessage(strings.NewReader(string(p.GetData())))
 	if err != nil {
 		return err
 	}
 	switch sipreq.RequestLine.Method {
 	case "REGISTER":
-		return s.regist(ctx, &sipreq, up, down)
+		return s.regist(ctx, &sipreq, p.CommonMsg, up, down)
 	case "INVITE":
 		return nil
 	}
@@ -93,7 +93,7 @@ func (s *S_CscfEntity) MutimediaAuthorizationAnswerF(ctx context.Context, m *com
 	return nil
 }
 
-func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, up, down chan *common.Package) error {
+func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, m *common.CommonMsg, up, down chan *common.Package) error {
 	user := req.Header.From.Username()
 	downlink := s.Points["ICSCF"]
 	uplink := s.Points["HSS"]
@@ -107,11 +107,11 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, up, down ch
 		table := map[string]string{
 			"UserName": user,
 		}
-		m, err := common.MARSyncRequest(ctx, common.EPCPROTOCAL, common.MultiMediaAuthenticationRequest, table, uplink)
+		m, err := common.MARSyncRequest(ctx, m, common.EPCPROTOCAL, common.MultiMediaAuthenticationRequest, table, uplink)
 		if err != nil {
 			logger.Error("[%v] HSS Response Error %v", ctx.Value("Entity"), err)
 			sipresp := sip.NewResponse(sip.StatusNoResponse, req)
-			common.RawPackageOut(common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()), s.Points["ICSCF"], down)
+			common.PackUpImsMsg(m, common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()), s.Points["ICSCF"], down)
 		} else {
 			// 获得用户鉴权信息
 			resp := common.StrLineUnmarshal(m.GetData())
@@ -129,7 +129,7 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, up, down ch
 			// 向终端发起鉴权
 			sipresp := sip.NewResponse(sip.StatusUnauthorized, req)
 			sipresp.Header.WWWAuthenticate = wwwAuth
-			common.RawPackageOut(common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()), downlink, down)
+			common.PackUpImsMsg(m, common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()), downlink, down)
 			// 透传MAA响应给自己的路由
 			p := &common.Package{
 				Destation:  downlink,
@@ -143,10 +143,10 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, up, down ch
 		values := parseAuthentication(req.Header.Authorization)
 		if RES != "" && RES == values["response"] {
 			sresp := sip.NewResponse(sip.StatusOK, req)
-			common.RawPackageOut(common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), downlink, down)
+			common.PackUpImsMsg(m, common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), downlink, down)
 		} else {
 			sresp := sip.NewResponse(sip.StatusUnauthorized, req)
-			common.RawPackageOut(common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), downlink, down)
+			common.PackUpImsMsg(m, common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), downlink, down)
 		}
 	}
 	return nil
