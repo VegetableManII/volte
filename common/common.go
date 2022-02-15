@@ -2,12 +2,11 @@ package common
 
 import (
 	"context"
-	"encoding/binary"
-	"encoding/hex"
 	"errors"
 	"math/rand"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/wonderivan/logger"
@@ -67,9 +66,21 @@ func GenerateSipBranch() int64 {
 	return rand.Int63()
 }
 
-func GenerateRequestID() string {
-	t := time.Now().Unix()
-	src := make([]byte, 8)
-	binary.BigEndian.PutUint64(src, uint64(t))
-	return hex.EncodeToString(src)
+type UniqueRequest struct {
+	ReqID uint32
+	sync.Mutex
+}
+
+var uniqReq UniqueRequest
+
+func init() {
+	uniqReq.ReqID = 0xFFFFFFFF
+}
+
+func GenerateRequestID() uint32 {
+	uniqReq.Lock()
+	tmp := uniqReq.ReqID
+	uniqReq.ReqID = uniqReq.ReqID - 1
+	uniqReq.Unlock()
+	return tmp
 }

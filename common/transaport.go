@@ -121,7 +121,7 @@ func ProcessUpStreamData(ctx context.Context, up chan *Package) {
 	}
 }
 
-func UpLinkTransportEnb(ctx context.Context, host string, data []byte) error {
+func EnodebUpLinkTransport(ctx context.Context, host string, data []byte) error {
 	return sendUDPMessage(ctx, host, data)
 }
 

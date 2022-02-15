@@ -52,6 +52,7 @@ func main() {
 // 读取配置文件
 func init() {
 	entity = new(controller.EnodebEntity)
+	entity.Init()
 
 	hostPort := viper.GetInt("eNodeB.host.port")
 	enodebBroadcastPort := viper.GetInt("eNodeB.broadcast.port")
@@ -120,19 +121,19 @@ func enodebProxyMessage(ctx context.Context, src *net.UDPConn, mme, pgw string) 
 				downLinkMessage(ctx, src, raddr, -1, id)
 				continue
 			}
-			message, dest, err := entity.Transport(data, n, mme, pgw)
+			message, dest, err := entity.GenerateUpLinkData(data, n, mme, pgw)
 			if err != nil {
 				logger.Info("[%v] 基站转发消息[to %v] %v", ctx.Value("Entity"), dest, string(data[8:]))
 				return
 			}
 			if dest == mme {
-				err = common.UpLinkTransportEnb(ctx, mme, message)
+				err = common.EnodebUpLinkTransport(ctx, mme, message)
 				if err != nil {
 					logger.Error("[%v] 基站转发消息失败[to mme] %v %v", ctx.Value("Entity"), n, err)
 				}
 				logger.Info("[%v] 基站转发消息[to mme] %v", ctx.Value("Entity"), string(data[8:]))
 			} else if dest == pgw {
-				err = common.UpLinkTransportEnb(ctx, pgw, data[4:n])
+				err = common.EnodebUpLinkTransport(ctx, pgw, data[4:n])
 				if err != nil {
 					logger.Error("[%v] 基站转发消息失败[to pgw] %v %v", ctx.Value("Entity"), n, err)
 				}
@@ -189,6 +190,7 @@ func broadMessageFromNet(ctx context.Context, host string, bconn *net.UDPConn, b
 				logger.Error("[%v] 读取网络侧数据错误 %v", ctx.Value("Entity"), err)
 			}
 			if n != 0 && remote != nil {
+				entity.ParseDownLinkData(data)
 				// 将收到的消息广播出去
 				downLinkMessage(ctx, bconn, baddr, 0, data[:n])
 			} else {
