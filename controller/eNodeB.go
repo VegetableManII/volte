@@ -3,6 +3,7 @@ package controller
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"hash/fnv"
 	"net"
 	"sync"
@@ -25,7 +26,7 @@ func (e *EnodebEntity) Init() {
 	e.request = make(map[uint32]uint32)
 }
 
-func (e *EnodebEntity) UeRandAccess(data []byte, raddr *net.UDPAddr) (bool, []byte) {
+func (e *EnodebEntity) UeRandomAccess(data []byte, raddr *net.UDPAddr) (bool, []byte) {
 	rand := parseRandAccess(data[0:4])
 	if rand == RandomAccess {
 		sum := fnv.New32().Sum([]byte(raddr.String()))
@@ -41,6 +42,11 @@ func (e *EnodebEntity) UeRandAccess(data []byte, raddr *net.UDPAddr) (bool, []by
 func (e *EnodebEntity) GenerateUpLinkData(data []byte, n int, mme, pgw string) ([]byte, string, error) {
 	request_id := common.GenerateRequestID()
 	ueid := parseRandAccess(data[0:4])
+	e.userMu.Lock()
+	if _, ok := e.user[ueid]; !ok {
+		return nil, "", errors.New("ErrNeedAccessInfo")
+	}
+	e.userMu.Unlock()
 	e.reqMu.Lock()
 	e.request[request_id] = ueid
 	e.reqMu.Unlock()

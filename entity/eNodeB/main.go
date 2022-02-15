@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"log"
 	"net"
 	"os"
@@ -33,9 +32,8 @@ func main() {
 	ctx = context.WithValue(ctx, "Entity", "eNodeB")
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	sysinfo := fmt.Sprintf("TAI=%d", entity.TAI)
 	// 开启广播工作消息
-	go downLinkMessage(ctx, loConn, ueBroadcastAddr, scanTime, []byte(sysinfo))
+	go downLinkMessage(ctx, loConn, ueBroadcastAddr, scanTime, []byte("RandomAccess"))
 	// 接收用户随机接入消息
 
 	// 开启ue和mme/pgw的转发协程
@@ -117,14 +115,17 @@ func enodebProxyMessage(ctx context.Context, src *net.UDPConn, mme, pgw string) 
 			}
 			logger.Info("[%v] 基站接收消息%v %v(%v byte)", ctx.Value("Entity"), data[0:4], string(data[4:n]), n)
 			// 如果用户随机接入则响应给用户分配的唯一ID
-			if ok, id := entity.UeRandAccess(data, raddr); ok {
+			if ok, id := entity.UeRandomAccess(data, raddr); ok {
 				downLinkMessage(ctx, src, raddr, -1, id)
 				continue
 			}
 			message, dest, err := entity.GenerateUpLinkData(data, n, mme, pgw)
 			if err != nil {
+				if err.Error() == "ErrNeedAccessInfo" {
+					downLinkMessage(ctx, src, raddr, -1, []byte("RandomAccess"))
+				}
 				logger.Info("[%v] 基站转发消息[to %v] %v", ctx.Value("Entity"), dest, string(data[8:]))
-				return
+				continue
 			}
 			if dest == mme {
 				err = common.EnodebUpLinkTransport(ctx, mme, message)
@@ -244,7 +245,7 @@ func isLan(s string) bool {
 
 func lastAddr(n *net.IPNet) (net.IP, error) {
 	if n.IP.To4() == nil {
-		return net.IP{}, errors.New("ErrNoIPv6")
+		return net.IP{}, errors.New("ErrNoIPv4")
 	}
 	ip := make(net.IP, len(n.IP.To4()))
 	binary.BigEndian.PutUint32(ip, binary.BigEndian.Uint32(n.IP.To4())|^binary.BigEndian.Uint32(net.IP(n.Mask).To4()))

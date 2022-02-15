@@ -1,8 +1,8 @@
 # 基站
-eNodeB_1:
+eNodeB:
   host.port: 10000
 # 基站广播网段
-  broadcast.port: 65533
+  broadcast.port: 65532
 # 广播扫描参数
   scan.time: 10
   TAI: 1

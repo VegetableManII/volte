@@ -78,6 +78,7 @@ func (p *PgwEntity) CreateSessionRequestF(ctx context.Context, pkg *common.Packa
 		// 不对应的APN
 	} */
 	qci := args["QCI"]
+	_ = qci
 	ueb := &UserEpcBearer{
 		UserIP: ueip,
 	}
