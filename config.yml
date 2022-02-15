@@ -1,0 +1,32 @@
+# 基站
+eNodeB:
+  host.port: 10000
+# 基站广播网段
+  broadcast.port: 65532
+# 广播扫描参数
+  scan.time: 10
+  TAI: 1
+# 修改TAI值模拟不同的基站
+# 统一局域网内的不同设备上部署不同基站
+
+# epc 网络功能实体
+EPC: 
+  eNodeB.host: 127.0.0.1:12345
+  mme.host: 127.0.0.1:12346
+  pgw.host: 127.0.0.1:12347
+
+# 归属地查询服务器
+HSS:
+  host: 127.0.0.1:12348
+
+# ims 网络功能实体
+IMS: 
+  p-cscf.host: 127.0.0.1:54321
+  i-cscf.host: 127.0.0.1:54322
+  s-cscf.host: 127.0.0.1:54323
+  pcrf.host: 127.0.0.1:54324
+
+# 数据库配置信息
+mysql: 
+  host: "root:@tcp(127.0.0.1:3306)/volte?charset=utf8&parseTime=True&loc=Local"
+
