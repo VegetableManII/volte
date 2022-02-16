@@ -27,7 +27,6 @@ func init() {
 		log.Fatal("获取运行目录失败")
 	}
 	logconf = strings.ReplaceAll(logconf, "#entity", pgnm)
-	log.Println(logconf)
 	logger.SetLogger(logconf)
 	logger.SetLogPathTrim(path)
 	viper.SetConfigFile(confile)
@@ -36,4 +35,4 @@ func init() {
 	}
 }
 
-var logconf string = `{"TimeFormat":"2006-01-02 15:04:05","Console": {"level": "TRAC","color": true},"File": {"filename": "/tmp/#entity.app.log","level": "TRAC","daily": true,"maxlines": 1000000,"maxsize": 1,"maxdays": -1,"append": true,"permit": "0660"}}`
+var logconf string = `{"TimeFormat":"2006-01-02 15:04:05","File": {"filename": "/tmp/logs/#entity.app.log","level": "TRAC","daily": true,"maxlines": 1000000,"maxsize": 1,"maxdays": -1,"append": true,"permit": "0660"}}`
