@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"net"
 	"strings"
 	"sync"
 	"time"
@@ -11,6 +12,14 @@ import (
 
 	"github.com/wonderivan/logger"
 )
+
+type Bearer struct {
+	Conn   net.Conn
+	DestID string
+	Net    string
+	Dialer net.Dialer
+	Qci    QCI
+}
 
 type QCI struct {
 	Value    int
@@ -26,13 +35,9 @@ var (
 	TCP_APP_NVIP   = QCI{Value: 9, Priority: 9, Delay: time.Millisecond * 300}
 )
 
-type UserEpcBearer struct {
-	Bearers []*QCI
-	UserIP  string
-}
 type PgwEntity struct {
 	*Mux
-	Users  map[string]*UserEpcBearer
+	Users  map[string]*Bearer
 	ueMux  sync.Mutex
 	Points map[string]string
 }
@@ -42,7 +47,7 @@ func (this *PgwEntity) Init() {
 	this.Mux = new(Mux)
 	this.router = make(map[[2]byte]BaseSignallingT)
 	this.Points = make(map[string]string)
-	this.Users = make(map[string]*UserEpcBearer)
+	this.Users = make(map[string]*Bearer)
 }
 
 func (this *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *common.Package) {
@@ -72,17 +77,9 @@ func (p *PgwEntity) CreateSessionRequestF(ctx context.Context, pkg *common.Packa
 	logger.Info("[%v] Receive From MME: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 	data := pkg.GetData()
 	args := common.StrLineUnmarshal(data)
-	ueip := args["IP"]
-	/* apn := args["APN"]
-	if apn != p.Local {
-		// 不对应的APN
-	} */
-	qci := args["QCI"]
-	_ = qci
-	ueb := &UserEpcBearer{
-		UserIP: ueip,
-	}
-	ueb.Bearers = make([]*QCI, 0)
+	// 分配IP地址
+	args["IP"] = "10.10.10.1"
+	delete(args, "QCI")
 	return nil
 }
 

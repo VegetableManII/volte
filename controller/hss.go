@@ -23,28 +23,28 @@ type HssEntity struct {
 	Points   map[string]string
 }
 
-func (this *HssEntity) Init(dbhost string) {
+func (h *HssEntity) Init(dbhost string) {
 	// 初始化路由
-	this.Mux = new(Mux)
-	this.router = make(map[[2]byte]BaseSignallingT)
-	this.Points = make(map[string]string)
+	h.Mux = new(Mux)
+	h.router = make(map[[2]byte]BaseSignallingT)
+	h.Points = make(map[string]string)
 	// 初始化数据库连接
 	db, err := gorm.Open("mysql", dbhost)
 	if err != nil {
 		log.Panicln("HSS初始化数据库连接失败", err)
 	}
-	this.dbclient = db
+	h.dbclient = db
 }
 
 // HSS可以接收epc电路协议也可以接收SIP协议
-func (this *HssEntity) CoreProcessor(ctx context.Context, in, up, down chan *common.Package) {
+func (h *HssEntity) CoreProcessor(ctx context.Context, in, up, down chan *common.Package) {
 	var err error
 	var f BaseSignallingT
 	var ok bool
 	for {
 		select {
 		case msg := <-in:
-			f, ok = this.router[msg.GetUniqueMethod()]
+			f, ok = h.router[msg.GetUniqueMethod()]
 			if !ok {
 				logger.Error("[%v] HSS不支持的消息类型数据 %v", ctx.Value("Entity"), msg)
 				continue
@@ -62,7 +62,7 @@ func (this *HssEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 }
 
 // HSS 接收Authentication Informat Request请求，然后查询数据库获得用户信息，生成nonce，选择加密算法，
-func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
+func (h *HssEntity) AuthenticationInformatRequestF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
 	logger.Info("[%v] Receive From MME: \n%v", ctx.Value("Entity"), string(p.GetData()))
@@ -70,7 +70,7 @@ func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, p *co
 	hashtable := common.StrLineUnmarshal(data)
 	imsi := hashtable["IMSI"]
 	// 查询数据库
-	user, err := GetUserByIMSI(ctx, this.dbclient, imsi)
+	user, err := GetUserByIMSI(ctx, h.dbclient, imsi)
 	if err != nil {
 		return err
 	}
@@ -87,13 +87,13 @@ func (this *HssEntity) AuthenticationInformatRequestF(ctx context.Context, p *co
 		AV_CK:   hex.EncodeToString(CK),
 		AV_IK:   hex.EncodeToString(IK),
 	}
-	host := this.Points["MME"]
+	host := h.Points["MME"]
 	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.AuthenticationInformatResponse, response, host, down) // 下行
 	return nil
 }
 
 // HSS 接收Update Location Request请求，将用户APN信息响应给MME用于和PGW建立承载
-func (this *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
+func (h *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
 	logger.Info("[%v] Receive From MME: \n%v", ctx.Value("Entity"), string(p.GetData()))
@@ -101,7 +101,7 @@ func (this *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Pac
 	table := common.StrLineUnmarshal(data)
 	imsi := table["IMSI"]
 	// 查询数据库
-	user, err := GetUserByIMSI(ctx, this.dbclient, imsi)
+	user, err := GetUserByIMSI(ctx, h.dbclient, imsi)
 	if err != nil {
 		return err
 	}
@@ -109,21 +109,19 @@ func (this *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Pac
 	var response = map[string]string{
 		"IMSI": imsi,
 		"APN":  "127.0.0.1:12347", // 根据用户的APN返回对应的PGW，hebeiyidong ==> 127.0.0.1:12347
-		"QCI":  "5",               // 默认EPC承载
-		"IP":   "123.123.123.123",
 	}
-	host := this.Points["MME"]
+	host := h.Points["MME"]
 	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.UpdateLocationACK, response, host, down) // 下行
 	return nil
 }
 
-func (this *HssEntity) MultimediaAuthorizationRequestF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
+func (h *HssEntity) MultimediaAuthorizationRequestF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
 	logger.Info("[%v] Receive From S-CSCF: \n%v", ctx.Value("Entity"), string(p.GetData()))
 	table := common.StrLineUnmarshal(p.GetData())
 	un := table["UserName"]
-	user, err := GetUserBySipUserName(ctx, this.dbclient, un)
+	user, err := GetUserBySipUserName(ctx, h.dbclient, un)
 	if err != nil {
 		return err
 	}
@@ -230,7 +228,6 @@ type User struct {
 	Mnc         string    `gorm:"column:mnc" json:"mnc"` // 移动网号
 	Mcc         int32     `gorm:"column:mcc" json:"mcc"` // 国家码
 	Apn         string    `gorm:"column:apn" json:"apn"`
-	IP          string    `gorm:"column:ip" json:"ip"`
 	SipUserName string    `gorm:"column:sip_username" json:"sip_username"`
 	SipDNS      string    `gorm:"column:sip_dns" json:"sip_dns"`
 	Ctime       time.Time `gorm:"column:ctime"`

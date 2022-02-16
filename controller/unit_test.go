@@ -18,7 +18,6 @@ func TestCreateUser(t *testing.T) {
 		Mnc:         "01",
 		Mcc:         86,
 		Apn:         "hebeiyidong",
-		IP:          "2.2.2.2",
 		SipUserName: "jiqimao",
 		SipDNS:      "3gpp.net",
 		Ctime:       time.Now(),
