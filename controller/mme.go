@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"errors"
+	"net"
 	"sync"
 
 	"github.com/VegetableManII/volte/common"
@@ -19,6 +20,7 @@ type MmeEntity struct {
 	*Mux
 	ue     *UeAuthXRES
 	Points map[string]string
+	utran  *UtranConn
 }
 
 func (m *MmeEntity) Init() {
@@ -62,6 +64,11 @@ func (m *MmeEntity) AttachRequestF(ctx context.Context, p *common.Package, up, d
 	defer common.Recover(ctx)
 
 	logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(p.GetData()))
+
+	m.utran.lock.Lock()
+	m.utran.RemoteAddr = p.RemoteAddr
+	m.utran.lock.Unlock()
+
 	data := p.GetData()
 	args := common.StrLineUnmarshal(data)
 	imsi := args["IMSI"]
@@ -72,7 +79,7 @@ func (m *MmeEntity) AttachRequestF(ctx context.Context, p *common.Package, up, d
 	}
 
 	host := m.Points["HSS"]
-	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.AuthenticationInformatRequest, req, host, up) // 上行
+	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.AuthenticationInformatRequest, req, host, nil, nil, up) // 上行
 	return nil
 }
 
@@ -94,7 +101,14 @@ func (m *MmeEntity) AuthenticationInformatResponseF(ctx context.Context, p *comm
 	delete(args, AV_XRES)
 
 	host := m.Points["eNodeB"]
-	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.AuthenticationInformatRequest, args, host, down) // 下行
+	var remote *net.UDPAddr
+	m.utran.lock.Lock()
+	if m.utran.RemoteAddr == nil {
+		return errors.New("ErrUtranConn")
+	} else {
+		remote = m.utran.RemoteAddr
+	}
+	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.AuthenticationInformatRequest, args, host, remote, p.Conn, down) // 下行
 	return nil
 }
 
@@ -114,12 +128,19 @@ func (m *MmeEntity) AuthenticationResponseF(ctx context.Context, p *common.Packa
 	if res != xres {
 		// 鉴权失败，重新发起鉴权请求
 		host := m.Points["eNodeB"]
-		common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.AuthenticationInformatRequest, nil, host, down)
+		var remote *net.UDPAddr
+		m.utran.lock.Lock()
+		if m.utran.RemoteAddr == nil {
+			return errors.New("ErrUtranConn")
+		} else {
+			remote = m.utran.RemoteAddr
+		}
+		common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.AuthenticationInformatRequest, nil, host, remote, p.Conn, down)
 		return errors.New("ErrAuthenFailed")
 	}
 	// 向上行HSS发送位置更新请求
 	host := m.Points["HSS"]
-	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.UpdateLocationRequest, nil, host, up) // 上行
+	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.UpdateLocationRequest, nil, host, nil, nil, up) // 上行
 	return nil
 }
 
@@ -138,9 +159,16 @@ func (m *MmeEntity) UpdateLocationACKF(ctx context.Context, p *common.Package, u
 	delete(args, "APN")
 	args["QCI"] = "5"
 	// 请求PGW建立IMS信令承载
-	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.CreateSessionRequest, args, pgwaddr, up)
+	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.CreateSessionRequest, args, pgwaddr, nil, nil, up)
 	// 响应UE终端附着允许的响应
 	host := m.Points["eNodeB"]
-	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.AttachAccept, args, host, up)
+	var remote *net.UDPAddr
+	m.utran.lock.Lock()
+	if m.utran.RemoteAddr == nil {
+		return errors.New("ErrUtranConn")
+	} else {
+		remote = m.utran.RemoteAddr
+	}
+	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.AttachAccept, args, host, remote, p.Conn, up)
 	return nil
 }

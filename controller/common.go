@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"net"
+	"sync"
 
 	"github.com/VegetableManII/volte/common"
 )
@@ -34,4 +36,9 @@ func (m *Mux) Regist(r [2]byte, f BaseSignallingT) {
 // VoLTE网络中各个功能实体的逻辑处理器实体抽象基类对象
 type Base interface {
 	CoreProcessor(context.Context, chan *common.Package, chan *common.Package, chan *common.Package)
+}
+
+type UtranConn struct {
+	RemoteAddr *net.UDPAddr
+	lock       sync.Mutex
 }

@@ -19,12 +19,19 @@ import (
 	"github.com/wonderivan/logger"
 )
 
+type CoreNetConnection struct {
+	PgwAddr string
+	MmeAddr string
+	MmeConn net.Conn
+	PgwConn net.Conn
+}
+
 var (
-	entity                   *controller.EnodebEntity
-	loConn                   *net.UDPConn
-	ueBroadcastAddr          *net.UDPAddr
-	scanTime                 int
-	lohost, mmehost, pgwhost string
+	entity          *controller.EnodebEntity
+	broadcastConn   *net.UDPConn
+	ueBroadcastAddr *net.UDPAddr
+	scanTime        int
+	coreConnection  *CoreNetConnection
 )
 
 func main() {
@@ -33,13 +40,11 @@ func main() {
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	// 开启广播工作消息
-	go downLinkMessage(ctx, loConn, ueBroadcastAddr, scanTime, []byte("RandomAccess"))
+	go downLinkMessageTransport(ctx, broadcastConn, ueBroadcastAddr, scanTime, []byte("RandomAccess"))
 	// 接收用户随机接入消息
 
-	// 开启ue和mme/pgw的转发协程
-	go enodebProxyMessage(ctx, loConn, mmehost, pgwhost) // 转发用户上行数据
-	// 开启ue的信令广播协程
-	go broadMessageFromNet(ctx, lohost, loConn, ueBroadcastAddr)
+	// 开启ue与核心网的通信协程
+	go broadMessageFromNet(ctx, coreConnection, broadcastConn, ueBroadcastAddr)
 	<-quit
 	logger.Warn("[eNodeB] eNodeB 功能实体退出...")
 	cancel()
@@ -52,27 +57,27 @@ func init() {
 	entity = new(controller.EnodebEntity)
 	entity.Init()
 
-	hostPort := viper.GetInt("eNodeB.host.port")
+	broadcastServerPort := viper.GetInt("eNodeB.broadcast.server.port")
 	enodebBroadcastPort := viper.GetInt("eNodeB.broadcast.port")
 	scanTime = viper.GetInt("eNodeB.scan.time")
 	entity.TAI = viper.GetInt("eNodeB.TAI")
 	// 启动与ue连接的服务器
-	loConn, ueBroadcastAddr = initUeServer(hostPort, enodebBroadcastPort)
-	lohost = viper.GetString("EPC.eNodeB.host")
+	broadcastConn, ueBroadcastAddr = initUeServer(broadcastServerPort, enodebBroadcastPort)
+	coreConnection = new(CoreNetConnection)
 	// 创建于MME的UDP连接
-	mmehost = viper.GetString("EPC.mme.host")
+	coreConnection.MmeAddr = viper.GetString("EPC.mme.host")
 	// 创建于PGW的UDP连接
-	pgwhost = viper.GetString("EPC.pgw.host")
+	coreConnection.PgwAddr = viper.GetString("EPC.pgw.host")
 	logger.Info("配置文件读取成功", "")
 }
 
 // 与ue连接的UDP服务端
 func initUeServer(port int, bport int) (*net.UDPConn, *net.UDPAddr) {
-	ipnet, err := getLocalInternelIPNet()
+	localIP, err := getLocalLanIP()
 	if err != nil {
 		log.Panicln("获取本地IP地址失败", err)
 	}
-	host := ipnet.IP.To4().String() + ":" + strconv.Itoa(port)
+	host := localIP.IP.To4().String() + ":" + strconv.Itoa(port)
 	la, err := net.ResolveUDPAddr("udp4", host)
 	if err != nil {
 		log.Panicln("eNodeB host配置解析失败", err)
@@ -81,7 +86,7 @@ func initUeServer(port int, bport int) (*net.UDPConn, *net.UDPAddr) {
 	if err != nil {
 		log.Panicln("eNodeB host监听失败", err)
 	}
-	bip, err := lastAddr(ipnet)
+	bip, err := lastAddr(localIP)
 	if err != nil {
 		log.Panicln("获取本地广播地址失败", err)
 	}
@@ -96,62 +101,13 @@ func initUeServer(port int, bport int) (*net.UDPConn, *net.UDPAddr) {
 	return conn, ra
 }
 
-// 主要用于基站实现消息的代理转发, 将ue消息转发至网络侧
-func enodebProxyMessage(ctx context.Context, src *net.UDPConn, mme, pgw string) {
-	var n int
-	var err error
-	var raddr *net.UDPAddr
-
-	for {
-
-		select {
-		case <-ctx.Done():
-			logger.Warn("[%v] 基站转发协程退出...", ctx.Value("Entity"))
-			return
-		default:
-			data := make([]byte, 1024)
-			n, raddr, err = src.ReadFromUDP(data)
-			if err != nil && n == 0 {
-				logger.Error("[%v] 基站接收消息失败 %v %v", ctx.Value("Entity"), n, err)
-			}
-			logger.Info("[%v] 基站接收消息%v %v(%v byte)", ctx.Value("Entity"), data[0:4], string(data[4:n]), n)
-			// 如果用户随机接入则响应给用户分配的唯一ID
-			if ok, id := entity.UeRandomAccess(data, raddr); ok {
-				downLinkMessage(ctx, src, raddr, -1, id)
-				continue
-			}
-			message, dest, err := entity.GenerateUpLinkData(data, n, mme, pgw)
-			if err != nil {
-				if err.Error() == "ErrNeedAccessInfo" {
-					downLinkMessage(ctx, src, raddr, -1, []byte("RandomAccess"))
-				}
-				logger.Info("[%v] 基站转发消息[to %v] %v", ctx.Value("Entity"), dest, string(data[8:]))
-				continue
-			}
-			if dest == mme {
-				err = common.EnodebUpLinkTransport(ctx, mme, message)
-				if err != nil {
-					logger.Error("[%v] 基站转发消息失败[to mme] %v %v", ctx.Value("Entity"), n, err)
-				}
-				logger.Info("[%v] 基站转发消息[to mme[%v]] %v %v", ctx.Value("Entity"), mme, data[0:8], string(data[8:]))
-			} else if dest == pgw {
-				err = common.EnodebUpLinkTransport(ctx, pgw, data[4:n])
-				if err != nil {
-					logger.Error("[%v] 基站转发消息失败[to pgw] %v %v", ctx.Value("Entity"), n, err)
-				}
-				logger.Info("[%v] 基站转发消息[to pgw[%v]] %v", ctx.Value("Entity"), pgw, string(data[4:]))
-			} else {
-				logger.Info("[%v] 基站转发消息[to %v] %v", ctx.Value("Entity"), dest, string(data[4:]))
-			}
-		}
-	}
-}
-
 // 广播基站工作消息
 // scan = 0, 广播网络侧消息
 // scan = >0, 间断广播工作消息让UE捕获
 // scan = -1, 此时remote为具体的ue，为端到端发送
-func downLinkMessage(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, scan int, msg []byte) {
+func downLinkMessageTransport(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, scan int, msg []byte) {
+	defer common.Recover(ctx)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -171,41 +127,106 @@ func downLinkMessage(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr
 	}
 }
 
-func broadMessageFromNet(ctx context.Context, host string, bconn *net.UDPConn, baddr *net.UDPAddr) {
-	lo, err := net.ResolveUDPAddr("udp4", host)
+func broadMessageFromNet(ctx context.Context, cConn *CoreNetConnection, bConn *net.UDPConn, bAddr *net.UDPAddr) {
+	var err error
+	cConn.MmeConn, err = net.Dial("udp4", cConn.MmeAddr)
 	if err != nil {
-		logger.Fatal("解析地址失败 %v", err)
+		logger.Info("[%v] 连接核心网MME失败 %v", ctx.Value("Entity"), err)
+		return
 	}
-	logger.Info("服务监听启动成功 %v", lo.String())
+	cConn.PgwConn, err = net.Dial("udp4", cConn.PgwAddr)
+	if err != nil {
+		logger.Info("[%v] 连接核心网PGW失败 %v", ctx.Value("Entity"), err)
+		return
+	}
+	go proxy(ctx, cConn.MmeConn, bConn, bAddr)
+	go proxy(ctx, cConn.PgwConn, bConn, bAddr)
+	go proxyMessageFromUEtoCoreNet(ctx, bConn, cConn)
+}
+
+func proxy(ctx context.Context, conn net.Conn, bconn *net.UDPConn, baddr *net.UDPAddr) {
+	defer common.Recover(ctx)
+
 	for {
-		conn, err := net.ListenUDP("udp4", lo)
-		if err != nil {
-			log.Panicln("udp server 监听失败", err)
-		}
-		logger.Info("服务器启动成功[%v]", lo)
-		data := make([]byte, 1024)
 		select {
 		case <-ctx.Done():
 			logger.Warn("[%v] 基站转发广播网络侧消息协程退出...", ctx.Value("Entity"))
 			return
 		default:
-			n, remote, err := conn.ReadFromUDP(data)
+			data := make([]byte, 1024)
+			n, err := conn.Read(data)
 			if err != nil {
 				logger.Error("[%v] 读取网络侧数据错误 %v", ctx.Value("Entity"), err)
 			}
-			if n != 0 && remote != nil {
+			if n != 0 {
 				entity.ParseDownLinkData(data)
 				// 将收到的消息广播出去
-				downLinkMessage(ctx, bconn, baddr, 0, data[:n])
-			} else {
-				logger.Info("[%v] Remote[%v] Len[%v]", ctx.Value("Entity"), remote, n)
-				time.Sleep(2 * time.Second)
+				downLinkMessageTransport(ctx, bconn, baddr, 0, data[:n])
 			}
 		}
 	}
 }
 
-func getLocalInternelIPNet() (*net.IPNet, error) {
+// 将ue消息转发至网络侧
+func proxyMessageFromUEtoCoreNet(ctx context.Context, src *net.UDPConn, cConn *CoreNetConnection) {
+	defer common.Recover(ctx)
+
+	var n int
+	var err error
+	var raddr *net.UDPAddr
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Warn("[%v] 基站转发协程退出...", ctx.Value("Entity"))
+			return
+		default:
+			data := make([]byte, 1024)
+			n, raddr, err = src.ReadFromUDP(data)
+			if err != nil && n == 0 {
+				logger.Error("[%v] 基站接收消息失败 %v %v", ctx.Value("Entity"), n, err)
+			}
+			logger.Info("[%v] 基站接收消息%v %v(%v byte)", ctx.Value("Entity"), data[0:4], string(data[4:n]), n)
+			// 如果用户随机接入则响应给用户分配的唯一ID
+			if ok, id := entity.UeRandomAccess(data, raddr); ok {
+				downLinkMessageTransport(ctx, src, raddr, -1, id)
+				continue
+			}
+			message, dest, err := entity.GenerateUpLinkData(data, n, "MME", "PGW")
+			if err != nil {
+				if err.Error() == "ErrNeedAccessInfo" {
+					downLinkMessageTransport(ctx, src, raddr, -1, []byte("RandomAccess"))
+				}
+				logger.Info("[%v] 基站转发消息[to %v] %v", ctx.Value("Entity"), dest, string(data[8:]))
+				continue
+			}
+			if dest == "MME" {
+				err = upLinkTransport(ctx, cConn.MmeConn, message)
+				if err != nil {
+					logger.Error("[%v] 基站转发消息失败[to mme] %v %v", ctx.Value("Entity"), n, err)
+				}
+				logger.Info("[%v] 基站转发消息[to mme] %v %v", ctx.Value("Entity"), data[0:8], string(data[8:]))
+			} else if dest == "PGW" {
+				err = upLinkTransport(ctx, cConn.PgwConn, message)
+				if err != nil {
+					logger.Error("[%v] 基站转发消息失败[to pgw] %v %v", ctx.Value("Entity"), n, err)
+				}
+				logger.Info("[%v] 基站转发消息[to pgw] %v %v", ctx.Value("Entity"), data[0:4], string(data[4:]))
+			} else {
+				logger.Info("[%v] 基站转发消息[to %v] %v", ctx.Value("Entity"), dest, string(data[4:]))
+			}
+		}
+	}
+}
+
+func upLinkTransport(ctx context.Context, conn net.Conn, msg []byte) error {
+	_, err := conn.Write(msg)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func getLocalLanIP() (*net.IPNet, error) {
 	if net.FlagUp != 1 {
 		return nil, errors.New("ErrNoNet")
 	}

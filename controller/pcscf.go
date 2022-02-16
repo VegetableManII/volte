@@ -76,7 +76,7 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *common.Package, up,
 			// common.RawPackageOut(common.SIPPROTOCAL, common.SipRequest, []byte(sipreq.String()), p.Points["ICSCF"], up)
 		}
 		// 先统一转发给ICSCF，待后期完善与HSS的交互之后实现第二次注册直接转发给SCSCF
-		common.PackUpImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipRequest, []byte(sipreq.String()), p.Points["ICSCF"], up)
+		common.PackUpImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipRequest, []byte(sipreq.String()), p.Points["ICSCF"], nil, nil, up)
 	case "INVITE":
 		return nil
 	}
@@ -95,6 +95,6 @@ func (p *P_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *common.Package, up
 	// 删除Via头部信息
 	sipreq.Header.Via.RemoveFirst()
 	sipreq.Header.MaxForwards.Reduce()
-	common.PackUpImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipResponse, []byte(sipreq.String()), p.Points["PGW"], down)
+	common.PackUpImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipResponse, []byte(sipreq.String()), p.Points["PGW"], nil, nil, down)
 	return nil
 }

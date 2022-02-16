@@ -1,7 +1,7 @@
 # 基站
 eNodeB:
-  host.port: 10000
-# 基站广播网段
+  broadcast.server.port: 10000
+# 基站广播端口
   broadcast.port: 65532
 # 广播扫描参数
   scan.time: 10
@@ -11,7 +11,6 @@ eNodeB:
 
 # epc 网络功能实体
 EPC: 
-  eNodeB.host: 127.0.0.1:12345
   mme.host: 45.77.178.170:12346
   pgw.host: 45.77.178.170:12347
 

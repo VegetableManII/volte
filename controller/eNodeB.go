@@ -60,14 +60,16 @@ func (e *EnodebEntity) GenerateUpLinkData(data []byte, n int, mme, pgw string) (
 	if data[4] == common.EPCPROTOCAL { // EPC 消息
 		msg.ConstructWithReqID(request_id, data[4], data[5], len(data[8:]), []byte(data[8:]))
 		dst = mme
+		err := binary.Write(buf, binary.BigEndian, msg)
+		if err != nil {
+			return nil, "", err
+		}
+		return buf.Bytes(), dst, nil
 	} else { // IMS 消息
 		dst = pgw
+		return data[4:], dst, nil
 	}
-	err := binary.Write(buf, binary.BigEndian, msg)
-	if err != nil {
-		return nil, "", err
-	}
-	return buf.Bytes(), dst, nil
+
 }
 
 func parseRandAccess(data []byte) uint32 {

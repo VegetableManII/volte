@@ -121,10 +121,6 @@ func ProcessUpStreamData(ctx context.Context, up chan *Package) {
 	}
 }
 
-func EnodebUpLinkTransport(ctx context.Context, host string, data []byte) error {
-	return sendUDPMessage(ctx, host, data)
-}
-
 // 需要向其他功能实体发送数据是的通用方法，异步接收
 func sendUDPMessage(ctx context.Context, host string, data []byte) (err error) {
 	defer Recover(ctx)

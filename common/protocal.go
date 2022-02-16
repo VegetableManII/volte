@@ -124,10 +124,14 @@ func (msg *CommonMsg) GetReqID() uint32 {
 }
 
 // 打包 EPC 网络通用发送消息方法
-func PackUpEpcMsg(msg *CommonMsg, _p, _m byte, data map[string]string, dest string, out chan *Package) {
+func PackUpEpcMsg(msg *CommonMsg, _p, _m byte, data map[string]string, dest string, ra *net.UDPAddr, conn *net.UDPConn, out chan *Package) {
 	res := StrLineMarshal(data)
 	size := len([]byte(res))
 	msg.Construct(_p, _m, size, []byte(res))
+	if dest == "eNodeB" {
+		out <- &Package{msg, dest, ra, conn}
+		return
+	}
 	out <- &Package{msg, dest, nil, nil}
 }
 
@@ -155,8 +159,12 @@ func MARSyncRequest(ctx context.Context, msg *CommonMsg, _p, _m byte, data map[s
 }
 
 // IMS 网络通用发送消息方法
-func PackUpImsMsg(msg *CommonMsg, _p, _m byte, data []byte, dest string, out chan *Package) {
+func PackUpImsMsg(msg *CommonMsg, _p, _m byte, data []byte, dest string, ra *net.UDPAddr, conn *net.UDPConn, out chan *Package) {
 	size := len(data)
 	msg.Construct(_p, _m, size, data)
+	if dest == "eNodeB" {
+		out <- &Package{msg, dest, ra, conn}
+		return
+	}
 	out <- &Package{msg, dest, nil, nil}
 }

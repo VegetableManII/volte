@@ -111,7 +111,7 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, m *common.C
 		if err != nil {
 			logger.Error("[%v] HSS Response Error %v", ctx.Value("Entity"), err)
 			sipresp := sip.NewResponse(sip.StatusNoResponse, req)
-			common.PackUpImsMsg(m, common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()), s.Points["ICSCF"], down)
+			common.PackUpImsMsg(m, common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()), s.Points["ICSCF"], nil, nil, down)
 		} else {
 			// 获得用户鉴权信息
 			resp := common.StrLineUnmarshal(m.GetData())
@@ -129,7 +129,7 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, m *common.C
 			// 向终端发起鉴权
 			sipresp := sip.NewResponse(sip.StatusUnauthorized, req)
 			sipresp.Header.WWWAuthenticate = wwwAuth
-			common.PackUpImsMsg(m, common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()), downlink, down)
+			common.PackUpImsMsg(m, common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()), downlink, nil, nil, down)
 			// 透传MAA响应给自己的路由
 			p := &common.Package{
 				Destation:  downlink,
@@ -143,10 +143,10 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, m *common.C
 		values := parseAuthentication(req.Header.Authorization)
 		if RES != "" && RES == values["response"] {
 			sresp := sip.NewResponse(sip.StatusOK, req)
-			common.PackUpImsMsg(m, common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), downlink, down)
+			common.PackUpImsMsg(m, common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), downlink, nil, nil, down)
 		} else {
 			sresp := sip.NewResponse(sip.StatusUnauthorized, req)
-			common.PackUpImsMsg(m, common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), downlink, down)
+			common.PackUpImsMsg(m, common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), downlink, nil, nil, down)
 		}
 	}
 	return nil

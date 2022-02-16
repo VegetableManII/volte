@@ -88,7 +88,7 @@ func (h *HssEntity) AuthenticationInformatRequestF(ctx context.Context, p *commo
 		AV_IK:   hex.EncodeToString(IK),
 	}
 	host := h.Points["MME"]
-	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.AuthenticationInformatResponse, response, host, down) // 下行
+	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.AuthenticationInformatResponse, response, host, nil, nil, down) // 下行
 	return nil
 }
 
@@ -111,7 +111,7 @@ func (h *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Packag
 		"APN":  "127.0.0.1:12347", // 根据用户的APN返回对应的PGW，hebeiyidong ==> 127.0.0.1:12347
 	}
 	host := h.Points["MME"]
-	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.UpdateLocationACK, response, host, down) // 下行
+	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.UpdateLocationACK, response, host, nil, nil, down) // 下行
 	return nil
 }
 
