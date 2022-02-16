@@ -28,4 +28,4 @@ nohup ./mme -f ./config.yml &
 nohup ./s-cscf -f ./config.yml &
 nohup ./i-cscf -f ./config.yml &
 nohup ./p-cscf -f ./config.yml &
-nohup ./pgw -f ./config 
+nohup ./pgw -f ./config.yml &

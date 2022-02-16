@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/VegetableManII/volte/common"
+	"github.com/wonderivan/logger"
 )
 
 var RandomAccess uint32 = 0xFFFFFFFF
@@ -29,6 +30,7 @@ func (e *EnodebEntity) Init() {
 func (e *EnodebEntity) UeRandomAccess(data []byte, raddr *net.UDPAddr) (bool, []byte) {
 	rand := parseRandAccess(data[0:4])
 	if rand == RandomAccess {
+		logger.Info("ue 随机接入 %x %x", rand, RandomAccess)
 		sum := fnv.New32().Sum([]byte(raddr.String()))
 		ueid := parseRandAccess(sum)
 		e.userMu.Lock()
