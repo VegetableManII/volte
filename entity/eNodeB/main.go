@@ -103,12 +103,13 @@ func enodebProxyMessage(ctx context.Context, src *net.UDPConn, mme, pgw string) 
 	var raddr *net.UDPAddr
 
 	for {
-		data := make([]byte, 1024)
+
 		select {
 		case <-ctx.Done():
 			logger.Warn("[%v] 基站转发协程退出...", ctx.Value("Entity"))
 			return
 		default:
+			data := make([]byte, 1024)
 			n, raddr, err = src.ReadFromUDP(data)
 			if err != nil && n == 0 {
 				logger.Error("[%v] 基站接收消息失败 %v %v", ctx.Value("Entity"), n, err)
@@ -132,13 +133,15 @@ func enodebProxyMessage(ctx context.Context, src *net.UDPConn, mme, pgw string) 
 				if err != nil {
 					logger.Error("[%v] 基站转发消息失败[to mme] %v %v", ctx.Value("Entity"), n, err)
 				}
-				logger.Info("[%v] 基站转发消息[to mme] %v", ctx.Value("Entity"), string(data[8:]))
+				logger.Info("[%v] 基站转发消息[to mme[%v]] %v %v", ctx.Value("Entity"), mme, data[0:8], string(data[8:]))
 			} else if dest == pgw {
 				err = common.EnodebUpLinkTransport(ctx, pgw, data[4:n])
 				if err != nil {
 					logger.Error("[%v] 基站转发消息失败[to pgw] %v %v", ctx.Value("Entity"), n, err)
 				}
-				logger.Info("[%v] 基站转发消息[to pgw] %v", ctx.Value("Entity"), string(data[8:]))
+				logger.Info("[%v] 基站转发消息[to pgw[%v]] %v", ctx.Value("Entity"), pgw, string(data[4:]))
+			} else {
+				logger.Info("[%v] 基站转发消息[to %v] %v", ctx.Value("Entity"), dest, string(data[4:]))
 			}
 		}
 	}

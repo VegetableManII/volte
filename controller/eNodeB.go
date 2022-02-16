@@ -29,6 +29,7 @@ func (e *EnodebEntity) Init() {
 
 func (e *EnodebEntity) UeRandomAccess(data []byte, raddr *net.UDPAddr) (bool, []byte) {
 	rand := parseRandAccess(data[0:4])
+	logger.Info("ue 随机接入 %x %x", rand, RandomAccess)
 	if rand == RandomAccess {
 		logger.Info("ue 随机接入 %x %x", rand, RandomAccess)
 		sum := fnv.New32().Sum([]byte(raddr.String()))
@@ -69,13 +70,8 @@ func (e *EnodebEntity) GenerateUpLinkData(data []byte, n int, mme, pgw string) (
 	return buf.Bytes(), dst, nil
 }
 
-func parseRandAccess(data []byte) (num uint32) {
-	var i uint8 = 0
-	for offset, v := range data {
-		i = uint8(v)
-		num += uint32(i << uint8(offset))
-	}
-	return
+func parseRandAccess(data []byte) uint32 {
+	return binary.BigEndian.Uint32(data[0:4])
 }
 
 func (e *EnodebEntity) ParseDownLinkData(data []byte) {
