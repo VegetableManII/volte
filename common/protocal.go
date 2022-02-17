@@ -128,7 +128,7 @@ func PackUpEpcMsg(msg *CommonMsg, _p, _m byte, data map[string]string, dest stri
 	res := StrLineMarshal(data)
 	size := len([]byte(res))
 	msg.Construct(_p, _m, size, []byte(res))
-	if dest == "eNodeB" {
+	if ra != nil && conn != nil {
 		out <- &Package{msg, dest, ra, conn}
 		return
 	}
@@ -162,7 +162,7 @@ func MARSyncRequest(ctx context.Context, msg *CommonMsg, _p, _m byte, data map[s
 func PackUpImsMsg(msg *CommonMsg, _p, _m byte, data []byte, dest string, ra *net.UDPAddr, conn *net.UDPConn, out chan *Package) {
 	size := len(data)
 	msg.Construct(_p, _m, size, data)
-	if dest == "eNodeB" {
+	if ra != nil && conn != nil {
 		out <- &Package{msg, dest, ra, conn}
 		return
 	}
