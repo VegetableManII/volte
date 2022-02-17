@@ -141,8 +141,8 @@ func broadMessageFromNet(ctx context.Context, coreConn *CoreNetConnection, bConn
 		return
 	}
 	// 向mme和pgw发送心跳包，让对端知道自己的公网IP和端口
-	go heartbeat(ctx, coreConn.MmeConn, beatheart)
-	go heartbeat(ctx, coreConn.PgwConn, beatheart)
+	//go heartbeat(ctx, coreConn.MmeConn, beatheart)
+	//go heartbeat(ctx, coreConn.PgwConn, beatheart)
 	go proxy(ctx, coreConn.MmeConn, bConn, bAddr)
 	go proxy(ctx, coreConn.PgwConn, bConn, bAddr)
 	go proxyMessageFromUEtoCoreNet(ctx, bConn, coreConn)

@@ -70,7 +70,7 @@ func (e *EnodebEntity) GenerateUpLinkData(data []byte, n int, mme, pgw string) (
 		return buf.Bytes(), dst, nil
 	} else { // IMS 消息
 		dst = pgw
-		return data[4:], dst, nil
+		return data[4:n], dst, nil
 	}
 
 }

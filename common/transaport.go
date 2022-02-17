@@ -29,22 +29,23 @@ func CreateServer(host string) *net.UDPConn {
 // 通用网络中的功能实体与接收客户端数据的通用方法
 func ReceiveClientMessage(ctx context.Context, conn *net.UDPConn, in chan *Package) {
 	for {
-		data := make([]byte, 1024)
+
 		select {
 		case <-ctx.Done():
 			// 释放资源
 			logger.Warn("[%v] 与下级节点通信协程退出", ctx.Value("Entity"))
 			return
 		default:
+			data := make([]byte, 1024)
 			n, ra, err := conn.ReadFromUDP(data)
 			if err != nil {
 				logger.Error("[%v] Server读取数据错误 %v", ctx.Value("Entity"), err)
 			}
 			if n != 0 {
 				// 兼容心跳探测
-				if data[0] == 0x13 && data[1] == 0x14 {
-					continue
-				}
+				// if data[0] == 0x13 && data[1] == 0x14 {
+				// 	continue
+				// }
 				distribute(ctx, data[:n], ra, conn, in)
 			} else {
 				logger.Info("[%v] Read Len[%v]", ctx.Value("Entity"), n)
