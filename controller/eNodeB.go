@@ -12,7 +12,7 @@ import (
 	"github.com/wonderivan/logger"
 )
 
-var RandomAccess uint32 = 0xFFFFFFFF
+var RandomAccess uint32 = 0x0F0F0F0F
 
 type EnodebEntity struct {
 	TAI     int
