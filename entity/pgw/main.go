@@ -72,7 +72,9 @@ func heartbeat(ctx context.Context, pgw *controller.PgwEntity, conn *net.UDPConn
 			return
 		}
 		_, err = conn.WriteToUDP([]byte{0x05, 0x20}, ra)
-		logger.Error("%v", err)
+		if err != nil {
+			logger.Error("心跳包探测错误 %v", err)
+		}
 		pgw.UtranConn.Lock()
 		pgw.UtranConn.RemoteAddr = ra
 		pgw.UtranConn.Unlock()
