@@ -42,7 +42,6 @@ func main() {
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	// 开启广播工作消息
 	go downLinkMessageTransport(ctx, broadcastConn, ueBroadcastAddr, scanTime, []byte("RandomAccess"))
-	// 接收用户随机接入消息
 
 	// 开启ue与核心网的通信协程
 	go broadMessageFromNet(ctx, coreConnection, broadcastConn, ueBroadcastAddr)
@@ -172,7 +171,8 @@ func proxy(ctx context.Context, conn net.Conn, bconn *net.UDPConn, baddr *net.UD
 			data := make([]byte, 1024)
 			n, err := conn.Read(data)
 			if err != nil {
-				logger.Error("[%v] 读取网络侧数据错误 %v", ctx.Value("Entity"), err)
+				// logger.Error("[%v] 读取网络侧数据错误 %v", ctx.Value("Entity"), err)
+				continue
 			}
 			if n != 0 {
 				entity.ParseDownLinkData(data)

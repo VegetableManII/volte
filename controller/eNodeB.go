@@ -29,11 +29,14 @@ func (e *EnodebEntity) Init() {
 
 func (e *EnodebEntity) UeRandomAccess(data []byte, raddr *net.UDPAddr) (bool, []byte) {
 	rand := parseRandAccess(data[0:4])
-	logger.Info("ue 随机接入 %x %x", rand, RandomAccess)
 	if rand == RandomAccess {
 		logger.Info("ue 随机接入 %x %x", rand, RandomAccess)
 		sum := fnv.New32().Sum([]byte(raddr.String()))
-		ueid := parseRandAccess(sum)
+
+		ueid := parseRandAccess(sum[len(sum)-4:])
+
+		logger.Info("ueid(hex):%x ueid:%v", sum[len(sum)-4:], ueid)
+
 		e.userMu.Lock()
 		e.user[uint32(ueid)] = struct{}{}
 		e.userMu.Unlock()
