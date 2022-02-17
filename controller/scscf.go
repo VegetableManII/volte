@@ -43,7 +43,7 @@ func (s *S_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 		case msg := <-in:
 			f, ok := s.router[msg.GetUniqueMethod()]
 			if !ok {
-				logger.Error("[%v] S-CSCF不支持的消息类型数据 %v", ctx.Value("Entity"), string(msg.GetData()))
+				logger.Error("[%v] S-CSCF不支持的消息类型数据 %v", ctx.Value("Entity"), msg.GetUniqueMethod())
 				continue
 			}
 			f(ctx, msg, up, down)

@@ -58,7 +58,7 @@ func (p *Package) GetUniqueMethod() [2]byte {
 }
 
 func (m *CommonMsg) Init(data []byte) {
-	if data[0] == EPCPROTOCAL {
+	if data[4] == EPCPROTOCAL {
 		m._unique = binary.BigEndian.Uint32(data[0:4])
 		l := binary.BigEndian.Uint16(data[6:8])
 		m._protocal = data[4]
@@ -95,16 +95,24 @@ func (m *CommonMsg) Init(data []byte) {
 
 }
 
-func (msg *CommonMsg) Construct(_type, _method byte, size int, d []byte) {
-	msg._data = [1020]byte{0}
+func (msg *CommonMsg) Construct(_type, _method byte, size int, data []byte) {
+	tmp := make([]byte, 1024)
+	copy(tmp, data)
+	msg._data = [1020]byte{}
 	msg._protocal = _type
 	msg._method = _method
 	msg._size = uint16(size)
-	copy(msg._data[:], d[0:msg._size])
+	copy(msg._data[:], tmp)
 }
 
 func (msg *CommonMsg) GetData() []byte {
 	return msg._data[:msg._size]
+}
+
+func (msg *CommonMsg) GetIMSBody() []byte {
+	uqi := [4]byte{}
+	binary.BigEndian.PutUint32(uqi[:], msg._unique)
+	return append(uqi[:], msg._data[:msg._size]...)
 }
 
 func (msg *CommonMsg) GetType() byte {

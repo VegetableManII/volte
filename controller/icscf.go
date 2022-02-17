@@ -50,7 +50,7 @@ func (i *I_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
-	logger.Info("[%v] Receive From PGW: \n%v", ctx.Value("Entity"), string(p.GetData()))
+	logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(p.GetData()))
 	// 解析SIP消息
 	sipreq, err := sip.NewMessage(strings.NewReader(string(p.GetData())))
 	if err != nil {

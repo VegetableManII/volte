@@ -84,7 +84,7 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 				}
 
 			} else {
-				err = sendUDPMessage(ctx, host, pkg.GetData())
+				err = sendUDPMessage(ctx, host, pkg.GetIMSBody())
 				if err != nil {
 					logger.Error("[%v] 请求下级节点失败 %v", ctx.Value("Entity"), err)
 				}
@@ -115,7 +115,7 @@ func ProcessUpStreamData(ctx context.Context, up chan *Package) {
 					logger.Error("[%v] 请求上级节点失败 %v", ctx.Value("Entity"), err)
 				}
 			} else {
-				err = sendUDPMessage(ctx, host, pkt.GetData())
+				err = sendUDPMessage(ctx, host, pkt.GetIMSBody())
 				if err != nil {
 					logger.Error("[%v] 请求上级节点失败 %v", ctx.Value("Entity"), err)
 				}
