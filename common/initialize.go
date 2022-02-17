@@ -35,4 +35,4 @@ func init() {
 	}
 }
 
-var logconf string = `{"TimeFormat":"2006-01-02 15:04:05","File": {"filename": "/tmp/logs/#entity.app.log","level": "EMER","daily": true,"maxlines": 1000000,"maxsize": 1,"maxdays": -1,"append": true,"permit": "0660"}}`
+var logconf string = `{"TimeFormat":"2006-01-02 15:04:05","File": {"filename": "/tmp/logs/#entity.app.log","level": "INFO","daily": true,"maxlines": 1000000,"maxsize": 1,"maxdays": -1,"append": true,"permit": "0660"}}`
