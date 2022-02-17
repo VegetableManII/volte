@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -33,7 +32,6 @@ func main() {
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	conn := CreateServer(localhost)
-	go heartbeat(ctx, self, conn)
 	go ReceiveClientMessage(ctx, conn, coreIn)
 	go ProcessDownStreamData(ctx, coreOutDown)
 	go ProcessUpStreamData(ctx, coreOutUp)
@@ -63,18 +61,4 @@ func RegistRouter() {
 	self.Regist([2]byte{EPCPROTOCAL, AttachRequest}, self.AttachRequestF)
 	self.Regist([2]byte{EPCPROTOCAL, AuthenticationInformatResponse}, self.AuthenticationInformatResponseF)
 	self.Regist([2]byte{EPCPROTOCAL, AuthenticationResponse}, self.AuthenticationResponseF)
-}
-
-func heartbeat(ctx context.Context, mme *controller.MmeEntity, conn *net.UDPConn) {
-	for {
-		data := make([]byte, 2)
-		_, ra, err := conn.ReadFromUDP(data)
-		if err != nil {
-			logger.Error("心跳探测接收失败 %v", err)
-			return
-		}
-		mme.UtranConn.Lock()
-		mme.UtranConn.RemoteAddr = ra
-		mme.UtranConn.Unlock()
-	}
 }

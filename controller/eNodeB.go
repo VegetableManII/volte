@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"hash/fnv"
@@ -57,20 +56,14 @@ func (e *EnodebEntity) GenerateUpLinkData(data []byte, n int, mme, pgw string) (
 	e.request[request_id] = ueid
 	e.reqMu.Unlock()
 
-	buf := new(bytes.Buffer)
 	dst := ""
-	msg := new(common.CommonMsg)
 	if data[4] == common.EPCPROTOCAL { // EPC 消息
-		msg.ConstructWithReqID(request_id, data[4], data[5], len(data[8:]), []byte(data[8:]))
-		dst = mme
-		err := binary.Write(buf, binary.BigEndian, msg)
-		if err != nil {
-			return nil, "", err
-		}
-		return buf.Bytes(), dst, nil
+		binary.BigEndian.PutUint32(data[0:4], request_id)
+		return data[0:n], dst, nil
 	} else { // IMS 消息
+		binary.BigEndian.PutUint32(data[0:4], request_id)
 		dst = pgw
-		return data[4:n], dst, nil
+		return data[0:n], dst, nil
 	}
 
 }

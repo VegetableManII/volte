@@ -216,13 +216,13 @@ func proxyMessageFromUEtoCoreNet(ctx context.Context, src *net.UDPConn, cConn *C
 				continue
 			}
 			if dest == "MME" {
-				err = upLinkTransport(ctx, cConn.MmeConn, message)
+				err = upLinkTransport(ctx, cConn.MmeConn, message[:n])
 				if err != nil {
 					logger.Error("[%v] 基站转发消息失败[to mme] %v %v", ctx.Value("Entity"), n, err)
 				}
 				logger.Info("[%v] 基站转发消息[to mme] %v %v", ctx.Value("Entity"), data[0:8], string(data[8:]))
 			} else if dest == "PGW" {
-				err = upLinkTransport(ctx, cConn.PgwConn, message)
+				err = upLinkTransport(ctx, cConn.PgwConn, message[:n])
 				if err != nil {
 					logger.Error("[%v] 基站转发消息失败[to pgw] %v %v", ctx.Value("Entity"), n, err)
 				}

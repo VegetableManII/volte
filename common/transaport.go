@@ -42,11 +42,6 @@ func ReceiveClientMessage(ctx context.Context, conn *net.UDPConn, in chan *Packa
 				logger.Error("[%v] Server读取数据错误 %v", ctx.Value("Entity"), err)
 			}
 			if n != 0 {
-				// 兼容心跳探测
-				// if data[0] == 0x13 && data[1] == 0x14 {
-				// 	continue
-				// }
-				logger.Error("%v", string(data))
 				distribute(ctx, data[:n], ra, conn, in)
 			} else {
 				logger.Info("[%v] Read Len[%v]", ctx.Value("Entity"), n)
