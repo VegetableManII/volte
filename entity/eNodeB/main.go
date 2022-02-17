@@ -32,6 +32,7 @@ var (
 	ueBroadcastAddr *net.UDPAddr
 	scanTime        int
 	coreConnection  *CoreNetConnection
+	beatheart       int
 )
 
 func main() {
@@ -61,6 +62,7 @@ func init() {
 	enodebBroadcastPort := viper.GetInt("eNodeB.broadcast.port")
 	scanTime = viper.GetInt("eNodeB.scan.time")
 	entity.TAI = viper.GetInt("eNodeB.TAI")
+	beatheart = viper.GetInt("eNodeB.beatheart.time")
 	// 启动与ue连接的服务器
 	broadcastConn, ueBroadcastAddr = initUeServer(broadcastServerPort, enodebBroadcastPort)
 	coreConnection = new(CoreNetConnection)
@@ -140,21 +142,21 @@ func broadMessageFromNet(ctx context.Context, coreConn *CoreNetConnection, bConn
 		return
 	}
 	// 向mme和pgw发送心跳包，让对端知道自己的公网IP和端口
-	go heartbeat(ctx, coreConn.MmeConn)
-	go heartbeat(ctx, coreConn.PgwConn)
+	go heartbeat(ctx, coreConn.MmeConn, beatheart)
+	go heartbeat(ctx, coreConn.PgwConn, beatheart)
 	go proxy(ctx, coreConn.MmeConn, bConn, bAddr)
 	go proxy(ctx, coreConn.PgwConn, bConn, bAddr)
 	go proxyMessageFromUEtoCoreNet(ctx, bConn, coreConn)
 }
 
-func heartbeat(ctx context.Context, conn net.Conn) {
+func heartbeat(ctx context.Context, conn net.Conn, period int) {
 	for {
 		_, err := conn.Write([]byte{0x13, 0x14})
 		if err != nil {
 			logger.Error("心跳探测发送失败 %v", err)
 			return
 		}
-		time.Sleep(time.Millisecond * 500)
+		time.Sleep(time.Second * time.Duration(period))
 	}
 }
 
