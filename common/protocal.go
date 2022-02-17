@@ -103,15 +103,6 @@ func (msg *CommonMsg) Construct(_type, _method byte, size int, d []byte) {
 	copy(msg._data[:], d[0:msg._size])
 }
 
-func (msg *CommonMsg) ConstructWithReqID(_reqid uint32, _type, _method byte, size int, d []byte) {
-	msg._data = [1020]byte{0}
-	msg._unique = _reqid
-	msg._protocal = _type
-	msg._method = _method
-	msg._size = uint16(size)
-	copy(msg._data[:], d[0:msg._size])
-}
-
 func (msg *CommonMsg) GetData() []byte {
 	return msg._data[:msg._size]
 }
