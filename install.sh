@@ -23,6 +23,10 @@ go build ./entity/p-cscf &
 go build ./entity/pgw &
 go build ./entity/s-cscf
 
+# 关闭防火墙
+systemctl stop firewalld
+systemctl disable firewalld
+
 nohup ./hss -f ./config.yml &
 nohup ./mme -f ./config.yml &
 nohup ./s-cscf -f ./config.yml &

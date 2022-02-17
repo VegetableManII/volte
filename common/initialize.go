@@ -20,13 +20,13 @@ func init() {
 		flag.Usage()
 		os.Exit(0)
 	}
-	args := strings.Split(os.Args[0], "/")
-	pgnm := args[len(args)-1]
 
 	path, err := os.Getwd()
 	if err != nil {
 		log.Fatal("获取运行目录失败")
 	}
+	args := strings.Split(os.Args[0], "/")
+	pgnm := args[len(args)-1]
 	logconf = strings.ReplaceAll(logconf, "#entity", pgnm)
 	if pgnm == "eNodeB.exe" {
 		logconf = ""
