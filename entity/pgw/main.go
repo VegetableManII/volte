@@ -33,6 +33,7 @@ func main() {
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	conn := CreateServer(localhost)
+	go heartbeat(ctx, self, conn)
 	go ReceiveClientMessage(ctx, conn, coreIn)
 
 	go ProcessDownStreamData(ctx, coreOutDown)
