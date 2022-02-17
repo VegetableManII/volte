@@ -40,7 +40,7 @@ func (e *EnodebEntity) UeRandomAccess(data []byte, raddr *net.UDPAddr) (bool, []
 		e.userMu.Lock()
 		e.user[uint32(ueid)] = struct{}{}
 		e.userMu.Unlock()
-		return true, sum
+		return true, sum[len(sum)-4:]
 	}
 	return false, nil
 }
