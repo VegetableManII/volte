@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -25,13 +26,17 @@ func init() {
 	if err != nil {
 		log.Fatal("获取运行目录失败")
 	}
-	args := strings.Split(os.Args[0], "/")
-	pgnm := args[len(args)-1]
-	logconf = strings.ReplaceAll(logconf, "#entity", pgnm)
-	if pgnm == "eNodeB.exe" {
-		logconf = ""
+
+	if runtime.GOOS != "windows" {
+		args := strings.Split(os.Args[0], "/")
+		pgnm := args[len(args)-1]
+		logconf = strings.ReplaceAll(logconf, "#entity", pgnm)
+		if pgnm == "eNodeB.exe" {
+			logconf = ""
+		}
+		logger.SetLogger(logconf)
 	}
-	logger.SetLogger(logconf)
+
 	logger.SetLogPathTrim(path)
 	viper.SetConfigFile(confile)
 	if e := viper.ReadInConfig(); e != nil {
