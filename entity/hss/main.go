@@ -31,7 +31,8 @@ func main() {
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
-	go ReceiveClientMessage(ctx, localhost, coreIn)
+	conn := CreateServer(localhost)
+	go ReceiveClientMessage(ctx, conn, coreIn)
 	go ProcessDownStreamData(ctx, coreOutDown)
 	go ProcessUpStreamData(ctx, coreOutUp)
 

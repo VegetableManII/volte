@@ -37,8 +37,8 @@ var (
 
 type PgwEntity struct {
 	*Mux
-	Points map[string]string
-	utran  *UtranConn
+	Points    map[string]string
+	UtranConn *UtranConn
 }
 
 func (this *PgwEntity) Init() {
@@ -46,7 +46,7 @@ func (this *PgwEntity) Init() {
 	this.Mux = new(Mux)
 	this.router = make(map[[2]byte]BaseSignallingT)
 	this.Points = make(map[string]string)
-	this.utran = new(UtranConn)
+	this.UtranConn = new(UtranConn)
 }
 
 func (this *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *common.Package) {
@@ -86,9 +86,9 @@ func (p *PgwEntity) SIPREQUESTF(ctx context.Context, pkg *common.Package, up, do
 	defer common.Recover(ctx)
 
 	logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-	p.utran.lock.Lock()
-	p.utran.RemoteAddr = pkg.RemoteAddr
-	p.utran.lock.Unlock()
+	p.UtranConn.Lock()
+	p.UtranConn.RemoteAddr = pkg.RemoteAddr
+	p.UtranConn.Unlock()
 
 	host := p.Points["CSCF"]
 	common.PackUpImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipRequest, pkg.GetData(), host, nil, nil, up) // 上行
@@ -106,13 +106,13 @@ func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *common.Package, up, d
 	}
 
 	var remote *net.UDPAddr
-	p.utran.lock.Lock()
-	if p.utran.RemoteAddr == nil {
+	p.UtranConn.Lock()
+	if p.UtranConn.RemoteAddr == nil {
 		return errors.New("ErrUtranConn")
 	} else {
-		remote = p.utran.RemoteAddr
+		remote = p.UtranConn.RemoteAddr
 	}
-	p.utran.lock.Unlock()
+	p.UtranConn.Unlock()
 	common.PackUpImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipResponse, []byte(sipreq.String()), p.Points["eNodeB"], remote, pkg.Conn, down)
 	return nil
 }

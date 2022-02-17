@@ -40,5 +40,5 @@ type Base interface {
 
 type UtranConn struct {
 	RemoteAddr *net.UDPAddr
-	lock       sync.Mutex
+	sync.Mutex
 }

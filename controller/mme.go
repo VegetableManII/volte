@@ -13,14 +13,14 @@ import (
 
 type UeAuthXRES struct {
 	xres map[string]string
-	mu   sync.Mutex
+	sync.Mutex
 }
 
 type MmeEntity struct {
 	*Mux
-	ue     *UeAuthXRES
-	Points map[string]string
-	utran  *UtranConn
+	ue        *UeAuthXRES
+	Points    map[string]string
+	UtranConn *UtranConn
 }
 
 func (m *MmeEntity) Init() {
@@ -65,9 +65,9 @@ func (m *MmeEntity) AttachRequestF(ctx context.Context, p *common.Package, up, d
 
 	logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(p.GetData()))
 
-	m.utran.lock.Lock()
-	m.utran.RemoteAddr = p.RemoteAddr
-	m.utran.lock.Unlock()
+	m.UtranConn.Lock()
+	m.UtranConn.RemoteAddr = p.RemoteAddr
+	m.UtranConn.Unlock()
 
 	data := p.GetData()
 	args := common.StrLineUnmarshal(data)
@@ -93,20 +93,20 @@ func (m *MmeEntity) AuthenticationInformatResponseF(ctx context.Context, p *comm
 	args := common.StrLineUnmarshal(data)
 	imsi := args["IMSI"]
 	xres := args[AV_XRES]
-	m.ue.mu.Lock()
+	m.ue.Lock()
 	m.ue.xres[imsi] = xres
-	m.ue.mu.Unlock()
+	m.ue.Unlock()
 	// 下行发送给ue三项，HSS服务器的Auth信息、随机数nonce和加密方法Kasme
 	// 组装下行数据内容
 	delete(args, AV_XRES)
 
 	host := m.Points["eNodeB"]
 	var remote *net.UDPAddr
-	m.utran.lock.Lock()
-	if m.utran.RemoteAddr == nil {
+	m.UtranConn.Lock()
+	if m.UtranConn.RemoteAddr == nil {
 		return errors.New("ErrUtranConn")
 	} else {
-		remote = m.utran.RemoteAddr
+		remote = m.UtranConn.RemoteAddr
 	}
 	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.AuthenticationInformatRequest, args, host, remote, p.Conn, down) // 下行
 	return nil
@@ -122,18 +122,18 @@ func (m *MmeEntity) AuthenticationResponseF(ctx context.Context, p *common.Packa
 	imsi := args["IMSI"]
 	res := args["RES"]
 	// 对比RES和XRES
-	m.ue.mu.Lock()
+	m.ue.Lock()
 	xres := m.ue.xres[imsi]
-	m.ue.mu.Unlock()
+	m.ue.Unlock()
 	if res != xres {
 		// 鉴权失败，重新发起鉴权请求
 		host := m.Points["eNodeB"]
 		var remote *net.UDPAddr
-		m.utran.lock.Lock()
-		if m.utran.RemoteAddr == nil {
+		m.UtranConn.Lock()
+		if m.UtranConn.RemoteAddr == nil {
 			return errors.New("ErrUtranConn")
 		} else {
-			remote = m.utran.RemoteAddr
+			remote = m.UtranConn.RemoteAddr
 		}
 		common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.AuthenticationInformatRequest, nil, host, remote, p.Conn, down)
 		return errors.New("ErrAuthenFailed")
@@ -163,11 +163,11 @@ func (m *MmeEntity) UpdateLocationACKF(ctx context.Context, p *common.Package, u
 	// 响应UE终端附着允许的响应
 	host := m.Points["eNodeB"]
 	var remote *net.UDPAddr
-	m.utran.lock.Lock()
-	if m.utran.RemoteAddr == nil {
+	m.UtranConn.Lock()
+	if m.UtranConn.RemoteAddr == nil {
 		return errors.New("ErrUtranConn")
 	} else {
-		remote = m.utran.RemoteAddr
+		remote = m.UtranConn.RemoteAddr
 	}
 	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.AttachAccept, args, host, remote, p.Conn, up)
 	return nil

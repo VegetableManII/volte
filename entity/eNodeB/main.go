@@ -127,21 +127,35 @@ func downLinkMessageTransport(ctx context.Context, conn *net.UDPConn, remote *ne
 	}
 }
 
-func broadMessageFromNet(ctx context.Context, cConn *CoreNetConnection, bConn *net.UDPConn, bAddr *net.UDPAddr) {
+func broadMessageFromNet(ctx context.Context, coreConn *CoreNetConnection, bConn *net.UDPConn, bAddr *net.UDPAddr) {
 	var err error
-	cConn.MmeConn, err = net.Dial("udp4", cConn.MmeAddr)
+	coreConn.MmeConn, err = net.Dial("udp4", coreConn.MmeAddr)
 	if err != nil {
 		logger.Info("[%v] 连接核心网MME失败 %v", ctx.Value("Entity"), err)
 		return
 	}
-	cConn.PgwConn, err = net.Dial("udp4", cConn.PgwAddr)
+	coreConn.PgwConn, err = net.Dial("udp4", coreConn.PgwAddr)
 	if err != nil {
 		logger.Info("[%v] 连接核心网PGW失败 %v", ctx.Value("Entity"), err)
 		return
 	}
-	go proxy(ctx, cConn.MmeConn, bConn, bAddr)
-	go proxy(ctx, cConn.PgwConn, bConn, bAddr)
-	go proxyMessageFromUEtoCoreNet(ctx, bConn, cConn)
+	// 向mme和pgw发送心跳包，让对端知道自己的公网IP和端口
+	go heartbeat(ctx, coreConn.MmeConn)
+	go heartbeat(ctx, coreConn.PgwConn)
+	go proxy(ctx, coreConn.MmeConn, bConn, bAddr)
+	go proxy(ctx, coreConn.PgwConn, bConn, bAddr)
+	go proxyMessageFromUEtoCoreNet(ctx, bConn, coreConn)
+}
+
+func heartbeat(ctx context.Context, conn net.Conn) {
+	for {
+		_, err := conn.Write([]byte{0x13, 0x14})
+		if err != nil {
+			logger.Error("心跳探测发送失败 %v", err)
+			return
+		}
+		time.Sleep(time.Millisecond * 500)
+	}
 }
 
 func proxy(ctx context.Context, conn net.Conn, bconn *net.UDPConn, baddr *net.UDPAddr) {

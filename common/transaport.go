@@ -12,8 +12,7 @@ import (
 	"github.com/wonderivan/logger"
 )
 
-// 通用网络中的功能实体与接收客户端数据的通用方法
-func ReceiveClientMessage(ctx context.Context, host string, in chan *Package) {
+func CreateServer(host string) *net.UDPConn {
 	lo, err := net.ResolveUDPAddr("udp4", host)
 	if err != nil {
 		logger.Fatal("解析地址失败 %v", err)
@@ -24,6 +23,11 @@ func ReceiveClientMessage(ctx context.Context, host string, in chan *Package) {
 		log.Panicln("udp server 监听失败", err)
 	}
 	logger.Info("服务器启动成功[%v]", lo)
+	return conn
+}
+
+// 通用网络中的功能实体与接收客户端数据的通用方法
+func ReceiveClientMessage(ctx context.Context, conn *net.UDPConn, in chan *Package) {
 	for {
 		data := make([]byte, 1024)
 		select {
@@ -37,6 +41,8 @@ func ReceiveClientMessage(ctx context.Context, host string, in chan *Package) {
 				logger.Error("[%v] Server读取数据错误 %v", ctx.Value("Entity"), err)
 			}
 			if n != 0 {
+				// 兼容心跳探测
+
 				distribute(ctx, data[:n], ra, conn, in)
 			} else {
 				logger.Info("[%v] Read Len[%v]", ctx.Value("Entity"), n)
