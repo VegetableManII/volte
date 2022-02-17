@@ -22,11 +22,15 @@ func init() {
 	}
 	args := strings.Split(os.Args[0], "/")
 	pgnm := args[len(args)-1]
+
 	path, err := os.Getwd()
 	if err != nil {
 		log.Fatal("获取运行目录失败")
 	}
 	logconf = strings.ReplaceAll(logconf, "#entity", pgnm)
+	if pgnm == "eNodeB.exe" {
+		logconf = ""
+	}
 	logger.SetLogger(logconf)
 	logger.SetLogPathTrim(path)
 	viper.SetConfigFile(confile)

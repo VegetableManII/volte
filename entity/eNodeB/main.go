@@ -175,6 +175,9 @@ func proxy(ctx context.Context, conn net.Conn, bconn *net.UDPConn, baddr *net.UD
 				logger.Error("[%v] 读取网络侧数据错误 %v", ctx.Value("Entity"), err)
 			}
 			if n != 0 {
+				if data[0] == 0x05 && data[1] == 0x50 {
+					continue
+				}
 				entity.ParseDownLinkData(data)
 				// 将收到的消息广播出去
 				downLinkMessageTransport(ctx, bconn, baddr, 0, data[:n])

@@ -29,3 +29,8 @@ nohup ./s-cscf -f ./config.yml &
 nohup ./i-cscf -f ./config.yml &
 nohup ./p-cscf -f ./config.yml &
 nohup ./pgw -f ./config.yml &
+
+CGO_ENABLED=0 
+GOOS=windows/darwin
+GOARCH=amd64 
+go build main.go

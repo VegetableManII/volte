@@ -13,7 +13,7 @@ eNodeB:
 # epc 网络功能实体
 EPC: 
   mme.host: 45.77.178.170:12346
-  pgw.host: 45.77.178.170:12347
+  pgw.host: 10.36.230.80:12347
 
 # 归属地查询服务器
 HSS:
@@ -29,4 +29,3 @@ IMS:
 # 数据库配置信息
 mysql: 
   host: "root:@tcp(127.0.0.1:3306)/volte?charset=utf8&parseTime=True&loc=Local"
-
