@@ -6,6 +6,8 @@ import (
 	"encoding/binary"
 	"net"
 	"strings"
+
+	"github.com/wonderivan/logger"
 )
 
 const (
@@ -102,7 +104,11 @@ func (msg *CommonMsg) Construct(_type, _method byte, size int, data []byte) {
 	msg._protocal = _type
 	msg._method = _method
 	msg._size = uint16(size)
+
+	logger.Info("++++++%v", string(tmp))
+
 	copy(msg._data[:], tmp)
+	logger.Info("++++++%v", string(msg._data[:]))
 }
 
 func (msg *CommonMsg) GetData() []byte {
