@@ -186,8 +186,8 @@ func generateAV(K, Opc string) (AUTN, XRES, CK, IK, RAND []byte, err error) {
 	AUTN = append(AUTN, []byte{0x00, 0x00}...)
 	AUTN = append(AUTN, MAC...)
 
-	log.Printf("RootK=%v, Opc=%v, AMF=0x00 0x00, SQN=%v, RAND=%v, MAC=%v, XRES=%v, CK=%v, IK=%v, AK=%v",
-		K, Opc, SQN, RAND, MAC, XRES, AK, CK, IK)
+	log.Printf("RootK=%v, Opc=%v, AMF=0x00 0x00, SQN=%x, RAND=%x, MAC=%x, XRES=%x, CK=%x, IK=%x, AK=%x, SQN^AK=%v",
+		K, Opc, SQN, RAND, MAC, XRES, AK, CK, IK, xor(SQN, AK))
 
 	return
 }
