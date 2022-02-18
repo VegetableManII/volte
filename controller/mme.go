@@ -39,17 +39,21 @@ func (m *MmeEntity) CoreProcessor(ctx context.Context, in, up, down chan *common
 	for {
 		select {
 		case msg := <-in:
-			if msg.GetType() == common.SIPPROTOCAL { // 不处理SIP协议
-				continue
-			}
-			f, ok := m.router[msg.GetUniqueMethod()]
-			if !ok {
-				logger.Error("[%v] MME不支持的消息类型数据 %v", ctx.Value("Entity"), msg)
-				continue
-			}
-			err = f(ctx, msg, up, down)
-			if err != nil {
-				logger.Error("[%v] MME消息处理失败 %v %v", ctx.Value("Entity"), msg, err)
+			if msg.CommonMsg == nil && msg.RemoteAddr != nil && msg.Conn != nil {
+				m.updateUtranAddress(ctx, msg.RemoteAddr)
+			} else {
+				if msg.GetType() == common.SIPPROTOCAL { // 不处理SIP协议
+					continue
+				}
+				f, ok := m.router[msg.GetUniqueMethod()]
+				if !ok {
+					logger.Error("[%v] MME不支持的消息类型数据 %v", ctx.Value("Entity"), msg)
+					continue
+				}
+				err = f(ctx, msg, up, down)
+				if err != nil {
+					logger.Error("[%v] MME消息处理失败 %v %v", ctx.Value("Entity"), msg, err)
+				}
 			}
 		case <-ctx.Done():
 			// 释放资源
@@ -57,6 +61,13 @@ func (m *MmeEntity) CoreProcessor(ctx context.Context, in, up, down chan *common
 			return
 		}
 	}
+}
+
+func (m *MmeEntity) updateUtranAddress(ctx context.Context, ra *net.UDPAddr) error {
+	m.UtranConn.Lock()
+	m.UtranConn.RemoteAddr = ra
+	m.UtranConn.Unlock()
+	return nil
 }
 
 // 附着请求，携带IMSI，和客户端支持的加密方法，拿到IMSI向HSS发起Authentication Informat Request请求
