@@ -153,6 +153,9 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, msg *common
 
 			common.PackUpImsMsg(msg, common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), downlink, nil, nil, down)
 		} else {
+			s.authMutex.Lock()
+			delete(s.userAuthCache, user)
+			s.authMutex.Unlock()
 			sresp := sip.NewResponse(sip.StatusUnauthorized, req)
 			logger.Info("[%v] 发起对UE鉴权: %v", ctx.Value("Entity"), sresp.String())
 			common.PackUpImsMsg(msg, common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), downlink, nil, nil, down)
