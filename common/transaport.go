@@ -70,7 +70,7 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 					logger.Error("[%v] 序列化失败 %v", ctx.Value("Entity"), err)
 					continue
 				}
-				// 同步响应结果
+				// 同步响应结果 和 指定地址发送
 				if pkg.RemoteAddr != nil && pkg.Conn != nil {
 					n, err := pkg.Conn.WriteToUDP(buffer.Bytes(), pkg.RemoteAddr)
 					if err != nil || n == 0 {
@@ -84,9 +84,16 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 				}
 
 			} else {
-				err = sendUDPMessage(ctx, host, pkg.GetIMSBody())
-				if err != nil {
-					logger.Error("[%v] 请求下级节点失败 %v", ctx.Value("Entity"), err)
+				if pkg.RemoteAddr != nil && pkg.Conn != nil {
+					n, err := pkg.Conn.WriteToUDP(pkg.GetIMSBody(), pkg.RemoteAddr)
+					if err != nil || n == 0 {
+						logger.Error("[%v] 同步响应下级节点失败 %v", ctx.Value("Entity"), err)
+					}
+				} else {
+					err = sendUDPMessage(ctx, host, pkg.GetIMSBody())
+					if err != nil {
+						logger.Error("[%v] 请求下级节点失败 %v", ctx.Value("Entity"), err)
+					}
 				}
 			}
 		}

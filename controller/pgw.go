@@ -113,6 +113,9 @@ func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *common.Package, up, d
 		remote = p.UtranConn.RemoteAddr
 	}
 	p.UtranConn.Unlock()
+
+	logger.Info("%v", remote)
+
 	common.PackUpImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipResponse, []byte(sipreq.String()), p.Points["eNodeB"], remote, pkg.Conn, down)
 	return nil
 }
