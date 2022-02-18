@@ -105,6 +105,7 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, msg *common
 	RES, ok := s.userAuthCache[user]
 	s.authMutex.Unlock()
 	if !ok {
+		logger.Info("[%v] 首次注册: %v", ctx.Value("Entity"), user)
 		// 向HSS发起MAR，再收到MAA，同步实现
 		// 向HSS查询信息
 		table := map[string]string{
@@ -116,7 +117,6 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, msg *common
 			sipresp := sip.NewResponse(sip.StatusNoResponse, req)
 			common.PackUpImsMsg(msg, common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()), s.Points["ICSCF"], nil, nil, down)
 		} else {
-
 			// 获得用户鉴权信息
 			resp := common.StrLineUnmarshal(m.GetData())
 			user := resp["UserName"]
@@ -133,6 +133,8 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, msg *common
 			// 向终端发起鉴权
 			sipresp := sip.NewResponse(sip.StatusUnauthorized, req)
 			sipresp.Header.WWWAuthenticate = wwwAuth
+			logger.Info("[%v] MAA响应: %v", ctx.Value("Entity"), []byte(sipresp.String()))
+
 			common.PackUpImsMsg(msg, common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()), downlink, nil, nil, down)
 			// 透传MAA响应给自己的路由
 			p := &common.Package{
@@ -147,9 +149,13 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, msg *common
 		values := parseAuthentication(req.Header.Authorization)
 		if RES != "" && RES == values["response"] {
 			sresp := sip.NewResponse(sip.StatusOK, req)
+			logger.Info("[%v] 鉴权认证成功: %v", ctx.Value("Entity"), []byte(sresp.String()))
+
 			common.PackUpImsMsg(msg, common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), downlink, nil, nil, down)
 		} else {
 			sresp := sip.NewResponse(sip.StatusUnauthorized, req)
+			logger.Info("[%v] 鉴权认证成功: %v", ctx.Value("Entity"), []byte(sresp.String()))
+
 			common.PackUpImsMsg(msg, common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), downlink, nil, nil, down)
 		}
 	}
