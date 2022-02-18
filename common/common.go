@@ -19,7 +19,7 @@ func Recover(ctx context.Context) {
 		logger.Error("[%v] 程序异常Panic %v", ctx.Value("Entity"), err)
 		data := make([]byte, 2048)
 		n := runtime.Stack(data[:], false)
-		logger.Error("Stack Informmation %s", string(data[:n]))
+		logger.Error("程序堆栈信息 %s", string(data[:n]))
 	}
 }
 

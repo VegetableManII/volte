@@ -20,6 +20,7 @@ cd volte
 systemctl stop firewalld
 systemctl disable firewalld
 
+# 跨平台编译
 CGO_ENABLED=0 
 GOOS=windows/darwin
 GOARCH=amd64 
