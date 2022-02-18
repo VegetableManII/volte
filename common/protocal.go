@@ -11,6 +11,7 @@ import (
 const (
 	EPCPROTOCAL byte = 0x01
 	SIPPROTOCAL byte = 0x00
+	BEATHEART   byte = 0xFF
 )
 
 // epc message的消息类型
@@ -30,6 +31,7 @@ const (
 	UserAuthorizationAnswer         byte = 0x0C
 	MultiMediaAuthenticationRequest byte = 0x0D
 	MultiMediaAuthenticationAnswer  byte = 0x0E
+	HeartBeatUpdate                 byte = 0xFF
 )
 
 // sip message的消息类型

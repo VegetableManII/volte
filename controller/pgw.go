@@ -71,6 +71,15 @@ func (this *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 	}
 }
 
+func (p *PgwEntity) UpdateUtranAddress(ctx context.Context, pkg *common.Package, up, down chan *common.Package) error {
+	_, _ = up, down
+	logger.Info("心跳探测 %v", pkg.RemoteAddr.String())
+	p.UtranConn.Lock()
+	p.UtranConn.RemoteAddr = pkg.RemoteAddr
+	p.UtranConn.Unlock()
+	return nil
+}
+
 func (p *PgwEntity) CreateSessionRequestF(ctx context.Context, pkg *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 	logger.Info("[%v] Receive From MME: \n%v", ctx.Value("Entity"), string(pkg.GetData()))

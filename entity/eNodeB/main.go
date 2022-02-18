@@ -141,8 +141,8 @@ func broadMessageFromNet(ctx context.Context, coreConn *CoreNetConnection, bConn
 		return
 	}
 	// 向mme和pgw发送心跳包，让对端知道自己的公网IP和端口
-	//go heartbeat(ctx, coreConn.MmeConn, beatheart)
-	//go heartbeat(ctx, coreConn.PgwConn, beatheart)
+	go heartbeat(ctx, coreConn.MmeConn, beatheart)
+	go heartbeat(ctx, coreConn.PgwConn, beatheart)
 	go proxy(ctx, coreConn.MmeConn, bConn, bAddr)
 	go proxy(ctx, coreConn.PgwConn, bConn, bAddr)
 	go proxyMessageFromUEtoCoreNet(ctx, bConn, coreConn)
@@ -150,7 +150,7 @@ func broadMessageFromNet(ctx context.Context, coreConn *CoreNetConnection, bConn
 
 func heartbeat(ctx context.Context, conn net.Conn, period int) {
 	for {
-		_, err := conn.Write([]byte{0x13, 0x14})
+		_, err := conn.Write([]byte{0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF})
 		if err != nil {
 			logger.Error("心跳探测发送失败 %v", err)
 			return

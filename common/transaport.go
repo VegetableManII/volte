@@ -42,6 +42,11 @@ func ReceiveClientMessage(ctx context.Context, conn *net.UDPConn, in chan *Packa
 				logger.Error("[%v] Server读取数据错误 %v", ctx.Value("Entity"), err)
 			}
 			if n != 0 {
+				// 心跳兼容
+				if data[0] == 0x00 && data[1] == 0xFF && data[2] == 0x00 && data[3] == 0xFF &&
+					data[4] == 0x00 && data[5] == 0xFF && data[6] == 0x00 && data[7] == 0xFF {
+					in <- &Package{nil, "", ra, conn}
+				}
 				distribute(ctx, data[:n], ra, conn, in)
 			} else {
 				logger.Info("[%v] Read Len[%v]", ctx.Value("Entity"), n)
