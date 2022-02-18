@@ -57,6 +57,9 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *common.Package, up,
 	if err != nil {
 		return err
 	}
+
+	logger.Info("SIP Method: %v", sipreq.RequestLine.Method)
+
 	switch sipreq.RequestLine.Method {
 	case "REGISTER":
 		// 增加Via头部信息
