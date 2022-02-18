@@ -16,23 +16,9 @@ git clone https://github.com/VegetableManII/volte.git
 
 cd volte
 
-go build ./entity/hss &
-go build ./entity/i-cscf &
-go build ./entity/mme &
-go build ./entity/p-cscf &
-go build ./entity/pgw &
-go build ./entity/s-cscf
-
 # 关闭防火墙
 systemctl stop firewalld
 systemctl disable firewalld
-
-nohup ./hss -f ./config.yml &
-nohup ./mme -f ./config.yml &
-nohup ./s-cscf -f ./config.yml &
-nohup ./i-cscf -f ./config.yml &
-nohup ./p-cscf -f ./config.yml &
-nohup ./pgw -f ./config.yml &
 
 CGO_ENABLED=0 
 GOOS=windows/darwin
