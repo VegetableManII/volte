@@ -122,14 +122,17 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, msg *common
 			user := resp["UserName"]
 			AUTN := resp["AUTN"]
 			XRES := resp["XRES"]
+			RAND := resp["RAND"]
 			// 保存用户鉴权
 			s.authMutex.Lock()
 			s.userAuthCache[user] = XRES
 			s.authMutex.Unlock()
 
 			// 组装WWW-Authenticate
-			abs, _ := hex.DecodeString(AUTN)
-			wwwAuth := fmt.Sprintf(`Digest realm=hebeiyidomg.3gpp.net nonce=%s qop=auth-int algorithm=AKAv1-MD5`, base64.StdEncoding.EncodeToString(abs))
+			autn, _ := hex.DecodeString(AUTN)
+			rand, _ := hex.DecodeString(RAND)
+			nonce := append(rand, autn...)
+			wwwAuth := fmt.Sprintf(`Digest realm=hebeiyidomg.3gpp.net nonce=%s qop=auth-int algorithm=AKAv1-MD5`, base64.StdEncoding.EncodeToString(nonce))
 			// 向终端发起鉴权
 			sipresp := sip.NewResponse(sip.StatusUnauthorized, req)
 			sipresp.Header.WWWAuthenticate = wwwAuth
