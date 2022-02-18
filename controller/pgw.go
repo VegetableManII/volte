@@ -54,6 +54,11 @@ func (this *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 	for {
 		select {
 		case msg := <-in:
+			// 兼容心跳包
+			if msg.CommonMsg == nil && msg.RemoteAddr != nil && msg.Conn != nil {
+				this.updateUtranAddress(ctx, msg.RemoteAddr)
+				continue
+			}
 			f, ok := this.router[msg.GetUniqueMethod()]
 			if !ok {
 				logger.Error("[%v] PGW不支持的消息类型数据 %v", ctx.Value("Entity"), msg)
@@ -71,11 +76,10 @@ func (this *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 	}
 }
 
-func (p *PgwEntity) UpdateUtranAddress(ctx context.Context, pkg *common.Package, up, down chan *common.Package) error {
-	_, _ = up, down
-	logger.Info("心跳探测 %v", pkg.RemoteAddr.String())
+func (p *PgwEntity) updateUtranAddress(ctx context.Context, ra *net.UDPAddr) error {
+	logger.Info("心跳探测 %v", ra.String())
 	p.UtranConn.Lock()
-	p.UtranConn.RemoteAddr = pkg.RemoteAddr
+	p.UtranConn.RemoteAddr = ra
 	p.UtranConn.Unlock()
 	return nil
 }
