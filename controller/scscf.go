@@ -133,7 +133,7 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, msg *common
 			// 向终端发起鉴权
 			sipresp := sip.NewResponse(sip.StatusUnauthorized, req)
 			sipresp.Header.WWWAuthenticate = wwwAuth
-			logger.Info("[%v] MAA响应: %v", ctx.Value("Entity"), []byte(sipresp.String()))
+			logger.Info("[%v] MAA响应: %v", ctx.Value("Entity"), sipresp.String())
 
 			common.PackUpImsMsg(msg, common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()), downlink, nil, nil, down)
 			// 透传MAA响应给自己的路由
@@ -149,13 +149,12 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, msg *common
 		values := parseAuthentication(req.Header.Authorization)
 		if RES != "" && RES == values["response"] {
 			sresp := sip.NewResponse(sip.StatusOK, req)
-			logger.Info("[%v] 鉴权认证成功: %v", ctx.Value("Entity"), []byte(sresp.String()))
+			logger.Info("[%v] 鉴权认证成功: %v", ctx.Value("Entity"), sresp.String())
 
 			common.PackUpImsMsg(msg, common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), downlink, nil, nil, down)
 		} else {
 			sresp := sip.NewResponse(sip.StatusUnauthorized, req)
-			logger.Info("[%v] 鉴权认证成功: %v", ctx.Value("Entity"), []byte(sresp.String()))
-
+			logger.Info("[%v] 发起对UE鉴权: %v", ctx.Value("Entity"), sresp.String())
 			common.PackUpImsMsg(msg, common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), downlink, nil, nil, down)
 		}
 	}
