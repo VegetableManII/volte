@@ -82,6 +82,8 @@ func (i *I_CscfEntity) SIPRESPONSEF(ctx context.Context, p *common.Package, up, 
 	if err != nil {
 		return err
 	}
+	// 增加说明支持的SIP请求方法
+
 	// 删除Via头部信息
 	sipreq.Header.Via.RemoveFirst()
 	sipreq.Header.MaxForwards.Reduce()

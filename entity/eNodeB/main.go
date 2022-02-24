@@ -168,10 +168,10 @@ func proxy(ctx context.Context, conn net.Conn, bconn *net.UDPConn, baddr *net.UD
 			logger.Warn("[%v] 基站转发广播网络侧消息协程退出...", ctx.Value("Entity"))
 			return
 		default:
-			data := make([]byte, 1024)
+			data := make([]byte, 10240) // 最多读取10KB数据包
 			n, err := conn.Read(data)
 			if err != nil {
-				// logger.Error("[%v] 读取网络侧数据错误 %v", ctx.Value("Entity"), err)
+				logger.Error("[%v] 读取网络侧数据错误 %v", ctx.Value("Entity"), err)
 				continue
 			}
 			if n != 0 {
@@ -196,7 +196,7 @@ func proxyMessageFromUEtoCoreNet(ctx context.Context, src *net.UDPConn, cConn *C
 			logger.Warn("[%v] 基站转发协程退出...", ctx.Value("Entity"))
 			return
 		default:
-			data := make([]byte, 1024)
+			data := make([]byte, 10240) // 10KB
 			n, raddr, err = src.ReadFromUDP(data)
 			if err != nil && n == 0 {
 				logger.Error("[%v] 基站接收消息失败 %v %v", ctx.Value("Entity"), n, err)

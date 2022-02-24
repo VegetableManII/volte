@@ -50,8 +50,8 @@ type CommonMsg struct {
 	_unique   uint32 // 全局唯一ID，供基站区分不同用户请求使用
 	_protocal uint8  // 0x01 表示电路域协议
 	_method   uint8
-	_size     uint16     // data字段的长度
-	_data     [1020]byte // 最大65535字节大小
+	_size     uint16      // data字段的长度
+	_data     [65535]byte // 最大65535字节大小
 }
 
 func (p *Package) GetUniqueMethod() [2]byte {
@@ -100,7 +100,7 @@ func (m *CommonMsg) Init(data []byte) {
 func (msg *CommonMsg) Construct(_type, _method byte, size int, data []byte) {
 	tmp := make([]byte, 1024)
 	copy(tmp, data)
-	msg._data = [1020]byte{}
+	msg._data = [65535]byte{}
 	msg._protocal = _type
 	msg._method = _method
 	msg._size = uint16(size)
