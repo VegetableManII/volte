@@ -15,7 +15,6 @@ import (
 )
 
 type P_CscfEntity struct {
-	SipURI string
 	SipVia string
 	Points map[string]string
 	*Mux
@@ -24,7 +23,6 @@ type P_CscfEntity struct {
 // 暂时先试用固定的uri，后期实现dns使用域名加IP的映射方式
 func (p *P_CscfEntity) Init(host string) {
 	p.Mux = new(Mux)
-	p.SipURI = "p-cscf.hebeiyidong.3gpp.net"
 	p.SipVia = "SIP/2.0/UDP " + host + ";branch="
 	p.Points = make(map[string]string)
 	p.router = make(map[[2]byte]BaseSignallingT)
@@ -61,30 +59,22 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *common.Package, up,
 		return err
 	}
 
-	logger.Info("SIP Method: %v", sipreq.RequestLine.Method)
-
-	switch sipreq.RequestLine.Method {
-	case "REGISTER":
-		// 增加Via头部信息
-		sipreq.Header.Via.Add(p.SipVia + strconv.FormatInt(common.GenerateSipBranch(), 16))
-		sipreq.Header.MaxForwards.Reduce()
-		// 检查头部内容是否首次注册
-		if strings.Contains(sipreq.Header.Authorization, "response") { // 包含响应内容则为第二次注册请求
-			// TODO 第二次注册请求时PCSCF可以直接转发给SCSCF
-		} else {
-			// 第一次注册请求，P-CSCF处理，填充Authorization头部
-			user := sipreq.Header.From.URI.Username
-			domain := sipreq.Header.From.URI.Domain
-			username := user + "@" + domain
-			auth := fmt.Sprintf("Digest username=%s integrity protection:no", username)
-			sipreq.Header.Authorization = auth
-			// 第一次注册请求SCSCF还未与UE绑定所以转发给ICSCF
-			// common.RawPackageOut(common.SIPPROTOCAL, common.SipRequest, []byte(sipreq.String()), p.Points["ICSCF"], up)
-		}
-		// 先统一转发给ICSCF，待后期完善与HSS的交互之后实现第二次注册直接转发给SCSCF
+	// 增加Via头部信息
+	sipreq.Header.Via.Add(p.SipVia + strconv.FormatInt(common.GenerateSipBranch(), 16))
+	sipreq.Header.MaxForwards.Reduce()
+	// 检查头部内容是否首次注册
+	if strings.Contains(sipreq.Header.Authorization, "response") { // 包含响应内容则为第二次注册请求
+		// TODO 第二次注册请求时PCSCF可以直接转发给ICSCF
 		common.PackUpImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipRequest, []byte(sipreq.String()), p.Points["ICSCF"], nil, nil, up)
-	case "INVITE":
-		return nil
+	} else {
+		// 第一次注册请求，P-CSCF处理，填充Authorization头部
+		user := sipreq.Header.From.URI.Username
+		domain := sipreq.Header.From.URI.Domain
+		username := user + "@" + domain
+		auth := fmt.Sprintf("Digest username=%s integrity protection:no", username)
+		sipreq.Header.Authorization = auth
+		// 第一次注册请求SCSCF还未与UE绑定所以转发给ICSCF
+		common.PackUpImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipRequest, []byte(sipreq.String()), p.Points["ICSCF"], nil, nil, up)
 	}
 	return nil
 }

@@ -98,7 +98,7 @@ func (m *CommonMsg) Init(data []byte) {
 }
 
 func (msg *CommonMsg) Construct(_type, _method byte, size int, data []byte) {
-	tmp := make([]byte, 1024)
+	tmp := make([]byte, 65535)
 	copy(tmp, data)
 	msg._data = [65535]byte{}
 	msg._protocal = _type

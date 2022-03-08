@@ -5,34 +5,11 @@ import (
 	"errors"
 	"net"
 	"strings"
-	"time"
 
 	"github.com/VegetableManII/volte/common"
 	sip "github.com/VegetableManII/volte/sip"
 
 	"github.com/wonderivan/logger"
-)
-
-type Bearer struct {
-	Conn   net.Conn
-	DestID string
-	Net    string
-	Dialer net.Dialer
-	Qci    QCI
-}
-
-type QCI struct {
-	Value    int
-	Priority int
-	Delay    time.Duration
-}
-
-var (
-	IMS_SIGNALLING = QCI{Value: 5, Priority: 1, Delay: time.Millisecond * 100}
-	CacheVedio     = QCI{Value: 6, Priority: 6, Delay: time.Millisecond * 300}
-	AudioVedio     = QCI{Value: 7, Priority: 7, Delay: time.Millisecond * 100}
-	TCP_APP_VIP    = QCI{Value: 8, Priority: 8, Delay: time.Millisecond * 300}
-	TCP_APP_NVIP   = QCI{Value: 9, Priority: 9, Delay: time.Millisecond * 300}
 )
 
 type PgwEntity struct {
@@ -55,8 +32,8 @@ func (this *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 		select {
 		case msg := <-in:
 			// 兼容心跳包
-			if msg.CommonMsg == nil && msg.RemoteAddr != nil && msg.Conn != nil {
-				this.updateUtranAddress(ctx, msg.RemoteAddr)
+			if msg.CommonMsg == nil && msg.RemoteAddr != nil && msg.Conn == nil {
+				this.updateUtranAddress(ctx, msg.RemoteAddr, msg.Destation)
 			} else {
 				f, ok := this.router[msg.GetUniqueMethod()]
 				if !ok {
@@ -76,9 +53,9 @@ func (this *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 	}
 }
 
-func (p *PgwEntity) updateUtranAddress(ctx context.Context, ra *net.UDPAddr) error {
+func (p *PgwEntity) updateUtranAddress(ctx context.Context, ra *net.UDPAddr, enb string) error {
 	p.UtranConn.Lock()
-	p.UtranConn.RemoteAddr = ra
+	p.UtranConn.RemoteAddr[enb] = ra
 	p.UtranConn.Unlock()
 	return nil
 }
@@ -98,9 +75,6 @@ func (p *PgwEntity) SIPREQUESTF(ctx context.Context, pkg *common.Package, up, do
 	defer common.Recover(ctx)
 
 	logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-	p.UtranConn.Lock()
-	p.UtranConn.RemoteAddr = pkg.RemoteAddr
-	p.UtranConn.Unlock()
 
 	host := p.Points["CSCF"]
 	common.PackUpImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipRequest, pkg.GetData(), host, nil, nil, up) // 上行

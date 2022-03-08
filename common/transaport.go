@@ -44,7 +44,7 @@ func ReceiveClientMessage(ctx context.Context, conn *net.UDPConn, in chan *Packa
 				// 心跳兼容
 				if data[0] == 0x00 && data[1] == 0xFF && data[2] == 0x00 && data[3] == 0xFF &&
 					data[4] == 0x00 && data[5] == 0xFF && data[6] == 0x00 && data[7] == 0xFF {
-					in <- &Package{nil, "", ra, conn}
+					in <- &Package{nil, string(data[8:]), ra, nil}
 					continue
 				}
 				distribute(ctx, data[:n], ra, conn, in)
@@ -132,7 +132,6 @@ func ProcessUpStreamData(ctx context.Context, up chan *Package) {
 					logger.Error("[%v] 请求上级节点失败 %v", ctx.Value("Entity"), err)
 				}
 			}
-
 		}
 		buffer.Reset()
 	}
@@ -169,7 +168,7 @@ func sendUDPMessageWaitResp(ctx context.Context, host string, data []byte) (err 
 	if n == 0 {
 		return errors.New("ErrSendEmpty"), nil
 	}
-	ra.SetReadDeadline(time.Now().Add(5 * time.Second)) // 等待响应的过期时间为3秒
+	ra.SetReadDeadline(time.Now().Add(5 * time.Second)) // 等待响应的过期时间为5秒
 	buf := make([]byte, 1024)
 	n, err = ra.Read(buf)
 	if err != nil {
