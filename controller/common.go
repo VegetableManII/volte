@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/VegetableManII/volte/common"
+	"github.com/patrickmn/go-cache"
 )
 
 // 鉴权向量
@@ -38,7 +39,25 @@ type Base interface {
 	CoreProcessor(context.Context, chan *common.Package, chan *common.Package, chan *common.Package)
 }
 
-type UtranConn struct {
-	RemoteAddr *net.UDPAddr
-	sync.Mutex
+// MME 和 PGW 用于缓存UE和其接入点的关系
+var UeCache *cache.Cache
+
+func init() {
+	UeCache = cache.New(cache.NoExpiration, cache.NoExpiration)
+}
+
+func updateUtranAddress(ctx context.Context, ra *net.UDPAddr, enb string) error {
+	_, ok := UeCache.Get(enb)
+	if !ok { // 不存在该无线接入点的缓存
+		val := new(sync.Map)
+		err := UeCache.Add(enb, val, cache.NoExpiration)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func AddCache(ctx context.Context, ra *net.UDPAddr, key string) error {
+
 }

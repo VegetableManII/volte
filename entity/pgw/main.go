@@ -52,7 +52,6 @@ func init() {
 	logger.Info("配置文件读取成功", "")
 	self = new(controller.PgwEntity)
 	self.Init()
-	self.Points["eNodeB"] = eNodeBhost
 	self.Points["CSCF"] = cscfHost
 	RegistRouter()
 }

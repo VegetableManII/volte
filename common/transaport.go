@@ -44,7 +44,7 @@ func ReceiveClientMessage(ctx context.Context, conn *net.UDPConn, in chan *Packa
 				// 心跳兼容
 				if data[0] == 0x00 && data[1] == 0xFF && data[2] == 0x00 && data[3] == 0xFF &&
 					data[4] == 0x00 && data[5] == 0xFF && data[6] == 0x00 && data[7] == 0xFF {
-					in <- &Package{nil, string(data[8:]), ra, nil}
+					in <- &Package{nil, string(data[8:n]), ra, nil}
 					continue
 				}
 				distribute(ctx, data[:n], ra, conn, in)

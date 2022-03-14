@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/wonderivan/logger"
@@ -64,23 +63,4 @@ func GetIMSI(data []byte) (string, error) {
 func GenerateSipBranch() int64 {
 	rand.Seed(time.Now().UnixNano())
 	return rand.Int63()
-}
-
-type UniqueRequest struct {
-	ReqID uint32
-	sync.Mutex
-}
-
-var uniqReq UniqueRequest
-
-func init() {
-	uniqReq.ReqID = 0xFFFFFFFF
-}
-
-func GenerateRequestID() uint32 {
-	uniqReq.Lock()
-	tmp := uniqReq.ReqID
-	uniqReq.ReqID = uniqReq.ReqID - 1
-	uniqReq.Unlock()
-	return tmp
 }

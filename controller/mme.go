@@ -18,9 +18,8 @@ type UeAuthXRES struct {
 
 type MmeEntity struct {
 	*Mux
-	ue        *UeAuthXRES
-	Points    map[string]string
-	UtranConn *UtranConn
+	ue     *UeAuthXRES
+	Points map[string]string
 }
 
 func (m *MmeEntity) Init() {
@@ -40,7 +39,7 @@ func (m *MmeEntity) CoreProcessor(ctx context.Context, in, up, down chan *common
 		select {
 		case msg := <-in:
 			if msg.CommonMsg == nil && msg.RemoteAddr != nil && msg.Conn != nil {
-				m.updateUtranAddress(ctx, msg.RemoteAddr)
+				updateUtranAddress(ctx, msg.RemoteAddr, msg.Destation)
 			} else {
 				if msg.GetType() == common.SIPPROTOCAL { // 不处理SIP协议
 					continue
@@ -63,22 +62,11 @@ func (m *MmeEntity) CoreProcessor(ctx context.Context, in, up, down chan *common
 	}
 }
 
-func (m *MmeEntity) updateUtranAddress(ctx context.Context, ra *net.UDPAddr) error {
-	m.UtranConn.Lock()
-	m.UtranConn.RemoteAddr = ra
-	m.UtranConn.Unlock()
-	return nil
-}
-
 // 附着请求，携带IMSI，和客户端支持的加密方法，拿到IMSI向HSS发起Authentication Informat Request请求
 func (m *MmeEntity) AttachRequestF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
 
 	logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(p.GetData()))
-
-	m.UtranConn.Lock()
-	m.UtranConn.RemoteAddr = p.RemoteAddr
-	m.UtranConn.Unlock()
 
 	data := p.GetData()
 	args := common.StrLineUnmarshal(data)
@@ -111,7 +99,6 @@ func (m *MmeEntity) AuthenticationInformatResponseF(ctx context.Context, p *comm
 	// 组装下行数据内容
 	delete(args, AV_XRES)
 
-	host := m.Points["eNodeB"]
 	var remote *net.UDPAddr
 	m.UtranConn.Lock()
 	if m.UtranConn.RemoteAddr == nil {
@@ -138,7 +125,6 @@ func (m *MmeEntity) AuthenticationResponseF(ctx context.Context, p *common.Packa
 	m.ue.Unlock()
 	if res != xres {
 		// 鉴权失败，重新发起鉴权请求
-		host := m.Points["eNodeB"]
 		var remote *net.UDPAddr
 		m.UtranConn.Lock()
 		if m.UtranConn.RemoteAddr == nil {
@@ -166,20 +152,21 @@ func (m *MmeEntity) UpdateLocationACKF(ctx context.Context, p *common.Package, u
 		1.获得APN
 		2.请求PGW建立承载
 	*/
-	pgwaddr := args["APN"]
+	host := args["APN"]
+	accPoints := args["UTRAN-ID"]
 	delete(args, "APN")
 	args["QCI"] = "5"
+
 	// 请求PGW建立IMS信令承载
-	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.CreateSessionRequest, args, pgwaddr, nil, nil, up)
+	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.CreateSessionRequest, args, host, nil, nil, up)
 	// 响应UE终端附着允许的响应
-	host := m.Points["eNodeB"]
 	var remote *net.UDPAddr
 	m.UtranConn.Lock()
-	if m.UtranConn.RemoteAddr == nil {
+	if points, ok := m.UtranConn.RemoteAddr[accPoints]; !ok {
 		return errors.New("ErrUtranConn")
 	} else {
-		remote = m.UtranConn.RemoteAddr
+		remote = points
 	}
-	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.AttachAccept, args, host, remote, p.Conn, up)
+	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.AttachAccept, args, "eNodeB", remote, p.Conn, up)
 	return nil
 }

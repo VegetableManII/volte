@@ -11,22 +11,23 @@ import (
 // 行范式：header = "header-name" HCOLON header-value *(COMMA header-value)
 // 头域至少包含TO、FROM、CSeq、Call-ID、Max-Forwards、Via字段
 type Header struct {
-	Via             ViaList     // (RFC3261-8.1.1.7) 请求路径
-	From            User        // (RFC3261-8.1.1.3) 请求的原始发起者
-	To              User        // (RFC3261-8.1.1.2) 请求的原始到达者
-	CallID          string      // (RFC3261-8.1.1.4) 唯一标志
-	CSeq            CSeq        // (RFC3261-8.1.1.5) 命令序列号
-	MaxForwards     MaxForwards // (RFC3261-8.1.1.6) 最大转发数量限制
-	ContentLength   int         // 正文长度
-	ContentType     string      // (可选) 正文格式描述
-	Contact         *User       // (可选) (RFC3261-8.1.1.8) 直接访问方式
-	Expires         Expires     // (可选) 消息或内容过期时间
-	Route           Route       // (可选) 请求的路由表
-	RecordRoute     RecordRoute // (可选) 后续消息流处理的服务器列表
-	UserAgent       string      // (可选) UAC的信息
-	Authorization   string      // (可选) 用户认证信息
-	WWWAuthenticate string      // (可选) 支持的认证方式和适用realm的参数的拒绝原因
-	UnsupportLines  []string    // 暂不支持的行
+	Via               ViaList     // (RFC3261-8.1.1.7) 请求路径
+	From              User        // (RFC3261-8.1.1.3) 请求的原始发起者
+	To                User        // (RFC3261-8.1.1.2) 请求的原始到达者
+	CallID            string      // (RFC3261-8.1.1.4) 唯一标志
+	CSeq              CSeq        // (RFC3261-8.1.1.5) 命令序列号
+	MaxForwards       MaxForwards // (RFC3261-8.1.1.6) 最大转发数量限制
+	ContentLength     int         // 正文长度
+	ContentType       string      // (可选) 正文格式描述
+	Contact           *User       // (可选) (RFC3261-8.1.1.8) 直接访问方式
+	Expires           Expires     // (可选) 消息或内容过期时间
+	Route             Route       // (可选) 请求的路由表
+	RecordRoute       RecordRoute // (可选) 后续消息流处理的服务器列表
+	UserAgent         string      // (可选) UAC的信息
+	Authorization     string      // (可选) 用户认证信息
+	WWWAuthenticate   string      // (可选) 支持的认证方式和适用realm的参数的拒绝原因
+	AccessNetworkInfo string      // (可选) UE终端无线接入点eNodeB标识信息
+	UnsupportLines    []string    // 暂不支持的行
 }
 
 // 设置To的标签为From标签
@@ -69,6 +70,9 @@ func (h Header) String() (result string) {
 	}
 	if len(h.WWWAuthenticate) > 0 {
 		result += h.lineString(HeaderFieldWWWAuthenticate.Name, h.WWWAuthenticate)
+	}
+	if len(h.AccessNetworkInfo) > 0 {
+		result += h.lineString(HeaderFieldAccessNetworkInfo.Name, h.AccessNetworkInfo)
 	}
 	for _, line := range h.UnsupportLines {
 		result += h.emptyLineString(line)
@@ -122,6 +126,8 @@ func (h *Header) parse(line string) (err error) {
 		h.Authorization = value
 	case HeaderFieldWWWAuthenticate.LowerName(), HeaderFieldWWWAuthenticate.Abbr:
 		h.WWWAuthenticate = value
+	case HeaderFieldAccessNetworkInfo.LowerName():
+		h.AccessNetworkInfo = value
 	default:
 		h.UnsupportLines = append(h.UnsupportLines, line)
 	}

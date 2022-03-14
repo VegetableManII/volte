@@ -47,13 +47,11 @@ func main() {
 func init() {
 	localhost = viper.GetString("EPC.mme.host")
 	hssHost := viper.GetString("HSS.host")
-	eNodeBhost := viper.GetString("EPC.eNodeB.host")
 	logger.Info("配置文件读取成功", "")
 	// 创建自身逻辑实体
 	self = new(controller.MmeEntity)
 	self.Init()
 	self.Points["HSS"] = hssHost
-	self.Points["eNodeB"] = eNodeBhost
 	RegistRouter()
 }
 
