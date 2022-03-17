@@ -197,23 +197,22 @@ func forwardMessageFromUeToCoreNet(ctx context.Context, src *net.UDPConn, cConn 
 				working(ctx, src, raddr, -1, id)
 				continue
 			}
-			message, dest, err := entity.GenerateUpLinkData(data, n, "MME", "PGW")
-			if err != nil {
+			id, ok := entity.Attached(raddr)
+			if !ok {
 				if err.Error() == "ErrNeedAccessInfo" {
 					working(ctx, src, raddr, -1, []byte("RandomAccess"))
 				}
-				logger.Info("[%v] 基站转发消息[to %v] %v", ctx.Value("Entity"), dest, string(data[8:]))
 				continue
-			}
-			if dest == "PGW" {
+			} else {
+				message := make([]byte, 0, 10240)
+				binary.BigEndian.PutUint32(message, id)
+				message = append(message, data[:n]...)
 				err = send(ctx, cConn.PgwConn, message[:n])
 				if err != nil {
 					logger.Error("[%v] 基站转发消息失败[to pgw] %v %v", ctx.Value("Entity"), n, err)
 				}
-				logger.Info("[%v] 基站转发消息[to pgw] %v %v", ctx.Value("Entity"), data[0:4], string(data[4:]))
-			} else {
-				logger.Info("[%v] 基站转发消息[to %v] %v", ctx.Value("Entity"), dest, string(data[4:]))
 			}
+			logger.Info("[%v] 基站转发消息[to pgw] %v %v", ctx.Value("Entity"), data[0:4], string(data[4:]))
 		}
 	}
 }

@@ -1,8 +1,6 @@
 package modules
 
 import (
-	"bytes"
-	"context"
 	"encoding/binary"
 	"net"
 	"strings"
@@ -49,8 +47,8 @@ type CommonMsg struct {
 }
 type FixedConn string // 固定连接
 type DynamicConn struct {
-	RemoteAddr *net.UDPAddr // 客户端地址
-	Conn       *net.UDPConn // 客户端动态连接
+	remoteAddr *net.UDPAddr // 客户端地址
+	conn       *net.UDPConn // 客户端动态连接
 }
 type Package struct {
 	CommonMsg
@@ -76,12 +74,7 @@ SIP Header 格式如下
 
 */
 // 接收消息时通过字节流创建Package
-func (p *Package) Init(data []byte, dst string, addr *net.UDPAddr, conn *net.UDPConn) {
-	// 异步交互连接
-	p.FixedConn = FixedConn(dst)
-	// 同步交互连接
-	p.RemoteAddr = addr
-	p.Conn = conn
+func (p *Package) Init(data []byte) {
 	// 填充消息字节数据
 	if data[4] == EPCPROTOCAL {
 		p._unique = binary.BigEndian.Uint32(data[0:4])
@@ -113,26 +106,49 @@ func (p *Package) Init(data []byte, dst string, addr *net.UDPAddr, conn *net.UDP
 	}
 }
 
-// 发送消息时结构化创建Package
-func (p *Package) Construct(dst string, addr *net.UDPAddr, conn *net.UDPConn, _type, _method byte, body map[string]string) {
-	// 异步连接
+func (p *Package) SetFixedConn(dst string) {
 	p.FixedConn = FixedConn(dst)
-	// 同步连接
-	p.RemoteAddr = addr
-	p.Conn = conn
+}
+
+func (p *Package) SetDynamicConn(addr *net.UDPAddr, conn *net.UDPConn) {
+	p.remoteAddr = addr
+	p.conn = conn
+}
+
+func (p *Package) GetFixedConn() string {
+	return string(p.FixedConn)
+}
+
+func (p *Package) GetDynamicAddr() *net.UDPAddr {
+	return p.DynamicConn.remoteAddr
+}
+
+func (p *Package) GetDynamicConn() *net.UDPConn {
+	return p.DynamicConn.conn
+}
+
+// 发送消息时结构化创建Package
+func (p *Package) Construct(_type, _method byte, body string) {
 	// 消息构建
-	raw := StrLineMarshal(body)
-	size := len([]byte(raw))
-	p._data = [65535]byte{}
 	p._protocal = _type
 	p._method = _method
+	size := len([]byte(body))
+	if size == 0 { // 消息转发，内容不需要改变
+		return
+	}
+	p._data = [65535]byte{}
 	p._size = uint16(size)
-	copy(p._data[:], raw)
+	copy(p._data[:], []byte(body))
+}
+
+func (p *Package) IsBeatHeart() bool {
+	return p._unique == 0x0F0F0F0F && p._protocal == 0x0F &&
+		p._method == 0x0F && p._size == 0x0F0F
 }
 
 func (p *Package) GetRoute() [2]byte {
-	uniq := [2]byte{p._protocal, p._method}
-	return uniq
+	route := [2]byte{p._protocal, p._method}
+	return route
 }
 
 // 获取消息的内容截断末尾的'\0'
@@ -144,21 +160,4 @@ func (msg *CommonMsg) GetSipBody() []byte {
 	uqi := [4]byte{}
 	binary.BigEndian.PutUint32(uqi[:], msg._unique)
 	return append(uqi[:], msg._data[:msg._size]...)
-}
-
-func MAASyncResponse(pkg *Package, out chan *Package) {
-	out <- &Package{pkg.CommonMsg, "", pkg.DynamicConn}
-}
-
-func MARSyncRequest(ctx context.Context, pkg *Package) (*CommonMsg, error) {
-	buf := new(bytes.Buffer)
-	buf.Grow(65535)
-	binary.Write(buf, binary.BigEndian, pkg.CommonMsg)
-	resp, err := sendUDPMessageWaitResp(ctx, string(pkg.FixedConn), buf.Bytes())
-	if err != nil {
-		return nil, err
-	}
-	pk := new(Package)
-	pk.Init(resp, "", nil, nil)
-	return &pk.CommonMsg, nil
 }

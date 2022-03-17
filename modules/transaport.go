@@ -44,7 +44,7 @@ func ReceiveClientMessage(ctx context.Context, conn *net.UDPConn, in chan *Packa
 				// 心跳兼容
 				if data[0] == 0x0F && data[1] == 0x0F && data[2] == 0x0F && data[3] == 0x0F &&
 					data[4] == 0x0F && data[5] == 0x0F && data[6] == 0x0F && data[7] == 0x0F {
-					in <- &Package{
+					pkg := &Package{
 						CommonMsg: CommonMsg{
 							_unique:   0x0F0F0F0F,
 							_protocal: 0x0F,
@@ -52,11 +52,9 @@ func ReceiveClientMessage(ctx context.Context, conn *net.UDPConn, in chan *Packa
 							_size:     0x0F0F,
 						},
 						FixedConn: FixedConn(data[8:]),
-						DynamicConn: DynamicConn{
-							RemoteAddr: ra,
-							Conn:       conn,
-						},
 					}
+					pkg.SetDynamicConn(ra, conn)
+					in <- pkg
 					continue
 				}
 				distribute(ctx, data[:n], ra, conn, in)
@@ -87,13 +85,13 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 					logger.Error("[%v] 序列化失败 %v", ctx.Value("Entity"), err)
 					continue
 				}
-				// 同步响应结果 和 指定地址发送
-				if pkg.RemoteAddr != nil && pkg.Conn != nil {
-					n, err := pkg.Conn.WriteToUDP(buffer.Bytes(), pkg.RemoteAddr)
+				// 同步响应结果 或 使用动态连接
+				if pkg.remoteAddr != nil && pkg.conn != nil {
+					n, err := pkg.conn.WriteToUDP(buffer.Bytes(), pkg.remoteAddr)
 					if err != nil || n == 0 {
 						logger.Error("[%v] 同步响应下级节点失败 %v", ctx.Value("Entity"), err)
 					}
-				} else {
+				} else { // 使用固定连接
 					err = sendUDPMessage(ctx, host, buffer.Bytes())
 					if err != nil {
 						logger.Error("[%v] 请求下级节点失败 %v", ctx.Value("Entity"), err)
@@ -101,8 +99,8 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 				}
 
 			} else {
-				if pkg.RemoteAddr != nil && pkg.Conn != nil {
-					n, err := pkg.Conn.WriteToUDP(pkg.GetSipBody(), pkg.RemoteAddr)
+				if pkg.remoteAddr != nil && pkg.conn != nil {
+					n, err := pkg.conn.WriteToUDP(pkg.GetSipBody(), pkg.remoteAddr)
 					if err != nil || n == 0 {
 						logger.Error("[%v] 同步响应下级节点失败 %v", ctx.Value("Entity"), err)
 					}
@@ -147,6 +145,27 @@ func ProcessUpStreamData(ctx context.Context, up chan *Package) {
 		}
 		buffer.Reset()
 	}
+}
+
+func MAASyncResponse(pkg *Package, out chan *Package) {
+	out <- &Package{pkg.CommonMsg, "", pkg.DynamicConn}
+}
+
+func MARSyncRequest(ctx context.Context, pkg *Package) (*CommonMsg, error) {
+	buf := new(bytes.Buffer)
+	buf.Grow(65535)
+	binary.Write(buf, binary.BigEndian, pkg.CommonMsg)
+	resp, err := sendUDPMessageWaitResp(ctx, string(pkg.FixedConn), buf.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	pk := new(Package)
+	pk.Init(resp)
+	return &pk.CommonMsg, nil
+}
+
+func Send(pkg *Package, out chan *Package) {
+	out <- pkg
 }
 
 // 需要向其他功能实体发送数据是的通用方法，异步接收
@@ -196,6 +215,6 @@ func sendUDPMessageWaitResp(ctx context.Context, host string, data []byte) (resp
 func distribute(ctx context.Context, data []byte, ra *net.UDPAddr, conn *net.UDPConn, c chan *Package) {
 	defer Recover(ctx)
 	pkg := new(Package)
-	pkg.Init(data, "", nil, nil)
+	pkg.Init(data)
 	c <- pkg // 默认 发送核心处理
 }

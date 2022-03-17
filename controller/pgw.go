@@ -2,13 +2,9 @@ package controller
 
 import (
 	"context"
-	"errors"
-	"net"
-	"strings"
 	"sync"
 
 	"github.com/VegetableManII/volte/modules"
-	"github.com/VegetableManII/volte/sip"
 
 	"github.com/wonderivan/logger"
 )
@@ -31,8 +27,8 @@ func (p *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *module
 		select {
 		case pkg := <-in:
 			// 兼容心跳包
-			if pkg.CommonMsg == nil && pkg.RemoteAddr != nil && pkg.Conn == nil {
-				updateAddress(pkg.RemoteAddr, pkg.Destation)
+			if pkg.IsBeatHeart() {
+				updateAddress(pkg.GetDynamicAddr(), pkg.GetFixedConn())
 			} else {
 				f, ok := p.router[pkg.GetRoute()]
 				if !ok {
@@ -70,9 +66,11 @@ func (p *PgwEntity) AttachRequestF(ctx context.Context, pkg *modules.Package, up
 	// 绑定UE IP和基站的关系
 	bindUeWithAP(ip, AP)
 	// 响应UE
-	con, addr := getAP(pkg)
-	modules.EpcMsg(pkg.CommonMsg, modules.EPCPROTOCAL, modules.AttachAccept, args,
-		"eNodeB", con, addr, down)
+	addr, con := getAP(pkg)
+	pkg.SetFixedConn("eNodeB")
+	pkg.SetDynamicConn(addr, con)
+	pkg.Construct(modules.EPCPROTOCAL, modules.AttachAccept, modules.StrLineMarshal(args))
+	modules.Send(pkg, down)
 	return nil
 }
 
@@ -81,9 +79,9 @@ func (p *PgwEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up, d
 
 	logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 
-	host := p.Points["CSCF"]
-	modules.ImsMsg(pkg.CommonMsg, modules.SIPPROTOCAL, modules.SipRequest, pkg.GetData(),
-		host, nil, nil, up) // 上行
+	pkg.SetFixedConn(p.Points["CSCF"])
+	pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, "")
+	modules.Send(pkg, up) // 上行
 	return nil
 }
 
@@ -91,22 +89,19 @@ func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, 
 	defer modules.Recover(ctx)
 
 	logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-	// 解析SIP消息
-	sipresp, err := sip.NewMessage(strings.NewReader(string(pkg.GetData())))
-	if err != nil {
-		return err
-	}
-	// 无线接入点
-	accPoint := sipresp.Header.AccessNetworkInfo
+	// INVITE 请求寻找无线接入点
+	// accPoint := sipresp.Header.AccessNetworkInfo
 
-	var remote *net.UDPAddr
-	ra, ok := Cache.Get(accPoint)
-	if !ok {
-		return errors.New("ErrNotFoundAPAddr")
-	}
-	remote = ra.(*net.UDPAddr)
-	modules.ImsMsg(pkg.CommonMsg, modules.SIPPROTOCAL, modules.SipResponse, []byte(sipresp.String()),
-		"eNodeB", remote, pkg.Conn, down)
+	// var remote *net.UDPAddr
+	// ra, ok := Cache.Get(accPoint)
+	// if !ok {
+	// 	return errors.New("ErrNotFoundAPAddr")
+	// }
+
+	addr, con := getAP(pkg)
+	pkg.SetFixedConn("eNodeB")
+	pkg.SetDynamicConn(addr, con)
+	modules.Send(pkg, down)
 	return nil
 }
 

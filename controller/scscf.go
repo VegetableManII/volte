@@ -69,7 +69,7 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, p *modules.Package, up, 
 	}
 	switch sipreq.RequestLine.Method {
 	case "REGISTER":
-		return s.regist(ctx, &sipreq, p.CommonMsg, up, down)
+		return s.regist(ctx, &sipreq, p, up, down)
 	case "INVITE":
 		return nil
 	}
@@ -96,7 +96,7 @@ func (s *S_CscfEntity) MutimediaAuthorizationAnswerF(ctx context.Context, m *mod
 	return nil
 }
 
-func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, msg *modules.CommonMsg, up, down chan *modules.Package) error {
+func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, pkg *modules.Package, up, down chan *modules.Package) error {
 	user := req.Header.From.Username()
 	downlink := s.Points["ICSCF"]
 	uplink := s.Points["HSS"]
@@ -111,11 +111,15 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, msg *module
 		table := map[string]string{
 			"UserName": user,
 		}
-		m, err := modules.MARSyncRequest(ctx, msg, modules.EPCPROTOCAL, modules.MultiMediaAuthenticationRequest, table, uplink)
+		pkg.SetFixedConn(uplink)
+		pkg.Construct(modules.EPCPROTOCAL, modules.MultiMediaAuthenticationRequest, modules.StrLineMarshal(table))
+		m, err := modules.MARSyncRequest(ctx, pkg)
 		if err != nil {
 			logger.Error("[%v] HSS Response Error %v", ctx.Value("Entity"), err)
 			sipresp := sip.NewResponse(sip.StatusNoResponse, req)
-			modules.ImsMsg(msg, modules.SIPPROTOCAL, modules.SipResponse, []byte(sipresp.String()), s.Points["ICSCF"], nil, nil, down)
+			pkg.SetFixedConn(s.Points["ICSCF"])
+			pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
+			modules.Send(pkg, down)
 		} else {
 			// 获得用户鉴权信息
 			resp := modules.StrLineUnmarshal(m.GetData())
@@ -138,31 +142,31 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, msg *module
 			sipresp.Header.WWWAuthenticate = wwwAuth
 			logger.Info("[%v] MAA响应: %v", ctx.Value("Entity"), sipresp.String())
 
-			modules.ImsMsg(msg, modules.SIPPROTOCAL, modules.SipResponse, []byte(sipresp.String()), downlink, nil, nil, down)
-			// 透传MAA响应给自己的路由
-			p := &modules.Package{
-				Destation:  downlink,
-				RemoteAddr: nil,
-				Conn:       nil,
-			}
-			p.CommonMsg = m
+			pkg.SetFixedConn(downlink)
+			pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
+			modules.Send(pkg, down)
+			// 给自己透传MAA响应
+			p := new(modules.Package)
+			p.CommonMsg = *m
 			s.core <- p
 		}
 	} else {
 		values := parseAuthentication(req.Header.Authorization)
+
 		if RES != "" && RES == values["response"] {
 			sresp := sip.NewResponse(sip.StatusOK, req)
 			logger.Info("[%v] 鉴权认证成功: %v", ctx.Value("Entity"), sresp.String())
-
-			modules.ImsMsg(msg, modules.SIPPROTOCAL, modules.SipResponse, []byte(sresp.String()), downlink, nil, nil, down)
+			pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sresp.String())
 		} else {
 			s.authMutex.Lock()
 			delete(s.userAuthCache, user)
 			s.authMutex.Unlock()
 			sresp := sip.NewResponse(sip.StatusUnauthorized, req)
 			logger.Info("[%v] 发起对UE鉴权: %v", ctx.Value("Entity"), sresp.String())
-			modules.ImsMsg(msg, modules.SIPPROTOCAL, modules.SipResponse, []byte(sresp.String()), downlink, nil, nil, down)
+			pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sresp.String())
 		}
+		pkg.SetFixedConn(downlink)
+		modules.Send(pkg, down)
 	}
 	return nil
 }

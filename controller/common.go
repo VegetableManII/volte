@@ -57,9 +57,9 @@ func updateAddress(ra *net.UDPAddr, enb string) error {
 	return nil
 }
 
-func getAP(p *modules.Package) (*net.UDPConn, *net.UDPAddr) {
+func getAP(p *modules.Package) (*net.UDPAddr, *net.UDPConn) {
 	if modules.ConnectionExist(p) {
-		return p.Conn, p.RemoteAddr
+		return p.GetDynamicAddr(), p.GetDynamicConn()
 	}
 	return nil, nil
 }

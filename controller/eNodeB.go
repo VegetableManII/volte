@@ -2,12 +2,10 @@ package controller
 
 import (
 	"encoding/binary"
-	"errors"
 	"hash/fnv"
 	"net"
 	"sync"
 
-	"github.com/VegetableManII/volte/modules"
 	"github.com/wonderivan/logger"
 )
 
@@ -47,23 +45,17 @@ func (e *EnodebEntity) UeRandomAccess(data []byte, raddr *net.UDPAddr) (bool, []
 	return false, nil
 }
 
-func (e *EnodebEntity) GenerateUpLinkData(data []byte, n int, mme, pgw string) ([]byte, string, error) {
-	ueid := parseRandAccess(data[0:4])
+func (e *EnodebEntity) Attached(addr *net.UDPAddr) (uint32, bool) {
+	h := fnv.New32()
+	_, _ = h.Write([]byte(addr.String()))
+	sum := h.Sum(nil)
+	ueid := parseRandAccess(sum)
 	e.userMu.Lock()
 	if _, ok := e.user[ueid]; !ok {
-		return nil, "", errors.New("ErrNeedAccessInfo")
+		return 0, false
 	}
 	e.userMu.Unlock()
-
-	dst := ""
-	if data[4] == modules.EPCPROTOCAL { // EPC 消息
-		binary.BigEndian.PutUint32(data[0:4], ueid)
-		return data[0:n], dst, nil
-	} else { // IMS 消息
-		binary.BigEndian.PutUint32(data[0:4], ueid)
-		dst = pgw
-		return data[0:n], dst, nil
-	}
+	return ueid, true
 
 }
 

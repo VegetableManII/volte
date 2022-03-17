@@ -83,8 +83,8 @@ func (h *HssEntity) MultimediaAuthorizationRequestF(ctx context.Context, p *modu
 		AV_CK:      hex.EncodeToString(CK),
 		AV_IK:      hex.EncodeToString(IK),
 	}
-
-	modules.MAASyncResponse(p.CommonMsg, modules.EPCPROTOCAL, modules.MultiMediaAuthenticationAnswer, response, p.RemoteAddr, p.Conn, down)
+	p.Construct(modules.EPCPROTOCAL, modules.MultiMediaAuthenticationAnswer, modules.StrLineMarshal(response))
+	modules.MAASyncResponse(p, down)
 	return nil
 }
 
