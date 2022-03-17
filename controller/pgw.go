@@ -9,7 +9,6 @@ import (
 
 	"github.com/VegetableManII/volte/modules"
 	"github.com/VegetableManII/volte/sip"
-	"github.com/patrickmn/go-cache"
 
 	"github.com/wonderivan/logger"
 )
@@ -30,19 +29,19 @@ func (p *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *module
 	var err error
 	for {
 		select {
-		case msg := <-in:
+		case pkg := <-in:
 			// 兼容心跳包
-			if msg.CommonMsg == nil && msg.RemoteAddr != nil && msg.Conn == nil {
-				updateUtranAddress(ctx, msg.RemoteAddr, msg.Destation)
+			if pkg.CommonMsg == nil && pkg.RemoteAddr != nil && pkg.Conn == nil {
+				updateAddress(pkg.RemoteAddr, pkg.Destation)
 			} else {
-				f, ok := p.router[msg.GetUniqueMethod()]
+				f, ok := p.router[pkg.GetRoute()]
 				if !ok {
-					logger.Error("[%v] PGW不支持的消息类型数据 %v", ctx.Value("Entity"), msg)
+					logger.Error("[%v] PGW不支持的消息类型数据 %v", ctx.Value("Entity"), pkg)
 					continue
 				}
-				err = f(ctx, msg, up, down)
+				err = f(ctx, pkg, up, down)
 				if err != nil {
-					logger.Error("[%v] PGW消息处理失败 %v %v", ctx.Value("Entity"), msg, err)
+					logger.Error("[%v] PGW消息处理失败 %v %v", ctx.Value("Entity"), pkg, err)
 				}
 			}
 		case <-ctx.Done():
@@ -60,7 +59,7 @@ func (p *PgwEntity) AttachRequestF(ctx context.Context, pkg *modules.Package, up
 	data := pkg.GetData()
 	args := modules.StrLineUnmarshal(data)
 	// 获取eNodeB-ID
-	utranCellID := args["UTRAN-CELL-ID-3GPP"]
+	AP := args["UTRAN-CELL-ID-3GPP"]
 	// 分配IP地址
 	ippoollock.Lock()
 	l := len(ippool)
@@ -69,9 +68,11 @@ func (p *PgwEntity) AttachRequestF(ctx context.Context, pkg *modules.Package, up
 	ippoollock.Unlock()
 	args["IP"] = ip
 	// 绑定UE IP和基站的关系
-	UeCache.Set(ip, utranCellID, cache.NoExpiration)
+	bindUeWithAP(ip, AP)
 	// 响应UE
-	modules.EpcMsg(pkg.CommonMsg, modules.EPCPROTOCAL, modules.AttachAccept, args, "eNodeB", pkg.RemoteAddr, pkg.Conn, down)
+	con, addr := getAP(pkg)
+	modules.EpcMsg(pkg.CommonMsg, modules.EPCPROTOCAL, modules.AttachAccept, args,
+		"eNodeB", con, addr, down)
 	return nil
 }
 
@@ -81,7 +82,8 @@ func (p *PgwEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up, d
 	logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 
 	host := p.Points["CSCF"]
-	modules.ImsMsg(pkg.CommonMsg, modules.SIPPROTOCAL, modules.SipRequest, pkg.GetData(), host, nil, nil, up) // 上行
+	modules.ImsMsg(pkg.CommonMsg, modules.SIPPROTOCAL, modules.SipRequest, pkg.GetData(),
+		host, nil, nil, up) // 上行
 	return nil
 }
 
@@ -98,7 +100,7 @@ func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, 
 	accPoint := sipresp.Header.AccessNetworkInfo
 
 	var remote *net.UDPAddr
-	ra, ok := UeCache.Get(accPoint)
+	ra, ok := Cache.Get(accPoint)
 	if !ok {
 		return errors.New("ErrNotFoundAPAddr")
 	}

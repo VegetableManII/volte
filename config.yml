@@ -1,11 +1,11 @@
 # 基站
 eNodeB:
-  broadcast.server.port: 10000
+  server.port: 10000
 # 基站广播端口
   broadcast.port: 65532
 # 广播扫描参数
   scan.time: 10
-  TAI: 1
+  TAI: "100231511300031"
 # 修改TAI值模拟不同的基站
 # 统一局域网内的不同设备上部署不同基站
   beatheart.time: 1

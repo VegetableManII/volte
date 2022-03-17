@@ -39,20 +39,31 @@ type Base interface {
 }
 
 // MME 和 PGW 用于缓存UE和其接入点的关系
-var UeCache *cache.Cache
+var Cache *cache.Cache
 
 func init() {
-	UeCache = cache.New(cache.NoExpiration, cache.NoExpiration)
+	Cache = cache.New(cache.NoExpiration, cache.NoExpiration)
 }
 
-func updateUtranAddress(ctx context.Context, ra *net.UDPAddr, enb string) error {
-	_, ok := UeCache.Get(enb)
+func updateAddress(ra *net.UDPAddr, enb string) error {
+	_, ok := Cache.Get(enb)
 	if !ok { // 不存在该无线接入点的缓存
 		val := ra
-		err := UeCache.Add(enb, val, cache.NoExpiration)
+		err := Cache.Add(enb, val, cache.NoExpiration)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func getAP(p *modules.Package) (*net.UDPConn, *net.UDPAddr) {
+	if modules.ConnectionExist(p) {
+		return p.Conn, p.RemoteAddr
+	}
+	return nil, nil
+}
+
+func bindUeWithAP(ip, ap string) {
+	Cache.Set(ip, ap, cache.NoExpiration)
 }

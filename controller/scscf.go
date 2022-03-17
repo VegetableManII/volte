@@ -40,15 +40,15 @@ func (s *S_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *mod
 	s.core = in
 	for {
 		select {
-		case msg := <-in:
-			f, ok := s.router[msg.GetUniqueMethod()]
+		case pkg := <-in:
+			f, ok := s.router[pkg.GetRoute()]
 			if !ok {
-				logger.Error("[%v] S-CSCF不支持的消息类型数据 %v", ctx.Value("Entity"), msg.GetUniqueMethod())
+				logger.Error("[%v] S-CSCF不支持的消息类型数据 %v", ctx.Value("Entity"), pkg.GetRoute())
 				continue
 			}
-			err := f(ctx, msg, up, down)
+			err := f(ctx, pkg, up, down)
 			if err != nil {
-				logger.Error("[%v] P-CSCF消息处理失败 %v %v", ctx.Value("Entity"), msg, err)
+				logger.Error("[%v] P-CSCF消息处理失败 %v %v", ctx.Value("Entity"), pkg, err)
 			}
 		case <-ctx.Done():
 			// 释放资源

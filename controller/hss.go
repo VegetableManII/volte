@@ -43,13 +43,13 @@ func (h *HssEntity) CoreProcessor(ctx context.Context, in, up, down chan *module
 	var ok bool
 	for {
 		select {
-		case msg := <-in:
-			f, ok = h.router[msg.GetUniqueMethod()]
+		case pkg := <-in:
+			f, ok = h.router[pkg.GetRoute()]
 			if !ok {
-				logger.Error("[%v] HSS不支持的消息类型数据 %v", ctx.Value("Entity"), msg)
+				logger.Error("[%v] HSS不支持的消息类型数据 %v", ctx.Value("Entity"), pkg)
 				continue
 			}
-			err = f(ctx, msg, up, down)
+			err = f(ctx, pkg, up, down)
 			if err != nil {
 				logger.Error("[%v] HSS消息处理失败 %v", ctx.Value("Entity"), err)
 			}
@@ -59,29 +59,6 @@ func (h *HssEntity) CoreProcessor(ctx context.Context, in, up, down chan *module
 			return
 		}
 	}
-}
-
-// HSS 接收Update Location Request请求，将用户APN信息响应给MME用于和PGW建立承载
-func (h *HssEntity) UpdateLocationRequestF(ctx context.Context, p *modules.Package, up, down chan *modules.Package) error {
-	defer modules.Recover(ctx)
-
-	logger.Info("[%v] Receive From MME: \n%v", ctx.Value("Entity"), string(p.GetData()))
-	data := p.GetData()
-	table := modules.StrLineUnmarshal(data)
-	imsi := table["IMSI"]
-	// 查询数据库
-	user, err := GetUserByIMSI(ctx, h.dbclient, imsi)
-	if err != nil {
-		return err
-	}
-	_ = user
-	var response = map[string]string{
-		"IMSI": imsi,
-		"APN":  "127.0.0.1:12347", // 根据用户的APN返回对应的PGW，hebeiyidong ==> 127.0.0.1:12347
-	}
-	host := h.Points["MME"]
-	modules.EpcMsg(p.CommonMsg, modules.EPCPROTOCAL, modules.UpdateLocationACK, response, host, nil, nil, down) // 下行
-	return nil
 }
 
 func (h *HssEntity) MultimediaAuthorizationRequestF(ctx context.Context, p *modules.Package, up, down chan *modules.Package) error {

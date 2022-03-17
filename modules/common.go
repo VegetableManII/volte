@@ -2,7 +2,6 @@ package modules
 
 import (
 	"context"
-	"errors"
 	"math/rand"
 	"runtime"
 	"strings"
@@ -51,16 +50,13 @@ func StrLineMarshal(m map[string]string) string {
 	return strings.Join(lines, "\r\n")
 }
 
-func GetIMSI(data []byte) (string, error) {
-	m := StrLineUnmarshal(data)
-	imsi, ok := m["imsi"]
-	if !ok || imsi == "" {
-		return "", errors.New("ErrEmptyIMSI")
-	}
-	return imsi, nil
-}
-
+// 生成sip消息的唯一branch
 func GenerateSipBranch() int64 {
 	rand.Seed(time.Now().UnixNano())
 	return rand.Int63()
+}
+
+// 判断Package包中是否存在连接
+func ConnectionExist(p *Package) bool {
+	return p.RemoteAddr != nil && p.Conn != nil
 }

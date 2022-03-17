@@ -42,9 +42,21 @@ func ReceiveClientMessage(ctx context.Context, conn *net.UDPConn, in chan *Packa
 			}
 			if n != 0 {
 				// 心跳兼容
-				if data[0] == 0x00 && data[1] == 0xFF && data[2] == 0x00 && data[3] == 0xFF &&
-					data[4] == 0x00 && data[5] == 0xFF && data[6] == 0x00 && data[7] == 0xFF {
-					in <- &Package{nil, string(data[8:n]), ra, nil}
+				if data[0] == 0x0F && data[1] == 0x0F && data[2] == 0x0F && data[3] == 0x0F &&
+					data[4] == 0x0F && data[5] == 0x0F && data[6] == 0x0F && data[7] == 0x0F {
+					in <- &Package{
+						CommonMsg: CommonMsg{
+							_unique:   0x0F0F0F0F,
+							_protocal: 0x0F,
+							_method:   0x0F,
+							_size:     0x0F0F,
+						},
+						FixedConn: FixedConn(data[8:]),
+						DynamicConn: DynamicConn{
+							RemoteAddr: ra,
+							Conn:       conn,
+						},
+					}
 					continue
 				}
 				distribute(ctx, data[:n], ra, conn, in)
@@ -67,7 +79,7 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 			logger.Warn("[%v] 发送消息协程退出", ctx.Value("Entity"))
 			return
 		case pkg := <-down:
-			host := pkg.Destation
+			host := string(pkg.FixedConn)
 			var err error
 			if pkg._protocal == EPCPROTOCAL {
 				err = binary.Write(&buffer, binary.BigEndian, pkg.CommonMsg)
@@ -90,12 +102,12 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 
 			} else {
 				if pkg.RemoteAddr != nil && pkg.Conn != nil {
-					n, err := pkg.Conn.WriteToUDP(pkg.GetIMSBody(), pkg.RemoteAddr)
+					n, err := pkg.Conn.WriteToUDP(pkg.GetSipBody(), pkg.RemoteAddr)
 					if err != nil || n == 0 {
 						logger.Error("[%v] 同步响应下级节点失败 %v", ctx.Value("Entity"), err)
 					}
 				} else {
-					err = sendUDPMessage(ctx, host, pkg.GetIMSBody())
+					err = sendUDPMessage(ctx, host, pkg.GetSipBody())
 					if err != nil {
 						logger.Error("[%v] 请求下级节点失败 %v", ctx.Value("Entity"), err)
 					}
@@ -114,7 +126,7 @@ func ProcessUpStreamData(ctx context.Context, up chan *Package) {
 			logger.Warn("[%v] 与上级节点通信协程退出...", ctx.Value("Entity"))
 			return
 		case pkt := <-up:
-			host := pkt.Destation
+			host := string(pkt.FixedConn)
 			var err error
 			if pkt._protocal == EPCPROTOCAL {
 				err = binary.Write(&buffer, binary.BigEndian, pkt.CommonMsg)
@@ -127,7 +139,7 @@ func ProcessUpStreamData(ctx context.Context, up chan *Package) {
 					logger.Error("[%v] 请求上级节点失败 %v", ctx.Value("Entity"), err)
 				}
 			} else {
-				err = sendUDPMessage(ctx, host, pkt.GetIMSBody())
+				err = sendUDPMessage(ctx, host, pkt.GetSipBody())
 				if err != nil {
 					logger.Error("[%v] 请求上级节点失败 %v", ctx.Value("Entity"), err)
 				}
@@ -157,33 +169,33 @@ func sendUDPMessage(ctx context.Context, host string, data []byte) (err error) {
 }
 
 // 同步接收响应
-func sendUDPMessageWaitResp(ctx context.Context, host string, data []byte) (err error, response []byte) {
+func sendUDPMessageWaitResp(ctx context.Context, host string, data []byte) (response []byte, err error) {
 	defer Recover(ctx)
 	var n int
 	ra, err := net.Dial("udp4", host)
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 	n, err = ra.Write(data)
 	if n == 0 {
-		return errors.New("ErrSendEmpty"), nil
+		return nil, errors.New("ErrSendEmpty")
 	}
 	ra.SetReadDeadline(time.Now().Add(5 * time.Second)) // 等待响应的过期时间为5秒
 	buf := make([]byte, 1024)
 	n, err = ra.Read(buf)
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 	if n == 0 {
-		return errors.New("ErrReceiveEmpty"), nil
+		return nil, errors.New("ErrReceiveEmpty")
 	}
-	return nil, buf[:n]
+	return buf[:n], nil
 }
 
 // 采用分发订阅模式分发epc网络信令和sip信令
 func distribute(ctx context.Context, data []byte, ra *net.UDPAddr, conn *net.UDPConn, c chan *Package) {
 	defer Recover(ctx)
-	cmsg := new(CommonMsg)
-	cmsg.Init(data)
-	c <- &Package{cmsg, "CLIENT", ra, conn} // 默认 发送给下行节点
+	pkg := new(Package)
+	pkg.Init(data, "", nil, nil)
+	c <- pkg // 默认 发送核心处理
 }

@@ -32,15 +32,15 @@ func (i *I_CscfEntity) Init(host string) {
 func (i *I_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *modules.Package) {
 	for {
 		select {
-		case msg := <-in:
-			f, ok := i.router[msg.GetUniqueMethod()]
+		case pkg := <-in:
+			f, ok := i.router[pkg.GetRoute()]
 			if !ok {
-				logger.Error("[%v] I-CSCF不支持的消息类型数据 %v", ctx.Value("Entity"), msg)
+				logger.Error("[%v] I-CSCF不支持的消息类型数据 %v", ctx.Value("Entity"), pkg)
 				continue
 			}
-			err := f(ctx, msg, up, down)
+			err := f(ctx, pkg, up, down)
 			if err != nil {
-				logger.Error("[%v] P-CSCF消息处理失败 %v %v", ctx.Value("Entity"), msg, err)
+				logger.Error("[%v] P-CSCF消息处理失败 %v %v", ctx.Value("Entity"), pkg, err)
 			}
 		case <-ctx.Done():
 			// 释放资源

@@ -19,7 +19,7 @@ type Ue struct {
 }
 
 type EnodebEntity struct {
-	TAI    int
+	TAI    string // AP接入点标识
 	user   map[uint32]struct{}
 	userMu sync.Mutex
 }
@@ -32,16 +32,17 @@ func (e *EnodebEntity) UeRandomAccess(data []byte, raddr *net.UDPAddr) (bool, []
 	rand := parseRandAccess(data[0:4])
 	if rand == RandomAccess {
 		logger.Info("ue 随机接入 %x %x", rand, RandomAccess)
-		sum := fnv.New32().Sum([]byte(raddr.String()))
+		h := fnv.New32()
+		_, _ = h.Write([]byte(raddr.String()))
+		sum := h.Sum(nil)
+		ueid := parseRandAccess(sum)
 
-		ueid := parseRandAccess(sum[len(sum)-4:])
-
-		logger.Info("ueid(hex):%x ueid:%v", sum[len(sum)-4:], ueid)
+		logger.Info("ueid(hex):%x ueid:%v", sum, ueid)
 
 		e.userMu.Lock()
 		e.user[uint32(ueid)] = struct{}{}
 		e.userMu.Unlock()
-		return true, sum[len(sum)-4:]
+		return true, sum
 	}
 	return false, nil
 }
