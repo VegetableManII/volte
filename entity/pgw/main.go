@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/VegetableManII/volte/controller"
+	. "github.com/VegetableManII/volte/modules"
 
 	"github.com/spf13/viper"
 	"github.com/wonderivan/logger"

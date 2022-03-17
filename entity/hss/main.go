@@ -7,6 +7,8 @@ import (
 	"syscall"
 
 	"github.com/VegetableManII/volte/controller"
+	"github.com/VegetableManII/volte/modules"
+	. "github.com/VegetableManII/volte/modules"
 
 	"github.com/spf13/viper"
 	"github.com/wonderivan/logger"
@@ -24,9 +26,9 @@ var (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	ctx = context.WithValue(ctx, "Entity", "HSS")
-	coreIn := make(chan *Package, 4)      // 原生数据输入核心处理器
-	coreOutUp := make(chan *Package, 2)   // 核心处理器解析后的数据输出上行结果
-	coreOutDown := make(chan *Package, 2) // 核心处理器解析后的数据输出下行结果
+	coreIn := make(chan *modules.Package, 4) // 原生数据输入核心处理器
+	coreOutUp := make(chan *Package, 2)      // 核心处理器解析后的数据输出上行结果
+	coreOutDown := make(chan *Package, 2)    // 核心处理器解析后的数据输出下行结果
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
@@ -61,6 +63,5 @@ func init() {
 }
 
 func RegistRouter() {
-	self.Regist([2]byte{EPCPROTOCAL, UpdateLocationRequest}, self.UpdateLocationRequestF)
 	self.Regist([2]byte{EPCPROTOCAL, MultiMediaAuthenticationRequest}, self.MultimediaAuthorizationRequestF)
 }
