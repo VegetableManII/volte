@@ -8,8 +8,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/VegetableManII/volte/common"
-	sip "github.com/VegetableManII/volte/sip"
+	"github.com/VegetableManII/volte/modules"
+	"github.com/VegetableManII/volte/sip"
 
 	_ "github.com/go-sql-driver/mysql"
 
@@ -19,7 +19,7 @@ import (
 type S_CscfEntity struct {
 	SipURI        string
 	SipVia        string
-	core          chan *common.Package
+	core          chan *modules.Package
 	userAuthCache map[string]string
 	authMutex     sync.Mutex
 	Points        map[string]string
@@ -36,7 +36,7 @@ func (s *S_CscfEntity) Init(host string) {
 	s.userAuthCache = make(map[string]string)
 }
 
-func (s *S_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *common.Package) {
+func (s *S_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *modules.Package) {
 	s.core = in
 	for {
 		select {
@@ -58,8 +58,8 @@ func (s *S_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 	}
 }
 
-func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
-	defer common.Recover(ctx)
+func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, p *modules.Package, up, down chan *modules.Package) error {
+	defer modules.Recover(ctx)
 
 	logger.Info("[%v] Receive From ICSCF: \n%v", ctx.Value("Entity"), string(p.GetData()))
 	// 解析SIP消息
@@ -88,15 +88,15 @@ func parseAuthentication(authHeader string) map[string]string {
 	return res
 }
 
-func (s *S_CscfEntity) MutimediaAuthorizationAnswerF(ctx context.Context, m *common.Package, up, down chan *common.Package) error {
-	defer common.Recover(ctx)
+func (s *S_CscfEntity) MutimediaAuthorizationAnswerF(ctx context.Context, m *modules.Package, up, down chan *modules.Package) error {
+	defer modules.Recover(ctx)
 
 	logger.Info("[%v] Receive From HSS: \n%v", ctx.Value("Entity"), string(m.GetData()))
 	// TODO  使用CK和IK完成与UE的IPSec隧道的建立
 	return nil
 }
 
-func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, msg *common.CommonMsg, up, down chan *common.Package) error {
+func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, msg *modules.CommonMsg, up, down chan *modules.Package) error {
 	user := req.Header.From.Username()
 	downlink := s.Points["ICSCF"]
 	uplink := s.Points["HSS"]
@@ -111,14 +111,14 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, msg *common
 		table := map[string]string{
 			"UserName": user,
 		}
-		m, err := common.MARSyncRequest(ctx, msg, common.EPCPROTOCAL, common.MultiMediaAuthenticationRequest, table, uplink)
+		m, err := modules.MARSyncRequest(ctx, msg, modules.EPCPROTOCAL, modules.MultiMediaAuthenticationRequest, table, uplink)
 		if err != nil {
 			logger.Error("[%v] HSS Response Error %v", ctx.Value("Entity"), err)
 			sipresp := sip.NewResponse(sip.StatusNoResponse, req)
-			common.ImsMsg(msg, common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()), s.Points["ICSCF"], nil, nil, down)
+			modules.ImsMsg(msg, modules.SIPPROTOCAL, modules.SipResponse, []byte(sipresp.String()), s.Points["ICSCF"], nil, nil, down)
 		} else {
 			// 获得用户鉴权信息
-			resp := common.StrLineUnmarshal(m.GetData())
+			resp := modules.StrLineUnmarshal(m.GetData())
 			user := resp["UserName"]
 			AUTN := resp["AUTN"]
 			XRES := resp["XRES"]
@@ -138,9 +138,9 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, msg *common
 			sipresp.Header.WWWAuthenticate = wwwAuth
 			logger.Info("[%v] MAA响应: %v", ctx.Value("Entity"), sipresp.String())
 
-			common.ImsMsg(msg, common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()), downlink, nil, nil, down)
+			modules.ImsMsg(msg, modules.SIPPROTOCAL, modules.SipResponse, []byte(sipresp.String()), downlink, nil, nil, down)
 			// 透传MAA响应给自己的路由
-			p := &common.Package{
+			p := &modules.Package{
 				Destation:  downlink,
 				RemoteAddr: nil,
 				Conn:       nil,
@@ -154,14 +154,14 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, msg *common
 			sresp := sip.NewResponse(sip.StatusOK, req)
 			logger.Info("[%v] 鉴权认证成功: %v", ctx.Value("Entity"), sresp.String())
 
-			common.ImsMsg(msg, common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), downlink, nil, nil, down)
+			modules.ImsMsg(msg, modules.SIPPROTOCAL, modules.SipResponse, []byte(sresp.String()), downlink, nil, nil, down)
 		} else {
 			s.authMutex.Lock()
 			delete(s.userAuthCache, user)
 			s.authMutex.Unlock()
 			sresp := sip.NewResponse(sip.StatusUnauthorized, req)
 			logger.Info("[%v] 发起对UE鉴权: %v", ctx.Value("Entity"), sresp.String())
-			common.ImsMsg(msg, common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), downlink, nil, nil, down)
+			modules.ImsMsg(msg, modules.SIPPROTOCAL, modules.SipResponse, []byte(sresp.String()), downlink, nil, nil, down)
 		}
 	}
 	return nil

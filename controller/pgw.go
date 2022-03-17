@@ -7,8 +7,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/VegetableManII/volte/common"
-	sip "github.com/VegetableManII/volte/sip"
+	"github.com/VegetableManII/volte/modules"
+	"github.com/VegetableManII/volte/sip"
 	"github.com/patrickmn/go-cache"
 
 	"github.com/wonderivan/logger"
@@ -26,7 +26,7 @@ func (this *PgwEntity) Init() {
 	this.Points = make(map[string]string)
 }
 
-func (p *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *common.Package) {
+func (p *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *modules.Package) {
 	var err error
 	for {
 		select {
@@ -54,11 +54,11 @@ func (p *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *common
 }
 
 // 附着请求，携带IMSI，和客户端支持的加密方法，拿到IMSI向HSS发起Authentication Informat Request请求
-func (p *PgwEntity) AttachRequestF(ctx context.Context, pkg *common.Package, up, down chan *common.Package) error {
-	defer common.Recover(ctx)
+func (p *PgwEntity) AttachRequestF(ctx context.Context, pkg *modules.Package, up, down chan *modules.Package) error {
+	defer modules.Recover(ctx)
 	logger.Info("[%v] Receive From MME(ENB): \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 	data := pkg.GetData()
-	args := common.StrLineUnmarshal(data)
+	args := modules.StrLineUnmarshal(data)
 	// 获取eNodeB-ID
 	utranCellID := args["UTRAN-CELL-ID-3GPP"]
 	// 分配IP地址
@@ -71,21 +71,22 @@ func (p *PgwEntity) AttachRequestF(ctx context.Context, pkg *common.Package, up,
 	// 绑定UE IP和基站的关系
 	UeCache.Set(ip, utranCellID, cache.NoExpiration)
 	// 响应UE
+	modules.EpcMsg(pkg.CommonMsg, modules.EPCPROTOCAL, modules.AttachAccept, args, "eNodeB", pkg.RemoteAddr, pkg.Conn, down)
 	return nil
 }
 
-func (p *PgwEntity) SIPREQUESTF(ctx context.Context, pkg *common.Package, up, down chan *common.Package) error {
-	defer common.Recover(ctx)
+func (p *PgwEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up, down chan *modules.Package) error {
+	defer modules.Recover(ctx)
 
 	logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 
 	host := p.Points["CSCF"]
-	common.ImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipRequest, pkg.GetData(), host, nil, nil, up) // 上行
+	modules.ImsMsg(pkg.CommonMsg, modules.SIPPROTOCAL, modules.SipRequest, pkg.GetData(), host, nil, nil, up) // 上行
 	return nil
 }
 
-func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *common.Package, up, down chan *common.Package) error {
-	defer common.Recover(ctx)
+func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, down chan *modules.Package) error {
+	defer modules.Recover(ctx)
 
 	logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 	// 解析SIP消息
@@ -102,7 +103,7 @@ func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *common.Package, up, d
 		return errors.New("ErrNotFoundAPAddr")
 	}
 	remote = ra.(*net.UDPAddr)
-	common.ImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()),
+	modules.ImsMsg(pkg.CommonMsg, modules.SIPPROTOCAL, modules.SipResponse, []byte(sipresp.String()),
 		"eNodeB", remote, pkg.Conn, down)
 	return nil
 }

@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/VegetableManII/volte/common"
-	sip "github.com/VegetableManII/volte/sip"
+	"github.com/VegetableManII/volte/modules"
+	"github.com/VegetableManII/volte/sip"
 
 	_ "github.com/go-sql-driver/mysql"
 
@@ -28,7 +28,7 @@ func (p *P_CscfEntity) Init(host string) {
 	p.router = make(map[[2]byte]BaseSignallingT)
 }
 
-func (p *P_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *common.Package) {
+func (p *P_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *modules.Package) {
 	for {
 		select {
 		case msg := <-in:
@@ -49,8 +49,8 @@ func (p *P_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *com
 	}
 }
 
-func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *common.Package, up, down chan *common.Package) error {
-	defer common.Recover(ctx)
+func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up, down chan *modules.Package) error {
+	defer modules.Recover(ctx)
 
 	logger.Info("[%v] Receive From PGW: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 	// 解析SIP消息
@@ -60,12 +60,12 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *common.Package, up,
 	}
 
 	// 增加Via头部信息
-	sipreq.Header.Via.Add(p.SipVia + strconv.FormatInt(common.GenerateSipBranch(), 16))
+	sipreq.Header.Via.Add(p.SipVia + strconv.FormatInt(modules.GenerateSipBranch(), 16))
 	sipreq.Header.MaxForwards.Reduce()
 	// 检查头部内容是否首次注册
 	if strings.Contains(sipreq.Header.Authorization, "response") { // 包含响应内容则为第二次注册请求
 		// TODO 第二次注册请求时PCSCF可以直接转发给ICSCF
-		common.ImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipRequest, []byte(sipreq.String()), p.Points["ICSCF"], nil, nil, up)
+		modules.ImsMsg(pkg.CommonMsg, modules.SIPPROTOCAL, modules.SipRequest, []byte(sipreq.String()), p.Points["ICSCF"], nil, nil, up)
 	} else {
 		// 第一次注册请求，P-CSCF处理，填充Authorization头部
 		user := sipreq.Header.From.URI.Username
@@ -74,13 +74,13 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *common.Package, up,
 		auth := fmt.Sprintf("Digest username=%s integrity protection:no", username)
 		sipreq.Header.Authorization = auth
 		// 第一次注册请求SCSCF还未与UE绑定所以转发给ICSCF
-		common.ImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipRequest, []byte(sipreq.String()), p.Points["ICSCF"], nil, nil, up)
+		modules.ImsMsg(pkg.CommonMsg, modules.SIPPROTOCAL, modules.SipRequest, []byte(sipreq.String()), p.Points["ICSCF"], nil, nil, up)
 	}
 	return nil
 }
 
-func (p *P_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *common.Package, up, down chan *common.Package) error {
-	defer common.Recover(ctx)
+func (p *P_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, down chan *modules.Package) error {
+	defer modules.Recover(ctx)
 
 	logger.Info("[%v] Receive From I-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 	// 解析SIP消息
@@ -91,6 +91,6 @@ func (p *P_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *common.Package, up
 	// 删除Via头部信息
 	sipreq.Header.Via.RemoveFirst()
 	sipreq.Header.MaxForwards.Reduce()
-	common.ImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipResponse, []byte(sipreq.String()), p.Points["PGW"], nil, nil, down)
+	modules.ImsMsg(pkg.CommonMsg, modules.SIPPROTOCAL, modules.SipResponse, []byte(sipreq.String()), p.Points["PGW"], nil, nil, down)
 	return nil
 }

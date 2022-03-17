@@ -4,7 +4,7 @@ import (
 	"context"
 	"net"
 
-	"github.com/VegetableManII/volte/common"
+	"github.com/VegetableManII/volte/modules"
 	"github.com/patrickmn/go-cache"
 )
 
@@ -18,7 +18,7 @@ const (
 )
 
 // 定义基础路由转发方法
-type BaseSignallingT func(context.Context, *common.Package, chan *common.Package, chan *common.Package) error
+type BaseSignallingT func(context.Context, *modules.Package, chan *modules.Package, chan *modules.Package) error
 
 // 路由转发器
 type Mux struct {
@@ -35,7 +35,7 @@ func (m *Mux) Regist(r [2]byte, f BaseSignallingT) {
 
 // VoLTE网络中各个功能实体的逻辑处理器实体抽象基类对象
 type Base interface {
-	CoreProcessor(context.Context, chan *common.Package, chan *common.Package, chan *common.Package)
+	CoreProcessor(context.Context, chan *modules.Package, chan *modules.Package, chan *modules.Package)
 }
 
 // MME 和 PGW 用于缓存UE和其接入点的关系

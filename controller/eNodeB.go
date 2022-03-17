@@ -7,7 +7,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/VegetableManII/volte/common"
+	"github.com/VegetableManII/volte/modules"
 	"github.com/wonderivan/logger"
 )
 
@@ -55,7 +55,7 @@ func (e *EnodebEntity) GenerateUpLinkData(data []byte, n int, mme, pgw string) (
 	e.userMu.Unlock()
 
 	dst := ""
-	if data[4] == common.EPCPROTOCAL { // EPC 消息
+	if data[4] == modules.EPCPROTOCAL { // EPC 消息
 		binary.BigEndian.PutUint32(data[0:4], ueid)
 		return data[0:n], dst, nil
 	} else { // IMS 消息

@@ -8,7 +8,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/VegetableManII/volte/common"
+	"github.com/VegetableManII/volte/modules"
 	"github.com/wmnsk/milenage"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -37,7 +37,7 @@ func (h *HssEntity) Init(dbhost string) {
 }
 
 // HSS可以接收epc电路协议也可以接收SIP协议
-func (h *HssEntity) CoreProcessor(ctx context.Context, in, up, down chan *common.Package) {
+func (h *HssEntity) CoreProcessor(ctx context.Context, in, up, down chan *modules.Package) {
 	var err error
 	var f BaseSignallingT
 	var ok bool
@@ -62,12 +62,12 @@ func (h *HssEntity) CoreProcessor(ctx context.Context, in, up, down chan *common
 }
 
 // HSS 接收Update Location Request请求，将用户APN信息响应给MME用于和PGW建立承载
-func (h *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
-	defer common.Recover(ctx)
+func (h *HssEntity) UpdateLocationRequestF(ctx context.Context, p *modules.Package, up, down chan *modules.Package) error {
+	defer modules.Recover(ctx)
 
 	logger.Info("[%v] Receive From MME: \n%v", ctx.Value("Entity"), string(p.GetData()))
 	data := p.GetData()
-	table := common.StrLineUnmarshal(data)
+	table := modules.StrLineUnmarshal(data)
 	imsi := table["IMSI"]
 	// 查询数据库
 	user, err := GetUserByIMSI(ctx, h.dbclient, imsi)
@@ -80,15 +80,15 @@ func (h *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Packag
 		"APN":  "127.0.0.1:12347", // 根据用户的APN返回对应的PGW，hebeiyidong ==> 127.0.0.1:12347
 	}
 	host := h.Points["MME"]
-	common.EpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.UpdateLocationACK, response, host, nil, nil, down) // 下行
+	modules.EpcMsg(p.CommonMsg, modules.EPCPROTOCAL, modules.UpdateLocationACK, response, host, nil, nil, down) // 下行
 	return nil
 }
 
-func (h *HssEntity) MultimediaAuthorizationRequestF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
-	defer common.Recover(ctx)
+func (h *HssEntity) MultimediaAuthorizationRequestF(ctx context.Context, p *modules.Package, up, down chan *modules.Package) error {
+	defer modules.Recover(ctx)
 
 	logger.Info("[%v] Receive From S-CSCF: \n%v", ctx.Value("Entity"), string(p.GetData()))
-	table := common.StrLineUnmarshal(p.GetData())
+	table := modules.StrLineUnmarshal(p.GetData())
 	un := table["UserName"]
 	user, err := GetUserBySipUserName(ctx, h.dbclient, un)
 	if err != nil {
@@ -107,7 +107,7 @@ func (h *HssEntity) MultimediaAuthorizationRequestF(ctx context.Context, p *comm
 		AV_IK:      hex.EncodeToString(IK),
 	}
 
-	common.MAASyncResponse(p.CommonMsg, common.EPCPROTOCAL, common.MultiMediaAuthenticationAnswer, response, p.RemoteAddr, p.Conn, down)
+	modules.MAASyncResponse(p.CommonMsg, modules.EPCPROTOCAL, modules.MultiMediaAuthenticationAnswer, response, p.RemoteAddr, p.Conn, down)
 	return nil
 }
 
