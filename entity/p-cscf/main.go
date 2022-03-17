@@ -6,7 +6,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	. "github.com/VegetableManII/volte/common"
 	"github.com/VegetableManII/volte/controller"
 
 	"github.com/spf13/viper"

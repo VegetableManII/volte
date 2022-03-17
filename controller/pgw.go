@@ -14,11 +14,11 @@ type PgwEntity struct {
 	Points map[string]string
 }
 
-func (this *PgwEntity) Init() {
+func (p *PgwEntity) Init() {
 	// 初始化路由
-	this.Mux = new(Mux)
-	this.router = make(map[[2]byte]BaseSignallingT)
-	this.Points = make(map[string]string)
+	p.Mux = new(Mux)
+	p.router = make(map[[2]byte]BaseSignallingT)
+	p.Points = make(map[string]string)
 }
 
 func (p *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *modules.Package) {
