@@ -66,7 +66,7 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, p *common.Package, up, d
 		// 增加Via头部信息
 		sipreq.Header.Via.Add(i.SipVia + strconv.FormatInt(common.GenerateSipBranch(), 16))
 		sipreq.Header.MaxForwards.Reduce()
-		common.PackUpImsMsg(p.CommonMsg, common.SIPPROTOCAL, common.SipRequest, []byte(sipreq.String()), i.Points["SCSCF"], nil, nil, up)
+		common.ImsMsg(p.CommonMsg, common.SIPPROTOCAL, common.SipRequest, []byte(sipreq.String()), i.Points["SCSCF"], nil, nil, up)
 	case "INVITE":
 		return nil
 	}
@@ -87,6 +87,6 @@ func (i *I_CscfEntity) SIPRESPONSEF(ctx context.Context, p *common.Package, up, 
 	// 删除Via头部信息
 	sipreq.Header.Via.RemoveFirst()
 	sipreq.Header.MaxForwards.Reduce()
-	common.PackUpImsMsg(p.CommonMsg, common.SIPPROTOCAL, common.SipResponse, []byte(sipreq.String()), i.Points["PCSCF"], nil, nil, down)
+	common.ImsMsg(p.CommonMsg, common.SIPPROTOCAL, common.SipResponse, []byte(sipreq.String()), i.Points["PCSCF"], nil, nil, down)
 	return nil
 }

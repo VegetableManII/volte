@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"net"
-	"sync"
 
 	"github.com/VegetableManII/volte/common"
 	"github.com/patrickmn/go-cache"
@@ -49,15 +48,11 @@ func init() {
 func updateUtranAddress(ctx context.Context, ra *net.UDPAddr, enb string) error {
 	_, ok := UeCache.Get(enb)
 	if !ok { // 不存在该无线接入点的缓存
-		val := new(sync.Map)
+		val := ra
 		err := UeCache.Add(enb, val, cache.NoExpiration)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-func AddCache(ctx context.Context, ra *net.UDPAddr, key string) error {
-
 }

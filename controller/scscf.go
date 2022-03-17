@@ -115,7 +115,7 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, msg *common
 		if err != nil {
 			logger.Error("[%v] HSS Response Error %v", ctx.Value("Entity"), err)
 			sipresp := sip.NewResponse(sip.StatusNoResponse, req)
-			common.PackUpImsMsg(msg, common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()), s.Points["ICSCF"], nil, nil, down)
+			common.ImsMsg(msg, common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()), s.Points["ICSCF"], nil, nil, down)
 		} else {
 			// 获得用户鉴权信息
 			resp := common.StrLineUnmarshal(m.GetData())
@@ -138,7 +138,7 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, msg *common
 			sipresp.Header.WWWAuthenticate = wwwAuth
 			logger.Info("[%v] MAA响应: %v", ctx.Value("Entity"), sipresp.String())
 
-			common.PackUpImsMsg(msg, common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()), downlink, nil, nil, down)
+			common.ImsMsg(msg, common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()), downlink, nil, nil, down)
 			// 透传MAA响应给自己的路由
 			p := &common.Package{
 				Destation:  downlink,
@@ -154,14 +154,14 @@ func (s *S_CscfEntity) regist(ctx context.Context, req *sip.Message, msg *common
 			sresp := sip.NewResponse(sip.StatusOK, req)
 			logger.Info("[%v] 鉴权认证成功: %v", ctx.Value("Entity"), sresp.String())
 
-			common.PackUpImsMsg(msg, common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), downlink, nil, nil, down)
+			common.ImsMsg(msg, common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), downlink, nil, nil, down)
 		} else {
 			s.authMutex.Lock()
 			delete(s.userAuthCache, user)
 			s.authMutex.Unlock()
 			sresp := sip.NewResponse(sip.StatusUnauthorized, req)
 			logger.Info("[%v] 发起对UE鉴权: %v", ctx.Value("Entity"), sresp.String())
-			common.PackUpImsMsg(msg, common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), downlink, nil, nil, down)
+			common.ImsMsg(msg, common.SIPPROTOCAL, common.SipResponse, []byte(sresp.String()), downlink, nil, nil, down)
 		}
 	}
 	return nil

@@ -65,7 +65,7 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *common.Package, up,
 	// 检查头部内容是否首次注册
 	if strings.Contains(sipreq.Header.Authorization, "response") { // 包含响应内容则为第二次注册请求
 		// TODO 第二次注册请求时PCSCF可以直接转发给ICSCF
-		common.PackUpImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipRequest, []byte(sipreq.String()), p.Points["ICSCF"], nil, nil, up)
+		common.ImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipRequest, []byte(sipreq.String()), p.Points["ICSCF"], nil, nil, up)
 	} else {
 		// 第一次注册请求，P-CSCF处理，填充Authorization头部
 		user := sipreq.Header.From.URI.Username
@@ -74,7 +74,7 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *common.Package, up,
 		auth := fmt.Sprintf("Digest username=%s integrity protection:no", username)
 		sipreq.Header.Authorization = auth
 		// 第一次注册请求SCSCF还未与UE绑定所以转发给ICSCF
-		common.PackUpImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipRequest, []byte(sipreq.String()), p.Points["ICSCF"], nil, nil, up)
+		common.ImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipRequest, []byte(sipreq.String()), p.Points["ICSCF"], nil, nil, up)
 	}
 	return nil
 }
@@ -91,6 +91,6 @@ func (p *P_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *common.Package, up
 	// 删除Via头部信息
 	sipreq.Header.Via.RemoveFirst()
 	sipreq.Header.MaxForwards.Reduce()
-	common.PackUpImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipResponse, []byte(sipreq.String()), p.Points["PGW"], nil, nil, down)
+	common.ImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipResponse, []byte(sipreq.String()), p.Points["PGW"], nil, nil, down)
 	return nil
 }

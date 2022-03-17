@@ -62,7 +62,6 @@ func init() {
 }
 
 func RegistRouter() {
-	self.Regist([2]byte{EPCPROTOCAL, AuthenticationInformatRequest}, self.AuthenticationInformatRequestF)
 	self.Regist([2]byte{EPCPROTOCAL, UpdateLocationRequest}, self.UpdateLocationRequestF)
 	self.Regist([2]byte{EPCPROTOCAL, MultiMediaAuthenticationRequest}, self.MultimediaAuthorizationRequestF)
 }

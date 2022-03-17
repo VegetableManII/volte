@@ -61,37 +61,6 @@ func (h *HssEntity) CoreProcessor(ctx context.Context, in, up, down chan *common
 	}
 }
 
-// HSS 接收Authentication Informat Request请求，然后查询数据库获得用户信息，生成nonce，选择加密算法，
-func (h *HssEntity) AuthenticationInformatRequestF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
-	defer common.Recover(ctx)
-
-	logger.Info("[%v] Receive From MME: \n%v", ctx.Value("Entity"), string(p.GetData()))
-	data := p.GetData()
-	hashtable := common.StrLineUnmarshal(data)
-	imsi := hashtable["IMSI"]
-	// 查询数据库
-	user, err := GetUserByIMSI(ctx, h.dbclient, imsi)
-	if err != nil {
-		return err
-	}
-	AUTN, XRES, CK, IK, RAND, err := generateAV(user.RootK, user.Opc)
-	if err != nil {
-		return err
-	}
-	_, _ = CK, IK
-	var response = map[string]string{
-		"IMSI":  imsi,
-		AV_AUTN: hex.EncodeToString(AUTN),
-		AV_XRES: hex.EncodeToString(XRES),
-		AV_RAND: hex.EncodeToString(RAND),
-		AV_CK:   hex.EncodeToString(CK),
-		AV_IK:   hex.EncodeToString(IK),
-	}
-	host := h.Points["MME"]
-	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.AuthenticationInformatResponse, response, host, nil, nil, down) // 下行
-	return nil
-}
-
 // HSS 接收Update Location Request请求，将用户APN信息响应给MME用于和PGW建立承载
 func (h *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
@@ -111,7 +80,7 @@ func (h *HssEntity) UpdateLocationRequestF(ctx context.Context, p *common.Packag
 		"APN":  "127.0.0.1:12347", // 根据用户的APN返回对应的PGW，hebeiyidong ==> 127.0.0.1:12347
 	}
 	host := h.Points["MME"]
-	common.PackUpEpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.UpdateLocationACK, response, host, nil, nil, down) // 下行
+	common.EpcMsg(p.CommonMsg, common.EPCPROTOCAL, common.UpdateLocationACK, response, host, nil, nil, down) // 下行
 	return nil
 }
 

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"net"
 	"strings"
 	"sync"
@@ -52,9 +53,10 @@ func (p *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *common
 	}
 }
 
-func (p *PgwEntity) CreateSessionRequestF(ctx context.Context, pkg *common.Package, up, down chan *common.Package) error {
+// 附着请求，携带IMSI，和客户端支持的加密方法，拿到IMSI向HSS发起Authentication Informat Request请求
+func (p *PgwEntity) AttachRequestF(ctx context.Context, pkg *common.Package, up, down chan *common.Package) error {
 	defer common.Recover(ctx)
-	logger.Info("[%v] Receive From MME: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+	logger.Info("[%v] Receive From MME(ENB): \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 	data := pkg.GetData()
 	args := common.StrLineUnmarshal(data)
 	// 获取eNodeB-ID
@@ -66,20 +68,9 @@ func (p *PgwEntity) CreateSessionRequestF(ctx context.Context, pkg *common.Packa
 	ippool = ippool[:l-1]
 	ippoollock.Unlock()
 	args["IP"] = ip
-	delete(args, "QCI")
-	var err error
-	utran, ok := UeCache.Get(utranCellID)
-	if !ok { // 不存在该无线接入点的缓存
-		val := make(map[string]struct{})
-		val[ip] = struct{}{}
-		err = UeCache.Add(utranCellID, val, cache.NoExpiration)
-	} else {
-		utran.(map[string]struct{})[ip] = struct{}{}
-		UeCache.Set(utranCellID, utran, cache.NoExpiration)
-	}
-	if err != nil {
-		return err
-	}
+	// 绑定UE IP和基站的关系
+	UeCache.Set(ip, utranCellID, cache.NoExpiration)
+	// 响应UE
 	return nil
 }
 
@@ -89,7 +80,7 @@ func (p *PgwEntity) SIPREQUESTF(ctx context.Context, pkg *common.Package, up, do
 	logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 
 	host := p.Points["CSCF"]
-	common.PackUpImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipRequest, pkg.GetData(), host, nil, nil, up) // 上行
+	common.ImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipRequest, pkg.GetData(), host, nil, nil, up) // 上行
 	return nil
 }
 
@@ -106,8 +97,13 @@ func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *common.Package, up, d
 	accPoint := sipresp.Header.AccessNetworkInfo
 
 	var remote *net.UDPAddr
-
-	common.PackUpImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()), "eNodeB", remote, pkg.Conn, down)
+	ra, ok := UeCache.Get(accPoint)
+	if !ok {
+		return errors.New("ErrNotFoundAPAddr")
+	}
+	remote = ra.(*net.UDPAddr)
+	common.ImsMsg(pkg.CommonMsg, common.SIPPROTOCAL, common.SipResponse, []byte(sipresp.String()),
+		"eNodeB", remote, pkg.Conn, down)
 	return nil
 }
 
