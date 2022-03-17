@@ -140,7 +140,7 @@ func tunneling(ctx context.Context, coreConn *CoreNetConnection, bConn *net.UDPC
 
 func heartbeat(ctx context.Context, conn net.Conn, period int) {
 	for {
-		_, err := conn.Write([]byte{0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF})
+		_, err := conn.Write([]byte{0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F})
 		if err != nil {
 			logger.Error("心跳探测发送失败 %v", err)
 			return
@@ -204,7 +204,7 @@ func forwardMessageFromUeToCoreNet(ctx context.Context, src *net.UDPConn, cConn 
 				}
 				continue
 			} else {
-				message := make([]byte, 0, 10240)
+				message := make([]byte, 4, 10240)
 				binary.BigEndian.PutUint32(message, id)
 				message = append(message, data[:n]...)
 				err = send(ctx, cConn.PgwConn, message[:n])
