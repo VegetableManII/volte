@@ -49,9 +49,10 @@ func init() {
 	localhost = viper.GetString("EPC.pgw.host")
 	eNodeBhost = viper.GetString("EPC.eNodeB.host")
 	cscfHost = viper.GetString("IMS.p-cscf.host")
+	dhcp := viper.GetString("EPC.pgw.dhcp")
 	logger.Info("配置文件读取成功", "")
 	self = new(controller.PgwEntity)
-	self.Init()
+	self.Init(dhcp)
 	self.Points["CSCF"] = cscfHost
 	RegistRouter()
 }

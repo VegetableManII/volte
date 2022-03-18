@@ -47,13 +47,14 @@ func init() {
 
 func updateAddress(ra *net.UDPAddr, enb string) error {
 	_, ok := Cache.Get(enb)
+	val := ra
 	if !ok { // 不存在该无线接入点的缓存
-		val := ra
-		err := Cache.Add(enb, val, cache.NoExpiration)
+		err := Cache.Add(enb, ra, cache.NoExpiration)
 		if err != nil {
 			return err
 		}
 	}
+	Cache.Set(enb, val, cache.NoExpiration)
 	return nil
 }
 

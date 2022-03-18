@@ -49,7 +49,7 @@ func ReceiveClientMessage(ctx context.Context, conn *net.UDPConn, in chan *Packa
 							_method:   0x0F,
 							_size:     0x0F0F,
 						},
-						FixedConn: FixedConn(data[8:]),
+						FixedConn: FixedConn(data[8:n]),
 					}
 					pkg.SetDynamicAddr(ra)
 					in <- pkg
@@ -76,8 +76,6 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 			host := string(pkg.FixedConn)
 			var err error
 			if pkg._protocal == EPCPROTOCAL {
-				logger.Warn("[%v]  conn:%v,addr: %v", ctx.Value("Entity"), pkg.conn, pkg.remoteAddr)
-
 				// 同步响应结果 或 使用动态连接
 				if pkg.remoteAddr != nil && pkg.conn != nil {
 					n, err := pkg.conn.WriteToUDP(pkg.GetEpcMessage(), pkg.remoteAddr)
@@ -136,14 +134,12 @@ func MAASyncResponse(pkg *Package, out chan *Package) {
 	out <- pkg
 }
 
-func MARSyncRequest(ctx context.Context, pkg *Package) (*CommonMsg, error) {
+func MARSyncRequest(ctx context.Context, pkg *Package) (string, error) {
 	resp, err := sendUDPMessageWaitResp(ctx, string(pkg.FixedConn), pkg.GetEpcMessage())
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	pk := new(Package)
-	pk.Init(resp)
-	return &pk.CommonMsg, nil
+	return string(resp), nil
 }
 
 func Send(pkg *Package, out chan *Package) {

@@ -13,14 +13,18 @@ import (
 
 type PgwEntity struct {
 	*Mux
-	Points map[string]string
+	Points   map[string]string
+	DHCPConf string
 }
 
-func (p *PgwEntity) Init() {
+func (p *PgwEntity) Init(dhcp string) {
 	// 初始化路由
 	p.Mux = new(Mux)
 	p.router = make(map[[2]byte]BaseSignallingT)
 	p.Points = make(map[string]string)
+	p.DHCPConf = dhcp
+	// 初始化IP地址池子
+
 }
 
 func (p *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *modules.Package) {
@@ -96,8 +100,7 @@ func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, 
 		return err
 	}
 	// 请求寻找无线接入点
-	ap := sipresp.Header.AccessNetworkInfo
-
+	ap := strings.Trim(sipresp.Header.AccessNetworkInfo, " ")
 	raddr := getAP(ap)
 
 	pkg.SetFixedConn("eNodeB")

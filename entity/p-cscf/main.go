@@ -48,10 +48,11 @@ func init() {
 	icscf := viper.GetString("IMS.i-cscf.host")
 	pgw := viper.GetString("EPC.pgw.host")
 	localhost = viper.GetString("IMS.p-cscf.host")
+	dns := viper.GetString("IMS.domain")
 	logger.Info("配置文件读取成功", "")
 	// 启动 CSCF 的UDP服务器
 	self = new(controller.P_CscfEntity)
-	self.Init(localhost)
+	self.Init("p-cscf@" + dns)
 	self.Points["ICSCF"] = icscf
 	self.Points["PGW"] = pgw
 	RegistRouter()

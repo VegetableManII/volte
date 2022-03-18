@@ -62,24 +62,33 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 	// 增加Via头部信息
 	sipreq.Header.Via.Add(p.SipVia + strconv.FormatInt(modules.GenerateSipBranch(), 16))
 	sipreq.Header.MaxForwards.Reduce()
-	// 检查头部内容是否首次注册
-	if strings.Contains(sipreq.Header.Authorization, "response") { // 包含响应内容则为第二次注册请求
-		// TODO 第二次注册请求时PCSCF可以直接转发给ICSCF
-		pkg.SetFixedConn(p.Points["ICSCF"])
-		pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
-		modules.Send(pkg, up)
-	} else {
-		// 第一次注册请求，P-CSCF处理，填充Authorization头部
-		user := sipreq.Header.From.URI.Username
-		domain := sipreq.Header.From.URI.Domain
-		username := user + "@" + domain
-		auth := fmt.Sprintf("Digest username=%s integrity protection:no", username)
-		sipreq.Header.Authorization = auth
-		// 第一次注册请求SCSCF还未与UE绑定所以转发给ICSCF
+	switch sipreq.RequestLine.Method {
+	case sip.MethodRegister:
+		// 检查头部内容是否首次注册
+		if strings.Contains(sipreq.Header.Authorization, "response") { // 包含响应内容则为第二次注册请求
+			// TODO 第二次注册请求时PCSCF可以直接转发给ICSCF
+			pkg.SetFixedConn(p.Points["ICSCF"])
+			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
+			modules.Send(pkg, up)
+		} else {
+			// 第一次注册请求，P-CSCF处理，填充Authorization头部
+			user := sipreq.Header.From.URI.Username
+			domain := sipreq.Header.From.URI.Domain
+			username := user + "@" + domain
+			auth := fmt.Sprintf("Digest username=%s integrity protection:no", username)
+			sipreq.Header.Authorization = auth
+			// 第一次注册请求SCSCF还未与UE绑定所以转发给ICSCF
+			pkg.SetFixedConn(p.Points["ICSCF"])
+			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
+			modules.Send(pkg, up)
+		}
+	case sip.MethodInvite:
+		// INVITE请求添加自己的Via直接转发给I-CSCF
 		pkg.SetFixedConn(p.Points["ICSCF"])
 		pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 		modules.Send(pkg, up)
 	}
+
 	return nil
 }
 

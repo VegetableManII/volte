@@ -139,7 +139,9 @@ func tunneling(ctx context.Context, coreConn *CoreNetConnection, bConn *net.UDPC
 
 func heartbeat(ctx context.Context, conn net.Conn, period int) {
 	for {
-		_, err := conn.Write([]byte{0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F})
+		signal := []byte{0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F}
+		msg := append(signal, []byte(entity.TAI)...)
+		_, err := conn.Write(msg)
 		if err != nil {
 			logger.Error("心跳探测发送失败 %v", err)
 			return
@@ -164,9 +166,13 @@ func forwardMsgFromNetToUe(ctx context.Context, conn net.Conn, bconn *net.UDPCon
 				continue
 			}
 			if n != 0 {
-				entity.ParseDownLinkData(data)
 				// 将收到的消息广播出去
-				working(ctx, bconn, baddr, 0, data[:n])
+				msg := entity.VIP(data[:n])
+				if msg != nil {
+					working(ctx, bconn, baddr, 0, data[:n])
+				} else {
+					logger.Error("[%v] 基站接收拨号寻呼被叫IP解析失败", ctx.Value("Entity"))
+				}
 			}
 		}
 	}
@@ -190,7 +196,6 @@ func forwardMsgFromUeToNet(ctx context.Context, src *net.UDPConn, cConn *CoreNet
 			if err != nil && n == 0 {
 				logger.Error("[%v] 基站接收消息失败 %x %v", ctx.Value("Entity"), n, err)
 			}
-			logger.Info("[%v] 基站接收消息 \n%v(%v byte)", ctx.Value("Entity"), string(data[:n]), n)
 			// 如果用户随机接入则响应给用户分配的唯一ID
 			if ok, id := entity.UeRandomAccess(data, raddr); ok {
 				working(ctx, src, raddr, -1, id)
@@ -210,9 +215,7 @@ func forwardMsgFromUeToNet(ctx context.Context, src *net.UDPConn, cConn *CoreNet
 				if err != nil {
 					logger.Error("[%v] 基站转发消息失败[to pgw] %v %v", ctx.Value("Entity"), n, err)
 				}
-				logger.Info("[%v] 基站转发消息[to pgw] %x \n%v", ctx.Value("Entity"), message[0:4], string(message[4:]))
 			}
-
 		}
 	}
 }

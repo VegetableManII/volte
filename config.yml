@@ -13,6 +13,7 @@ eNodeB:
 # epc 网络功能实体
 EPC: 
   pgw.host: 127.0.0.1:12348
+  pgw.dhcp : 10.0.1.0/24
 
 # 归属地查询服务器
 HSS:
@@ -23,7 +24,7 @@ IMS:
   p-cscf.host: 127.0.0.1:54321
   i-cscf.host: 127.0.0.1:54322
   s-cscf.host: 127.0.0.1:54323
-  pcrf.host: 127.0.0.1:54324
+  domain: hebeiyidong.3gpp.net
 
 # 数据库配置信息
 mysql: 
