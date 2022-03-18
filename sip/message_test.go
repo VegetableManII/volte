@@ -13,8 +13,8 @@ func TestMessageBase(t *testing.T) {
 	}{
 		{`REGISTER sip:192.168.0.2:5060 SIP/2.0
 			Via: SIP/2.0/UDP 192.168.0.102:5060;branch=z9hG4bK-172441109;rport
-			From: "1010"<sip:1010@192.168.0.2>;tag=943080490
-			To: <sip:1010@192.168.0.2>
+			From: "jiqimao" <sip:jiqimao@hebeiyidong.3gpp.net>;tag=690713
+			To: "jiqimao" <sip:jiqimao@hebeiyidong.3gpp.net>;tag=690711
 			Call-ID: 012022699881-214NTIL@192.168.0.102
 			CSeq: 1 REGISTER
 			Expires: 600
@@ -72,7 +72,7 @@ func TestMessageBase(t *testing.T) {
 
 		`, false},
 		{`SIP/2.0 200 OK
-			Via: SIP/2.0/UDP 192.168.0.100:45508;branch=z9hG4bK1158493fb1e25c83f14f5e7ee368;rport
+		Via: SIP/2.0/UDP 192.168.0.100:45508;branch=z9hG4bK1158493fb1e25c83f14f5e7ee368;rport
 			From: "1011"<sip:1011@192.168.0.2>;tag=22365c3a331
 			To: <sip:1010@192.168.0.2>;tag=291589446
 			Call-ID: 93fb1e2-cd303fba92f18-6ebf2a6@192.168.0.100
@@ -97,6 +97,17 @@ func TestMessageBase(t *testing.T) {
 			a=sendrecv
 
 		`, false},
+		{"REGISTER sip:hebeiyidong.3gpp.net SIP/2.0" + CRLF +
+			"Via: SIP/2.0/UDP 10.255.1.111:5090;branch=z9hG4bK199912928954841999" + CRLF +
+			`From: "jiqimao" <sip:jiqimao@hebeiyidong.3gpp.net>;tag=690713` + CRLF +
+			`To: "jiqimao" <sip:jiqimao@hebeiyidong.3gpp.net>;tag=690711` + CRLF +
+			"Call-ID: RgeX-136783086082016@10.255.1.111" + CRLF +
+			"CSeq: 3 REGISTER" + CRLF +
+			"Contact: <sip:jiqimao@10.255.1.111:5090>" + CRLF +
+			"Allow: INVITE,ACK,OPTIONS,CANCEL,BYE,PRACK,UPDATE,SUBSCRIBE,NOTIFY" + CRLF +
+			"Max-Forwards: 70" + CRLF +
+			"Expires: 600000" + CRLF +
+			"Content-Length: 0" + CRLF + CRLF, false},
 	}
 	for i, tt := range tests {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {

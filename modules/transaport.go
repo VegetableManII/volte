@@ -40,6 +40,7 @@ func ReceiveClientMessage(ctx context.Context, conn *net.UDPConn, in chan *Packa
 			if err != nil {
 				logger.Error("[%v] Server读取数据错误 %v", ctx.Value("Entity"), err)
 			}
+			logger.Info("[%v] 读取到 %v(byte)数据", ctx.Value("Entity"), n)
 			if n != 0 {
 				// 心跳兼容
 				if data[0] == 0x0F && data[1] == 0x0F && data[2] == 0x0F && data[3] == 0x0F &&
@@ -197,7 +198,7 @@ func sendUDPMessageWaitResp(ctx context.Context, host string, data []byte) (resp
 	}
 	n, err = ra.Write(data)
 	if n == 0 {
-		return nil, errors.New("ErrSendEmpty")
+		return nil, err
 	}
 	ra.SetReadDeadline(time.Now().Add(5 * time.Second)) // 等待响应的过期时间为5秒
 	buf := make([]byte, 1024)
@@ -215,6 +216,8 @@ func sendUDPMessageWaitResp(ctx context.Context, host string, data []byte) (resp
 func distribute(ctx context.Context, data []byte, ra *net.UDPAddr, conn *net.UDPConn, c chan *Package) {
 	defer Recover(ctx)
 	pkg := new(Package)
-	pkg.Init(data)
-	c <- pkg // 默认 发送核心处理
+	err := pkg.Init(data)
+	if err == nil {
+		c <- pkg // 默认 发送核心处理
+	}
 }

@@ -61,7 +61,6 @@ func (m *Message) String() (result string) {
 	result += CRLF
 	// 写入Body
 	result += bodyString
-	result += CRLF
 	return
 }
 

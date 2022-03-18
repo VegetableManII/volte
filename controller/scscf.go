@@ -48,7 +48,7 @@ func (s *S_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *mod
 			}
 			err := f(ctx, pkg, up, down)
 			if err != nil {
-				logger.Error("[%v] P-CSCF消息处理失败 %v %v", ctx.Value("Entity"), pkg, err)
+				logger.Error("[%v] P-CSCF消息处理失败 %x %v %v", ctx.Value("Entity"), pkg.GetRoute(), string(pkg.GetData()), err)
 			}
 		case <-ctx.Done():
 			// 释放资源

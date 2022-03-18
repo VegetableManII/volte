@@ -3,8 +3,9 @@ package modules
 import (
 	"encoding/binary"
 	"net"
-	"strings"
 )
+
+const CRLF = "\r\n"
 
 const (
 	EPCPROTOCAL byte = 0x01
@@ -74,7 +75,7 @@ SIP Header 格式如下
 
 */
 // 接收消息时通过字节流创建Package
-func (p *Package) Init(data []byte) {
+func (p *Package) Init(data []byte) error {
 	// 填充消息字节数据
 	if data[4] == EPCPROTOCAL {
 		p._unique = binary.BigEndian.Uint32(data[0:4])
@@ -84,26 +85,17 @@ func (p *Package) Init(data []byte) {
 		p._size = l
 		copy(p._data[:], data[8:l+8])
 	} else {
-		startline := strings.Split(string(data[4:]), "\r\n")
-		if len(startline) >= 1 {
-			ss := strings.Split(startline[0], " ")
-			if len(ss) == 3 {
-				if len(ss[2]) == 3 { // 请求
-					if strings.ToUpper(ss[2][:3]) == "SIP" {
-						p._method = SipRequest
-					}
-				} else if len(ss) == 3 { // 响应
-					if strings.ToUpper(ss[0][:3]) == "SIP" {
-						p._method = SipResponse
-					}
-				}
-				p._unique = binary.BigEndian.Uint32(data[0:4])
-				p._protocal = SIPPROTOCAL
-				p._size = uint16(len(data[4:]))
-				copy(p._data[:], data[4:])
-			}
+		m, err := GetSipMethod(data[4:])
+		if err != nil {
+			return err
 		}
+		p._unique = binary.BigEndian.Uint32(data[0:4])
+		p._protocal = SIPPROTOCAL
+		p._method = m
+		p._size = uint16(len(data[4:]))
+		copy(p._data[:], data[4:])
 	}
+	return nil
 }
 
 func (p *Package) SetFixedConn(dst string) {

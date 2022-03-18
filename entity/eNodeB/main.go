@@ -134,8 +134,8 @@ func tunneling(ctx context.Context, coreConn *CoreNetConnection, bConn *net.UDPC
 	}
 	// 向mme和pgw发送心跳包，让对端知道自己的公网IP和端口
 	go heartbeat(ctx, coreConn.PgwConn, coreConn.beatheart)
-	go forward(ctx, coreConn.PgwConn, bConn, bAddr)
-	go forwardMessageFromUeToCoreNet(ctx, bConn, coreConn)
+	go forwardMsgFromNetToUe(ctx, coreConn.PgwConn, bConn, bAddr)
+	go forwardMsgFromUeToNet(ctx, bConn, coreConn)
 }
 
 func heartbeat(ctx context.Context, conn net.Conn, period int) {
@@ -149,7 +149,7 @@ func heartbeat(ctx context.Context, conn net.Conn, period int) {
 	}
 }
 
-func forward(ctx context.Context, conn net.Conn, bconn *net.UDPConn, baddr *net.UDPAddr) {
+func forwardMsgFromNetToUe(ctx context.Context, conn net.Conn, bconn *net.UDPConn, baddr *net.UDPAddr) {
 	defer modules.Recover(ctx)
 
 	for {
@@ -174,7 +174,7 @@ func forward(ctx context.Context, conn net.Conn, bconn *net.UDPConn, baddr *net.
 }
 
 // 将ue消息转发至网络侧
-func forwardMessageFromUeToCoreNet(ctx context.Context, src *net.UDPConn, cConn *CoreNetConnection) {
+func forwardMsgFromUeToNet(ctx context.Context, src *net.UDPConn, cConn *CoreNetConnection) {
 	defer modules.Recover(ctx)
 
 	var n int
@@ -189,9 +189,9 @@ func forwardMessageFromUeToCoreNet(ctx context.Context, src *net.UDPConn, cConn 
 			data := make([]byte, 10240) // 10KB
 			n, raddr, err = src.ReadFromUDP(data)
 			if err != nil && n == 0 {
-				logger.Error("[%v] 基站接收消息失败 %v %v", ctx.Value("Entity"), n, err)
+				logger.Error("[%v] 基站接收消息失败 %x %v", ctx.Value("Entity"), n, err)
 			}
-			logger.Info("[%v] 基站接收消息%v %v(%v byte)", ctx.Value("Entity"), data[0:4], string(data[4:n]), n)
+			logger.Info("[%v] 基站接收消息 \n%v(%v byte)", ctx.Value("Entity"), string(data[:n]), n)
 			// 如果用户随机接入则响应给用户分配的唯一ID
 			if ok, id := entity.UeRandomAccess(data, raddr); ok {
 				working(ctx, src, raddr, -1, id)
@@ -207,12 +207,13 @@ func forwardMessageFromUeToCoreNet(ctx context.Context, src *net.UDPConn, cConn 
 				message := make([]byte, 4, 10240)
 				binary.BigEndian.PutUint32(message, id)
 				message = append(message, data[:n]...)
-				err = send(ctx, cConn.PgwConn, message[:n])
+				err = send(ctx, cConn.PgwConn, message[:])
 				if err != nil {
 					logger.Error("[%v] 基站转发消息失败[to pgw] %v %v", ctx.Value("Entity"), n, err)
 				}
+				logger.Info("[%v] 基站转发消息[to pgw] %x \n%v", ctx.Value("Entity"), message[0:4], string(message[4:]))
 			}
-			logger.Info("[%v] 基站转发消息[to pgw] %v %v", ctx.Value("Entity"), data[0:4], string(data[4:]))
+
 		}
 	}
 }
