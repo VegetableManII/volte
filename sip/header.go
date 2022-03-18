@@ -17,6 +17,7 @@ type Header struct {
 	CallID            string      // (RFC3261-8.1.1.4) 唯一标志
 	CSeq              CSeq        // (RFC3261-8.1.1.5) 命令序列号
 	MaxForwards       MaxForwards // (RFC3261-8.1.1.6) 最大转发数量限制
+	AccessNetworkInfo string      // (可选) UE终端无线接入点eNodeB标识信息
 	ContentLength     int         // 正文长度
 	ContentType       string      // (可选) 正文格式描述
 	Contact           *User       // (可选) (RFC3261-8.1.1.8) 直接访问方式
@@ -26,7 +27,6 @@ type Header struct {
 	UserAgent         string      // (可选) UAC的信息
 	Authorization     string      // (可选) 用户认证信息
 	WWWAuthenticate   string      // (可选) 支持的认证方式和适用realm的参数的拒绝原因
-	AccessNetworkInfo string      // (可选) UE终端无线接入点eNodeB标识信息
 	UnsupportLines    []string    // 暂不支持的行
 }
 

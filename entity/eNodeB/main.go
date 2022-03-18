@@ -39,7 +39,7 @@ func main() {
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	// 开启广播工作消息，不区分ue
-	go working(ctx, bConn, bAddr, sTime, []byte("RandomAccess"))
+	go working(ctx, bConn, bAddr, sTime, []byte(entity.TAI))
 
 	// 建立ue与核心网的通信隧道
 	go tunneling(ctx, NetSideConn, bConn, bAddr)

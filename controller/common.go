@@ -57,11 +57,12 @@ func updateAddress(ra *net.UDPAddr, enb string) error {
 	return nil
 }
 
-func getAP(p *modules.Package) (*net.UDPAddr, *net.UDPConn) {
-	if modules.ConnectionExist(p) {
-		return p.GetDynamicAddr(), p.GetDynamicConn()
+func getAP(name string) *net.UDPAddr {
+	ra, ok := Cache.Get(name)
+	if !ok {
+		return nil
 	}
-	return nil, nil
+	return ra.(*net.UDPAddr)
 }
 
 func bindUeWithAP(ip, ap string) {

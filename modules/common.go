@@ -67,15 +67,11 @@ func GetSipMethod(data []byte) (byte, error) {
 	startline := strings.Split(string(data), CRLF)
 	if len(startline) >= 1 {
 		ss := strings.Split(startline[0], " ")
-		if len(ss) == 3 {
-			if strings.ToUpper(ss[2][:3]) == "SIP" {
-				return SipRequest, nil
-			} else if strings.ToUpper(ss[0][:3]) == "SIP" {
-				return SipResponse, nil
-			} else {
-				return 0, errors.New("ErrInvalidData")
-			}
+		if len(ss) >= 3 && strings.ToUpper(ss[0][:3]) == "SIP" {
+			return SipResponse, nil
+		} else {
+			return SipRequest, nil
 		}
 	}
-	return 0, errors.New("ErrInvalidData")
+	return 0, errors.New("ErrInvalidStartLine")
 }

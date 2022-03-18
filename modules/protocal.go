@@ -103,9 +103,12 @@ func (p *Package) SetFixedConn(dst string) {
 	p.FixedConn = FixedConn(dst)
 }
 
-func (p *Package) SetDynamicConn(addr *net.UDPAddr, conn *net.UDPConn) {
-	p.remoteAddr = addr
+func (p *Package) SetDynamicConn(conn *net.UDPConn) {
 	p.conn = conn
+}
+
+func (p *Package) SetDynamicAddr(addr *net.UDPAddr) {
+	p.remoteAddr = addr
 }
 
 func (p *Package) GetFixedConn() string {

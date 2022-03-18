@@ -83,7 +83,7 @@ func (h *HssEntity) MultimediaAuthorizationRequestF(ctx context.Context, p *modu
 		AV_CK:      hex.EncodeToString(CK),
 		AV_IK:      hex.EncodeToString(IK),
 	}
-	p.SetFixedConn(h.Points["SCSCF"])
+	// 在接收消息的步骤中已经设置同步连接
 	p.Construct(modules.EPCPROTOCAL, modules.MultiMediaAuthenticationAnswer, modules.StrLineMarshal(response))
 	modules.MAASyncResponse(p, down)
 	return nil

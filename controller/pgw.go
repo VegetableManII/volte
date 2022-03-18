@@ -2,9 +2,11 @@ package controller
 
 import (
 	"context"
+	"strings"
 	"sync"
 
 	"github.com/VegetableManII/volte/modules"
+	"github.com/VegetableManII/volte/sip"
 
 	"github.com/wonderivan/logger"
 )
@@ -66,9 +68,9 @@ func (p *PgwEntity) AttachRequestF(ctx context.Context, pkg *modules.Package, up
 	// 绑定UE IP和基站的关系
 	bindUeWithAP(ip, AP)
 	// 响应UE
-	addr, con := getAP(pkg)
+	addr := getAP(AP)
 	pkg.SetFixedConn("eNodeB")
-	pkg.SetDynamicConn(addr, con)
+	pkg.SetDynamicAddr(addr)
 	pkg.Construct(modules.EPCPROTOCAL, modules.AttachAccept, modules.StrLineMarshal(args))
 	modules.Send(pkg, down)
 	return nil
@@ -89,18 +91,17 @@ func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, 
 	defer modules.Recover(ctx)
 
 	logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-	// INVITE 请求寻找无线接入点
-	// accPoint := sipresp.Header.AccessNetworkInfo
+	sipresp, err := sip.NewMessage(strings.NewReader(string(pkg.GetData())))
+	if err != nil {
+		return err
+	}
+	// 请求寻找无线接入点
+	ap := sipresp.Header.AccessNetworkInfo
 
-	// var remote *net.UDPAddr
-	// ra, ok := Cache.Get(accPoint)
-	// if !ok {
-	// 	return errors.New("ErrNotFoundAPAddr")
-	// }
+	raddr := getAP(ap)
 
-	addr, con := getAP(pkg)
 	pkg.SetFixedConn("eNodeB")
-	pkg.SetDynamicConn(addr, con)
+	pkg.SetDynamicAddr(raddr)
 	modules.Send(pkg, down)
 	return nil
 }

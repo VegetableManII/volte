@@ -51,7 +51,7 @@ func ReceiveClientMessage(ctx context.Context, conn *net.UDPConn, in chan *Packa
 						},
 						FixedConn: FixedConn(data[8:]),
 					}
-					pkg.SetDynamicConn(ra, conn)
+					pkg.SetDynamicAddr(ra)
 					in <- pkg
 					continue
 				}
@@ -76,10 +76,8 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 			host := string(pkg.FixedConn)
 			var err error
 			if pkg._protocal == EPCPROTOCAL {
-				if err != nil {
-					logger.Error("[%v] 序列化失败 %v", ctx.Value("Entity"), err)
-					continue
-				}
+				logger.Warn("[%v]  conn:%v,addr: %v", ctx.Value("Entity"), pkg.conn, pkg.remoteAddr)
+
 				// 同步响应结果 或 使用动态连接
 				if pkg.remoteAddr != nil && pkg.conn != nil {
 					n, err := pkg.conn.WriteToUDP(pkg.GetEpcMessage(), pkg.remoteAddr)
@@ -200,7 +198,14 @@ func distribute(ctx context.Context, data []byte, ra *net.UDPAddr, conn *net.UDP
 	defer Recover(ctx)
 	pkg := new(Package)
 	err := pkg.Init(data)
+
 	if err == nil {
-		c <- pkg // 默认 发送核心处理
+		if pkg._protocal == EPCPROTOCAL && pkg._method == MultiMediaAuthenticationRequest {
+			pkg.SetDynamicAddr(ra)
+		}
+		pkg.SetDynamicConn(conn) // 默认信息包都携带自身连接conn，用于需要时进行动态连接响应
+		c <- pkg                 // 默认 发送核心处理
+	} else {
+		logger.Error("[%v] 消息分发失败, Error: %v", ctx.Value("Entity"), err)
 	}
 }
