@@ -1,6 +1,7 @@
 package modules
 
 import (
+	"bytes"
 	"encoding/binary"
 	"net"
 )
@@ -148,7 +149,18 @@ func (msg *CommonMsg) GetData() []byte {
 	return msg._data[:msg._size]
 }
 
-func (msg *CommonMsg) GetSipBody() []byte {
+func (msg *CommonMsg) GetEpcMessage() []byte {
+	buf := new(bytes.Buffer)
+	buf.Grow(8 + int(msg._size))
+	binary.Write(buf, binary.BigEndian, msg._unique)
+	binary.Write(buf, binary.BigEndian, msg._protocal)
+	binary.Write(buf, binary.BigEndian, msg._method)
+	binary.Write(buf, binary.BigEndian, msg._size)
+	binary.Write(buf, binary.BigEndian, msg._data[:msg._size])
+	return buf.Bytes()
+}
+
+func (msg *CommonMsg) GetSipMessage() []byte {
 	uqi := [4]byte{}
 	binary.BigEndian.PutUint32(uqi[:], msg._unique)
 	return append(uqi[:], msg._data[:msg._size]...)

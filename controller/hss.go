@@ -83,6 +83,7 @@ func (h *HssEntity) MultimediaAuthorizationRequestF(ctx context.Context, p *modu
 		AV_CK:      hex.EncodeToString(CK),
 		AV_IK:      hex.EncodeToString(IK),
 	}
+	p.SetFixedConn(h.Points["SCSCF"])
 	p.Construct(modules.EPCPROTOCAL, modules.MultiMediaAuthenticationAnswer, modules.StrLineMarshal(response))
 	modules.MAASyncResponse(p, down)
 	return nil

@@ -112,7 +112,7 @@ func working(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, scan i
 			logger.Warn("[%v] 基站工作广播协程退出...", ctx.Value("Entity"))
 			return
 		default:
-			n, err := conn.WriteToUDP(msg, remote)
+			_, err := conn.WriteToUDP(msg, remote)
 			if err != nil {
 				logger.Error("[%v] 广播开始工作消息失败... %v", ctx.Value("Entity"), err)
 			}
@@ -120,7 +120,6 @@ func working(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, scan i
 				return
 			}
 			time.Sleep(time.Duration(scan) * time.Second)
-			logger.Info("[%v] 广播工作消息... [%v]", ctx.Value("Entity"), n)
 		}
 	}
 }

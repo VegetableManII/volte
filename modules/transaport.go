@@ -1,9 +1,7 @@
 package modules
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
 	"errors"
 	"log"
 	"net"
@@ -40,7 +38,6 @@ func ReceiveClientMessage(ctx context.Context, conn *net.UDPConn, in chan *Packa
 			if err != nil {
 				logger.Error("[%v] Server读取数据错误 %v", ctx.Value("Entity"), err)
 			}
-			logger.Info("[%v] 读取到 %v(byte)数据", ctx.Value("Entity"), n)
 			if n != 0 {
 				// 心跳兼容
 				if data[0] == 0x0F && data[1] == 0x0F && data[2] == 0x0F && data[3] == 0x0F &&
@@ -69,8 +66,6 @@ func ReceiveClientMessage(ctx context.Context, conn *net.UDPConn, in chan *Packa
 
 // 接收逻辑核心处理结果
 func ProcessDownStreamData(ctx context.Context, down chan *Package) {
-	// 创建write buffer
-	var buffer bytes.Buffer
 	for {
 		select {
 		case <-ctx.Done():
@@ -81,19 +76,18 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 			host := string(pkg.FixedConn)
 			var err error
 			if pkg._protocal == EPCPROTOCAL {
-				err = binary.Write(&buffer, binary.BigEndian, pkg.CommonMsg)
 				if err != nil {
 					logger.Error("[%v] 序列化失败 %v", ctx.Value("Entity"), err)
 					continue
 				}
 				// 同步响应结果 或 使用动态连接
 				if pkg.remoteAddr != nil && pkg.conn != nil {
-					n, err := pkg.conn.WriteToUDP(buffer.Bytes(), pkg.remoteAddr)
+					n, err := pkg.conn.WriteToUDP(pkg.GetEpcMessage(), pkg.remoteAddr)
 					if err != nil || n == 0 {
 						logger.Error("[%v] 同步响应下级节点失败 %v", ctx.Value("Entity"), err)
 					}
 				} else { // 使用固定连接
-					err = sendUDPMessage(ctx, host, buffer.Bytes())
+					err = sendUDPMessage(ctx, host, pkg.GetEpcMessage())
 					if err != nil {
 						logger.Error("[%v] 请求下级节点失败 %v", ctx.Value("Entity"), err)
 					}
@@ -101,24 +95,22 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 
 			} else {
 				if pkg.remoteAddr != nil && pkg.conn != nil {
-					n, err := pkg.conn.WriteToUDP(pkg.GetSipBody(), pkg.remoteAddr)
+					n, err := pkg.conn.WriteToUDP(pkg.GetSipMessage(), pkg.remoteAddr)
 					if err != nil || n == 0 {
 						logger.Error("[%v] 同步响应下级节点失败 %v", ctx.Value("Entity"), err)
 					}
 				} else {
-					err = sendUDPMessage(ctx, host, pkg.GetSipBody())
+					err = sendUDPMessage(ctx, host, pkg.GetSipMessage())
 					if err != nil {
 						logger.Error("[%v] 请求下级节点失败 %v", ctx.Value("Entity"), err)
 					}
 				}
 			}
 		}
-		buffer.Reset()
 	}
 }
 
 func ProcessUpStreamData(ctx context.Context, up chan *Package) {
-	var buffer bytes.Buffer
 	for {
 		select {
 		case <-ctx.Done():
@@ -128,35 +120,26 @@ func ProcessUpStreamData(ctx context.Context, up chan *Package) {
 			host := string(pkt.FixedConn)
 			var err error
 			if pkt._protocal == EPCPROTOCAL {
-				err = binary.Write(&buffer, binary.BigEndian, pkt.CommonMsg)
-				if err != nil {
-					logger.Error("[%v] 序列化失败 %v", ctx.Value("Entity"), err)
-					continue
-				}
-				err = sendUDPMessage(ctx, host, buffer.Bytes())
+				err = sendUDPMessage(ctx, host, pkt.GetEpcMessage())
 				if err != nil {
 					logger.Error("[%v] 请求上级节点失败 %v", ctx.Value("Entity"), err)
 				}
 			} else {
-				err = sendUDPMessage(ctx, host, pkt.GetSipBody())
+				err = sendUDPMessage(ctx, host, pkt.GetSipMessage())
 				if err != nil {
 					logger.Error("[%v] 请求上级节点失败 %v", ctx.Value("Entity"), err)
 				}
 			}
 		}
-		buffer.Reset()
 	}
 }
 
 func MAASyncResponse(pkg *Package, out chan *Package) {
-	out <- &Package{pkg.CommonMsg, "", pkg.DynamicConn}
+	out <- pkg
 }
 
 func MARSyncRequest(ctx context.Context, pkg *Package) (*CommonMsg, error) {
-	buf := new(bytes.Buffer)
-	buf.Grow(65535)
-	binary.Write(buf, binary.BigEndian, pkg.CommonMsg)
-	resp, err := sendUDPMessageWaitResp(ctx, string(pkg.FixedConn), buf.Bytes())
+	resp, err := sendUDPMessageWaitResp(ctx, string(pkg.FixedConn), pkg.GetEpcMessage())
 	if err != nil {
 		return nil, err
 	}
