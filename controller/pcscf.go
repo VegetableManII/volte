@@ -10,8 +10,6 @@ import (
 	"github.com/VegetableManII/volte/modules"
 	"github.com/VegetableManII/volte/sip"
 
-	_ "github.com/go-sql-driver/mysql"
-
 	"github.com/wonderivan/logger"
 )
 
