@@ -16,9 +16,13 @@ import (
 )
 
 type RegistCombine struct {
-	Req    *sip.Message
-	XRES   string
+	Req  *sip.Message
+	XRES string
+}
+type RequestCache struct {
+	Type   string
 	Branch string
+	Req    *sip.Message
 }
 
 type I_CscfEntity struct {
@@ -29,9 +33,9 @@ type I_CscfEntity struct {
 }
 
 // 暂时先试用固定的uri，后期实现dns使用域名加IP的映射方式
-func (i *I_CscfEntity) Init(host string) {
+func (i *I_CscfEntity) Init(domain string) {
 	i.Mux = new(Mux)
-	i.SipVia = "SIP/2.0/UDP " + host + ";branch="
+	i.SipVia = "SIP/2.0/UDP i-cscf@" + domain + ";branch="
 	i.Points = make(map[string]string)
 	i.router = make(map[[2]byte]BaseSignallingT)
 	i.iCache = initCache()
@@ -86,7 +90,7 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			RES := i.iCache.getUserRegistXRES(user)
 			if RES != "" && RES == values["response"] {
 				// 鉴权成功，通知SCSCF保存该用户信息，先缓存
-				err := i.iCache.setUserRegistBranch(user, branch)
+				err := i.iCache.addRequestCache(branch, sip.MethodRegister, branch, &sipreq)
 				if err != nil {
 					sipresp := sip.NewResponse(sip.StatusGone, &sipreq)
 					pkg.SetFixedConn(i.Points["PCSCF"])
@@ -112,9 +116,33 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			modules.Send(pkg, down)
 		}
 	case sip.MethodInvite:
-		// 建立通话请求
+		// 检查第一个Via是否是SCSCF的标识
+		via, _ := sipreq.Header.Via.FirstAddrInfo()
+		if strings.Contains(via, "s-cscf") {
+			// 被叫 INVITE 请求
+			// 添加自身标识
+			sipreq.Header.Via.Add(i.SipVia + branch)
+			// 向下级请求
+			pkg.SetFixedConn(i.Points["PCSCF"])
+			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
+			modules.Send(pkg, down)
+			return nil
+		}
+		// 建立通话请求首先缓存该请求
+		err := i.iCache.addRequestCache(branch, sip.MethodInvite, branch, &sipreq)
+		if err != nil {
+			sipresp := sip.NewResponse(sip.StatusBusyHere, &sipreq)
+			pkg.SetFixedConn(i.Points["PCSCF"])
+			pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
+			modules.Send(pkg, down)
+			return err
+		}
+		// 然后转发给S-CSCF
+		sipreq.Header.Via.Add(i.SipVia + branch)
+		pkg.SetFixedConn(i.Points["SCSCF"])
+		pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
+		modules.Send(pkg, up)
 	}
-
 	return nil
 }
 
@@ -127,30 +155,39 @@ func (i *I_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 	if err != nil {
 		return err
 	}
-	// 删除Via头部信息
-	sipresp.Header.Via.RemoveFirst()
-	sipresp.Header.MaxForwards.Reduce()
-	pkg.SetFixedConn(i.Points["PCSCF"])
-	if sipresp.ResponseLine.StatusCode == sip.StatusOK.Code {
-		// 注册完成
-		logger.Info("[%v] 鉴权认证成功: %v", ctx.Value("Entity"), sipresp.String())
-		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, "")
+	branch := sipresp.Header.Via.TransactionBranch()
+	req := i.iCache.getRequestCache(branch)
+	if req == nil { // 根据branch无法找对对应的请求则丢弃
+		logger.Warn("[%v] 未找对该分支对应请求 branch=%v", ctx.Value("Entity"), branch)
+		sipresp := sip.NewResponse(sip.StatusCallTransactionDoesNotExist, req.Req)
+		pkg.SetFixedConn(i.Points["PCSCF"])
+		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 		modules.Send(pkg, down)
 		return nil
 	}
-	// 注册失败
-	user := sipresp.Header.To.Username()
-	// 获取缓存的临时登记请求
-	branch := i.iCache.getUserRegistBranch(user)
-	if branch != "" && branch == sipresp.Header.Via.TransactionBranch() {
+	switch req.Type {
+	case sip.MethodRegister:
+		// 删除Via头部信息
+		sipresp.Header.Via.RemoveFirst()
+		sipresp.Header.MaxForwards.Reduce()
+		pkg.SetFixedConn(i.Points["PCSCF"])
+		if sipresp.ResponseLine.StatusCode == sip.StatusOK.Code {
+			// 注册完成
+			pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, "")
+			modules.Send(pkg, down)
+			return nil
+		}
+		// 注册失败
+		user := sipresp.Header.To.Username()
 		// 删除注册请求
 		i.iCache.delUserRegistReqXRES(user)
 		// 响应UE 注册失败
 		sipresp.ResponseLine.StatusCode = sip.StatusBusyHere.Code
 		sipresp.ResponseLine.ReasonPhrase = sip.StatusBusyHere.Reason
 		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
+	case sip.MethodInvite:
+
 	}
-	// 如果获取不到临时登记请求则忽略操作
 	return nil
 }
 

@@ -96,7 +96,6 @@ func (i *Cache) setUserRegistReq(key string, msg *sip.Message) {
 	rc := new(RegistCombine)
 	rc.Req = msg
 	rc.XRES = "NONE"
-	rc.Branch = "NONE"
 	i.Set(key, msg, defExpire)
 }
 
@@ -132,34 +131,37 @@ func (i *Cache) delUserRegistReqXRES(key string) {
 	i.Delete(key)
 }
 
-// ICSCF 添加临时登记标识
-func (i *Cache) setUserRegistBranch(key string, val string) error {
-	// 首先查看是否存在请求
-	m, expire, ok := i.GetWithExpiration(key)
-	if !ok {
-		return errors.New("ErrNotFoundRequest")
-	}
-	rc := m.(*RegistCombine)
-	rc.Branch = val
-	remain := expire.Sub(time.Now())
-	i.Set(key, rc, remain)
+// ICSCF 添加请求和对应分支的缓存
+func (i *Cache) addRequestCache(key string, meth, bh string, req *sip.Message) error {
+	rc := new(RequestCache)
+	rc.Type = meth
+	rc.Branch = bh
+	rc.Req = req
+	i.Set(key, rc, cache.NoExpiration)
 	return nil
 }
 
-// ICSCF 获取用户临时登记标识
-func (i *Cache) getUserRegistBranch(key string) string {
+// ICSCF 根据分支获取对应请求
+func (i *Cache) getRequestCache(key string) *RequestCache {
 	m, ok := i.Get(key)
 	if !ok {
-		return ""
+		return nil
 	}
-	rc := m.(*RegistCombine)
-	if rc.Branch == "NONE" {
-		return ""
-	}
-	return rc.Branch
+	rc := m.(*RequestCache)
+	return rc
 }
 
 // SCSCF 添加用户信息到系统
 func (s *Cache) setUserInfo(key string, val *User) error {
 	return s.Add(key, val, cache.NoExpiration)
+}
+
+// SCSCF 查询用户信息
+func (s *Cache) getUserInfo(key string) *User {
+	m, ok := s.Get(key)
+	if !ok {
+		return nil
+	}
+	ue := m.(*User)
+	return ue
 }

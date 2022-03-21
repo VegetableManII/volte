@@ -21,9 +21,9 @@ type P_CscfEntity struct {
 }
 
 // 暂时先试用固定的uri，后期实现dns使用域名加IP的映射方式
-func (p *P_CscfEntity) Init(host string) {
+func (p *P_CscfEntity) Init(domain string) {
 	p.Mux = new(Mux)
-	p.SipVia = "SIP/2.0/UDP " + host + ";branch="
+	p.SipVia = "SIP/2.0/UDP p-cscf@" + domain + ";branch="
 	p.Points = make(map[string]string)
 	p.router = make(map[[2]byte]BaseSignallingT)
 }
@@ -58,9 +58,9 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 	if err != nil {
 		return err
 	}
-
+	branch := strconv.FormatInt(modules.GenerateSipBranch(), 16)
 	// 增加Via头部信息
-	sipreq.Header.Via.Add(p.SipVia + strconv.FormatInt(modules.GenerateSipBranch(), 16))
+	sipreq.Header.Via.Add(p.SipVia + branch)
 	sipreq.Header.MaxForwards.Reduce()
 	switch sipreq.RequestLine.Method {
 	case sip.MethodRegister:
@@ -84,6 +84,19 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		}
 	case sip.MethodInvite:
 		// INVITE请求添加自己的Via直接转发给I-CSCF
+		// INVITE请求来自ICSCF则向下行节点请求
+		via, _ := sipreq.Header.Via.FirstAddrInfo()
+		if strings.Contains(via, "i-cscf") {
+			// 被叫 INVITE 请求
+			// 添加自身标识
+			sipreq.Header.Via.Add(p.SipVia + branch)
+			// 向下级请求
+			pkg.SetFixedConn(p.Points["PCSCF"])
+			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
+			modules.Send(pkg, down)
+			return nil
+		}
+		// 来自PGW的请求向上行节点请求
 		pkg.SetFixedConn(p.Points["ICSCF"])
 		pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 		modules.Send(pkg, up)

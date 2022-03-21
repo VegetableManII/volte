@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"strconv"
 	"strings"
 
 	"github.com/VegetableManII/volte/modules"
@@ -13,8 +14,9 @@ import (
 )
 
 type User struct {
-	Address string
-	Name    string
+	Address     string
+	Name        string
+	AccessPoint string // 无线接入点基站
 }
 
 type S_CscfEntity struct {
@@ -26,9 +28,9 @@ type S_CscfEntity struct {
 }
 
 // 暂时先试用固定的uri，后期实现dns使用域名加IP的映射方式
-func (s *S_CscfEntity) Init(host string) {
+func (s *S_CscfEntity) Init(domain string) {
 	s.Mux = new(Mux)
-	s.SipVia = "SIP/2.0/UDP " + host + ";branch="
+	s.SipVia = "SIP/2.0/UDP s-cscf@" + domain + ";branch="
 	s.Points = make(map[string]string)
 	s.router = make(map[[2]byte]BaseSignallingT)
 	s.sCache = initCache()
@@ -78,6 +80,31 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		pkg.Construct(modules.EPCPROTOCAL, modules.MultiMediaAuthenticationRequest, modules.StrLineMarshal(table))
 		modules.Send(pkg, up)
 	case "INVITE":
+		// 呼叫
+		// 同域 和 不同域
+		dns := sipreq.RequestLine.RequestURI.Domain
+		user := sipreq.RequestLine.RequestURI.Username
+		callee := s.sCache.getUserInfo(user)
+		if callee == nil {
+			// 被叫在系统中找不到
+			sipresp := sip.NewResponse(sip.StatusRequestTerminated, &sipreq)
+			pkg.SetFixedConn(s.Points["ICSCF"])
+			pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
+			modules.Send(pkg, down)
+			return nil
+		}
+		// 打上自己的Via
+		// 向对应域的ICSCF发起请求
+		if callee.Address == dns {
+			// 同一域 直接返回被叫地址，无需更改无线接入点
+			sipreq.Header.Via.Add(s.SipVia + strconv.FormatInt(modules.GenerateSipBranch(), 16))
+			pkg.SetFixedConn(s.Points["ICSCF"])
+			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
+			modules.Send(pkg, down)
+		} else {
+			// 询问HSS 对应域的ICSCF地址
+			// 修改无线接入点信息，向对应域发起请求
+		}
 		return nil
 	case "PRACK":
 		downlink := s.Points["ICSCF"]
@@ -86,6 +113,7 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		u := new(User)
 		u.Name = sipreq.Header.From.Username()
 		u.Address = sipreq.Header.From.URI.Domain
+		u.AccessPoint = sipreq.Header.AccessNetworkInfo
 		if err := s.sCache.setUserInfo(u.Name, u); err != nil {
 			// 注册失败
 			sipresp := sip.NewResponse(sip.StatusServerInternalError, &sipreq)
