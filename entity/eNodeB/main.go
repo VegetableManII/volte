@@ -12,7 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/VegetableManII/volte/controller"
 	"github.com/VegetableManII/volte/modules"
 
 	"github.com/spf13/viper"
@@ -26,11 +25,11 @@ type CoreNetConnection struct {
 }
 
 var (
-	entity      *controller.EnodebEntity
 	bConn       *net.UDPConn
 	bAddr       *net.UDPAddr
 	sTime       int
 	NetSideConn *CoreNetConnection
+	TAI         string
 )
 
 func main() {
@@ -39,7 +38,7 @@ func main() {
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	// 开启广播工作消息，不区分ue
-	go working(ctx, bConn, bAddr, sTime, []byte(entity.TAI))
+	go working(ctx, bConn, bAddr, sTime, []byte(TAI))
 
 	// 建立ue与核心网的通信隧道
 	go tunneling(ctx, NetSideConn, bConn, bAddr)
@@ -52,11 +51,10 @@ func main() {
 
 // 读取配置文件
 func init() {
-	entity = new(controller.EnodebEntity)
 	sport := viper.GetInt("eNodeB.server.port")
 	bcPort := viper.GetInt("eNodeB.broadcast.port")
 	sTime = viper.GetInt("eNodeB.scan.time")
-	entity.TAI = viper.GetString("eNodeB.TAI")
+	TAI = viper.GetString("eNodeB.TAI")
 
 	// 启动与ue连接的服务器
 	bConn, bAddr = initAPServer(sport, bcPort)
@@ -138,7 +136,7 @@ func tunneling(ctx context.Context, coreConn *CoreNetConnection, bConn *net.UDPC
 func heartbeat(ctx context.Context, conn net.Conn, period int) {
 	for {
 		signal := []byte{0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F}
-		msg := append(signal, []byte(entity.TAI)...)
+		msg := append(signal, []byte(TAI)...)
 		_, err := conn.Write(msg)
 		if err != nil {
 			logger.Error("心跳探测发送失败 %v", err)
