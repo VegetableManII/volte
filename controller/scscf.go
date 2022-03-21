@@ -93,6 +93,12 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			modules.Send(pkg, down)
 		} else { // 不同域 查询对应域的ICSCF网络地址，修改无线接入点信息，向对应域发起请求
 		}
+		// 向主叫发起域响应trying
+		pkg0 := new(modules.Package)
+		sipresp := sip.NewResponse(sip.StatusTrying, &sipreq)
+		pkg0.SetFixedConn(s.Points["ICSCF"])
+		pkg0.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
+		modules.Send(pkg0, down)
 	}
 	return nil
 }

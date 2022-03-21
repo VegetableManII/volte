@@ -97,6 +97,12 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			pkg.SetFixedConn(p.Points["ICSCF"])
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, up)
+			// 向主叫响应trying
+			sipresp := sip.NewResponse(sip.StatusTrying, &sipreq)
+			pkg0 := new(modules.Package)
+			pkg0.SetFixedConn(p.Points["ICSCF"])
+			pkg0.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
+			modules.Send(pkg0, down)
 		}
 	}
 	return nil
