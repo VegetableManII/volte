@@ -130,18 +130,6 @@ func ProcessUpStreamData(ctx context.Context, up chan *Package) {
 	}
 }
 
-func MAASyncResponse(pkg *Package, out chan *Package) {
-	out <- pkg
-}
-
-func MARSyncRequest(ctx context.Context, pkg *Package) (string, error) {
-	resp, err := sendUDPMessageWaitResp(ctx, string(pkg.FixedConn), pkg.GetEpcMessage())
-	if err != nil {
-		return "", err
-	}
-	return string(resp), nil
-}
-
 func Send(pkg *Package, out chan *Package) {
 	out <- pkg
 }
@@ -163,30 +151,6 @@ func sendUDPMessage(ctx context.Context, host string, data []byte) (err error) {
 		return errors.New("ErrSendEmpty")
 	}
 	return nil
-}
-
-// 同步接收响应
-func sendUDPMessageWaitResp(ctx context.Context, host string, data []byte) (response []byte, err error) {
-	defer Recover(ctx)
-	var n int
-	ra, err := net.Dial("udp4", host)
-	if err != nil {
-		return nil, err
-	}
-	n, err = ra.Write(data)
-	if n == 0 {
-		return nil, err
-	}
-	ra.SetReadDeadline(time.Now().Add(5 * time.Second)) // 等待响应的过期时间为5秒
-	buf := make([]byte, 1024)
-	n, err = ra.Read(buf)
-	if err != nil {
-		return nil, err
-	}
-	if n == 0 {
-		return nil, errors.New("ErrReceiveEmpty")
-	}
-	return buf[:n], nil
 }
 
 // 采用分发订阅模式分发epc网络信令和sip信令

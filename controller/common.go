@@ -2,9 +2,12 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"net"
+	"time"
 
 	"github.com/VegetableManII/volte/modules"
+	"github.com/VegetableManII/volte/sip"
 	"github.com/patrickmn/go-cache"
 )
 
@@ -38,34 +41,125 @@ type Base interface {
 	CoreProcessor(context.Context, chan *modules.Package, chan *modules.Package, chan *modules.Package)
 }
 
-// MME 和 PGW 用于缓存UE和其接入点的关系
-var Cache *cache.Cache
+var defExpire time.Duration = 120 * time.Second
 
-func init() {
-	Cache = cache.New(cache.NoExpiration, cache.NoExpiration)
+type Cache struct {
+	*cache.Cache
 }
 
-func updateAddress(ra *net.UDPAddr, enb string) error {
-	_, ok := Cache.Get(enb)
+func initCache() *Cache {
+	return &Cache{
+		cache.New(cache.NoExpiration, time.Second),
+	}
+}
+
+// PGW 更新基站网络地址
+func (p *Cache) updateAddress(ra *net.UDPAddr, enb string) error {
+	_, ok := p.Get(enb)
 	val := ra
 	if !ok { // 不存在该无线接入点的缓存
-		err := Cache.Add(enb, ra, cache.NoExpiration)
+		err := p.Add(enb, ra, cache.NoExpiration)
 		if err != nil {
 			return err
 		}
 	}
-	Cache.Set(enb, val, cache.NoExpiration)
+	p.Set(enb, val, cache.NoExpiration)
 	return nil
 }
 
-func getAP(name string) *net.UDPAddr {
-	ra, ok := Cache.Get(name)
+// PGW 获取基站地址
+func (p *Cache) getAddress(name string) *net.UDPAddr {
+	ra, ok := p.Get(name)
 	if !ok {
 		return nil
 	}
 	return ra.(*net.UDPAddr)
 }
 
-func bindUeWithAP(ip, ap string) {
-	Cache.Set(ip, ap, cache.NoExpiration)
+// PGW 设置基站地址
+func (p *Cache) setAddress(ip, ap string) {
+	p.Add(ip, ap, cache.NoExpiration)
+}
+
+// ICSCF 查看用户请求是否存在
+func (i *Cache) getUserRegistReq(key string) (*sip.Message, bool) {
+	m, ok := i.Get(key)
+	if !ok {
+		return nil, false
+	}
+	rc := m.(*RegistCombine)
+	return rc.Req, true
+}
+
+// ICSCF 添加用户注册请求，默认2分钟后过期
+func (i *Cache) setUserRegistReq(key string, msg *sip.Message) {
+	rc := new(RegistCombine)
+	rc.Req = msg
+	rc.XRES = "NONE"
+	rc.Branch = "NONE"
+	i.Set(key, msg, defExpire)
+}
+
+// ICSCF 添加用户注册请求对应鉴权向量
+func (i *Cache) setUserRegistXRES(key string, val string) error {
+	// 首先查看是否存在请求
+	m, expire, ok := i.GetWithExpiration(key)
+	if !ok {
+		return errors.New("ErrNotFoundRequest")
+	}
+	rc := m.(*RegistCombine)
+	rc.XRES = val
+	remain := expire.Sub(time.Now())
+	i.Set(key, rc, remain)
+	return nil
+}
+
+// ICSCF 查看用户注册请求对应鉴权向量
+func (i *Cache) getUserRegistXRES(key string) string {
+	m, ok := i.Get(key)
+	if !ok {
+		return ""
+	}
+	rc := m.(*RegistCombine)
+	if rc.XRES == "NONE" {
+		return ""
+	}
+	return rc.XRES
+}
+
+// ICSCF 删除用户注册请求和鉴权向量
+func (i *Cache) delUserRegistReqXRES(key string) {
+	i.Delete(key)
+}
+
+// ICSCF 添加临时登记标识
+func (i *Cache) setUserRegistBranch(key string, val string) error {
+	// 首先查看是否存在请求
+	m, expire, ok := i.GetWithExpiration(key)
+	if !ok {
+		return errors.New("ErrNotFoundRequest")
+	}
+	rc := m.(*RegistCombine)
+	rc.Branch = val
+	remain := expire.Sub(time.Now())
+	i.Set(key, rc, remain)
+	return nil
+}
+
+// ICSCF 获取用户临时登记标识
+func (i *Cache) getUserRegistBranch(key string) string {
+	m, ok := i.Get(key)
+	if !ok {
+		return ""
+	}
+	rc := m.(*RegistCombine)
+	if rc.Branch == "NONE" {
+		return ""
+	}
+	return rc.Branch
+}
+
+// SCSCF 添加用户信息到系统
+func (s *Cache) setUserInfo(key string, val *User) error {
+	return s.Add(key, val, cache.NoExpiration)
 }

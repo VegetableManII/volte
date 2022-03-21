@@ -143,13 +143,12 @@ func (p *Package) IsBeatHeart() bool {
 }
 
 func (p *Package) GetRoute() [2]byte {
-	route := [2]byte{p._protocal, p._method}
-	return route
+	return [2]byte{p._protocal, p._method}
 }
 
 // 获取消息的内容截断末尾的'\0'
-func (msg *CommonMsg) GetData() []byte {
-	return msg._data[:msg._size]
+func (p *Package) GetData() []byte {
+	return p._data[:p._size]
 }
 
 func (msg *CommonMsg) GetEpcMessage() []byte {

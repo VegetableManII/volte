@@ -13,7 +13,7 @@ func TestCreateUser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
-	u := User{
+	u := UserTable{
 		IMSI:        "123456789",
 		Mnc:         "01",
 		Mcc:         86,

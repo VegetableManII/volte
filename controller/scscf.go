@@ -12,12 +12,17 @@ import (
 	"github.com/wonderivan/logger"
 )
 
+type User struct {
+	Address string
+	Name    string
+}
+
 type S_CscfEntity struct {
 	SipVia string
 	core   chan *modules.Package
-
 	Points map[string]string
 	*Mux
+	sCache *Cache
 }
 
 // 暂时先试用固定的uri，后期实现dns使用域名加IP的映射方式
@@ -26,7 +31,7 @@ func (s *S_CscfEntity) Init(host string) {
 	s.SipVia = "SIP/2.0/UDP " + host + ";branch="
 	s.Points = make(map[string]string)
 	s.router = make(map[[2]byte]BaseSignallingT)
-
+	s.sCache = initCache()
 }
 
 func (s *S_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *modules.Package) {
@@ -63,7 +68,6 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 	switch sipreq.RequestLine.Method {
 	case "REGISTER":
 		user := sipreq.Header.From.Username()
-		downlink := s.Points["ICSCF"]
 		uplink := s.Points["HSS"]
 		// 向HSS发起MAR，再收到MAA，同步实现
 		// 向HSS查询信息
@@ -72,20 +76,27 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		}
 		pkg.SetFixedConn(uplink)
 		pkg.Construct(modules.EPCPROTOCAL, modules.MultiMediaAuthenticationRequest, modules.StrLineMarshal(table))
-		resp, err := modules.MARSyncRequest(ctx, pkg)
-		if err != nil {
-			logger.Error("[%v] HSS Response Error %v", ctx.Value("Entity"), err)
-			sipresp := sip.NewResponse(sip.StatusNoResponse, &sipreq)
-			pkg.SetFixedConn(s.Points["ICSCF"])
-			pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
-			modules.Send(pkg, down)
-		} else {
-			pkg.SetFixedConn(downlink)
-			pkg.Construct(modules.EPCPROTOCAL, modules.MultiMediaAuthenticationAnswer, resp)
-			modules.Send(pkg, down)
-		}
+		modules.Send(pkg, up)
 	case "INVITE":
 		return nil
+	case "PRACK":
+		downlink := s.Points["ICSCF"]
+		pkg.SetFixedConn(downlink)
+		// 用户完成注册后，登记用户信息到系统中
+		u := new(User)
+		u.Name = sipreq.Header.From.Username()
+		u.Address = sipreq.Header.From.URI.Domain
+		if err := s.sCache.setUserInfo(u.Name, u); err != nil {
+			// 注册失败
+			sipresp := sip.NewResponse(sip.StatusServerInternalError, &sipreq)
+			pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
+			modules.Send(pkg, down)
+			return err
+		}
+		// 注册成功
+		sipresp := sip.NewResponse(sip.StatusOK, &sipreq)
+		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
+		modules.Send(pkg, down)
 	}
 	return nil
 }

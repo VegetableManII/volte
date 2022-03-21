@@ -3,7 +3,6 @@ package modules
 import (
 	"context"
 	"errors"
-	"math/rand"
 	"runtime"
 	"strings"
 	"time"
@@ -53,8 +52,7 @@ func StrLineMarshal(m map[string]string) string {
 
 // 生成sip消息的唯一branch
 func GenerateSipBranch() int64 {
-	rand.Seed(time.Now().UnixNano())
-	return rand.Int63()
+	return time.Now().UnixNano()
 }
 
 // 判断Package包中是否存在连接

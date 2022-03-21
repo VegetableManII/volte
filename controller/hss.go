@@ -84,8 +84,9 @@ func (h *HssEntity) MultimediaAuthorizationRequestF(ctx context.Context, p *modu
 		AV_IK:      hex.EncodeToString(IK),
 	}
 	// 在接收消息的步骤中已经设置同步连接
+	p.SetFixedConn(h.Points["ICSCF"])
 	p.Construct(modules.EPCPROTOCAL, modules.MultiMediaAuthenticationAnswer, modules.StrLineMarshal(response))
-	modules.MAASyncResponse(p, down)
+	modules.Send(p, down)
 	return nil
 }
 
@@ -171,7 +172,7 @@ func xor(a []byte, b []byte) []byte {
  *
  *
  */
-type User struct {
+type UserTable struct {
 	ID          int64     `gorm:"column:id"`
 	IMSI        string    `gorm:"column:imsi" json:"imsi"`
 	RootK       string    `gorm:"column:root_k"`
@@ -199,8 +200,8 @@ func GetUserByIMSI(ctx context.Context, db *gorm.DB, imsi string) (*User, error)
 	return ret, nil
 }
 
-func GetUserBySipUserName(ctx context.Context, db *gorm.DB, un string) (*User, error) {
-	ret := new(User)
+func GetUserBySipUserName(ctx context.Context, db *gorm.DB, un string) (*UserTable, error) {
+	ret := new(UserTable)
 	err := db.Model(User{}).Where("sip_username=?", un).Find(ret).Error
 	if err != nil {
 		logger.Error("[%v] HSS获取用户信息失败,Sip_User_Name=%v,ERR=%v", ctx.Value("Entity"), un, err)
@@ -209,7 +210,7 @@ func GetUserBySipUserName(ctx context.Context, db *gorm.DB, un string) (*User, e
 	return ret, nil
 }
 
-func CreateUser(ctx context.Context, db *gorm.DB, user *User) error {
+func CreateUser(ctx context.Context, db *gorm.DB, user *UserTable) error {
 	err := db.Create(user).Error
 	if err != nil {
 		logger.Error("[%v] HSS创建用户信息失败,USER=%v,ERR=%v", ctx.Value("Entity"), *user, err)

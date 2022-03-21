@@ -15,6 +15,7 @@ type PgwEntity struct {
 	*Mux
 	Points   map[string]string
 	DHCPConf string
+	pCache   *Cache
 }
 
 func (p *PgwEntity) Init(dhcp string) {
@@ -23,6 +24,7 @@ func (p *PgwEntity) Init(dhcp string) {
 	p.router = make(map[[2]byte]BaseSignallingT)
 	p.Points = make(map[string]string)
 	p.DHCPConf = dhcp
+	p.pCache = initCache()
 	// 初始化IP地址池子
 
 }
@@ -34,7 +36,7 @@ func (p *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *module
 		case pkg := <-in:
 			// 兼容心跳包
 			if pkg.IsBeatHeart() {
-				updateAddress(pkg.GetDynamicAddr(), pkg.GetFixedConn())
+				p.pCache.updateAddress(pkg.GetDynamicAddr(), pkg.GetFixedConn())
 			} else {
 				f, ok := p.router[pkg.GetRoute()]
 				if !ok {
@@ -70,9 +72,9 @@ func (p *PgwEntity) AttachRequestF(ctx context.Context, pkg *modules.Package, up
 	ippoollock.Unlock()
 	args["IP"] = ip
 	// 绑定UE IP和基站的关系
-	bindUeWithAP(ip, AP)
+	p.pCache.setAddress(ip, AP)
 	// 响应UE
-	addr := getAP(AP)
+	addr := p.pCache.getAddress(AP)
 	pkg.SetFixedConn("eNodeB")
 	pkg.SetDynamicAddr(addr)
 	pkg.Construct(modules.EPCPROTOCAL, modules.AttachAccept, modules.StrLineMarshal(args))
@@ -101,7 +103,7 @@ func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, 
 	}
 	// 请求寻找无线接入点
 	ap := strings.Trim(sipresp.Header.AccessNetworkInfo, " ")
-	raddr := getAP(ap)
+	raddr := p.pCache.getAddress(ap)
 
 	pkg.SetFixedConn("eNodeB")
 	pkg.SetDynamicAddr(raddr)
