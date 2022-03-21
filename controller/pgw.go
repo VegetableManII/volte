@@ -1,6 +1,13 @@
+/*
+	PGW的主要功能：
+	1、接收UE附着请求，并为UE分配该域的IP地址
+	2、向上行链路PCSCF转发SIP消息
+	3、根据SIP消息中的P-Access-Network-Info，向下行链路转发SIP消息
+*/
 package controller
 
 import (
+	"bytes"
 	"context"
 	"strings"
 	"sync"
@@ -56,14 +63,12 @@ func (p *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *module
 	}
 }
 
-// 附着请求，携带IMSI，和客户端支持的加密方法，拿到IMSI向HSS发起Authentication Informat Request请求
+// 附着请求
 func (p *PgwEntity) AttachRequestF(ctx context.Context, pkg *modules.Package, up, down chan *modules.Package) error {
 	defer modules.Recover(ctx)
 	logger.Info("[%v] Receive From MME(ENB): \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 	data := pkg.GetData()
 	args := modules.StrLineUnmarshal(data)
-	// 获取eNodeB-ID
-	AP := args["UTRAN-CELL-ID-3GPP"]
 	// 分配IP地址
 	ippoollock.Lock()
 	l := len(ippool)
@@ -71,12 +76,8 @@ func (p *PgwEntity) AttachRequestF(ctx context.Context, pkg *modules.Package, up
 	ippool = ippool[:l-1]
 	ippoollock.Unlock()
 	args["IP"] = ip
-	// 绑定UE IP和基站的关系
-	p.pCache.setAddress(ip, AP)
-	// 响应UE
-	addr := p.pCache.getAddress(AP)
-	pkg.SetFixedConn("eNodeB")
-	pkg.SetDynamicAddr(addr)
+	// Attach过程仅仅是基站和PGW的交互过程消息体可以直接保存基站的网络连接
+	// 接收Attach消息时，消息体携带基站的网络连接，所以无需通过基站标识从缓存中查找
 	pkg.Construct(modules.EPCPROTOCAL, modules.AttachAccept, modules.StrLineMarshal(args))
 	modules.Send(pkg, down)
 	return nil
@@ -85,29 +86,51 @@ func (p *PgwEntity) AttachRequestF(ctx context.Context, pkg *modules.Package, up
 func (p *PgwEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up, down chan *modules.Package) error {
 	defer modules.Recover(ctx)
 
-	logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-
-	pkg.SetFixedConn(p.Points["CSCF"])
-	pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, "")
-	modules.Send(pkg, up) // 上行
+	sipreq, err := sip.NewMessage(bytes.NewReader(pkg.GetData()))
+	if err != nil {
+		return err
+	}
+	via, _ := sipreq.Header.Via.FirstAddrInfo()
+	if strings.Contains(via, "p-cscf") { // 来自上行发起的INVITE请求
+		logger.Info("[%v] Receive From PCSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+		// 根据INVITE请求中的P-Access-Network-Info从缓存中获取对应基站的网络连接
+		utran := sipreq.Header.AccessNetworkInfo
+		raddr := p.pCache.getAddress(utran)
+		if raddr != nil {
+			// 向基站转发INVITE请求
+			pkg.SetDynamicAddr(raddr)
+			modules.Send(pkg, down) // 下行
+		}
+	} else { // 来自下行发起的REGISTER请求
+		logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+		pkg.SetFixedConn(p.Points["CSCF"])
+		modules.Send(pkg, up) // 上行
+	}
 	return nil
 }
 
 func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, down chan *modules.Package) error {
 	defer modules.Recover(ctx)
 
-	logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-	sipresp, err := sip.NewMessage(strings.NewReader(string(pkg.GetData())))
+	sipresp, err := sip.NewMessage(bytes.NewReader(pkg.GetData()))
 	if err != nil {
+		// TODO 失败处理
 		return err
 	}
-	// 请求寻找无线接入点
-	ap := strings.Trim(sipresp.Header.AccessNetworkInfo, " ")
-	raddr := p.pCache.getAddress(ap)
+	if sipresp.ResponseLine.StatusCode == sip.StatusSessionProgress.Code {
+		logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+		pkg.SetFixedConn(p.Points["PCSCF"])
+		modules.Send(pkg, up)
+	} else {
+		logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+		// 请求寻找无线接入点
+		utran := strings.Trim(sipresp.Header.AccessNetworkInfo, " ")
+		raddr := p.pCache.getAddress(utran)
 
-	pkg.SetFixedConn("eNodeB")
-	pkg.SetDynamicAddr(raddr)
-	modules.Send(pkg, down)
+		pkg.SetFixedConn("eNodeB")
+		pkg.SetDynamicAddr(raddr)
+		modules.Send(pkg, down)
+	}
 	return nil
 }
 

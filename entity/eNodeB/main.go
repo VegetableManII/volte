@@ -53,15 +53,13 @@ func main() {
 // 读取配置文件
 func init() {
 	entity = new(controller.EnodebEntity)
-	entity.Init()
-
-	APSerPort := viper.GetInt("eNodeB.server.port")
-	bSerPort := viper.GetInt("eNodeB.broadcast.port")
+	sport := viper.GetInt("eNodeB.server.port")
+	bcPort := viper.GetInt("eNodeB.broadcast.port")
 	sTime = viper.GetInt("eNodeB.scan.time")
 	entity.TAI = viper.GetString("eNodeB.TAI")
 
 	// 启动与ue连接的服务器
-	bConn, bAddr = initAPServer(APSerPort, bSerPort)
+	bConn, bAddr = initAPServer(sport, bcPort)
 	NetSideConn = new(CoreNetConnection)
 	// 创建于PGW的UDP连接
 	NetSideConn.PgwAddr = viper.GetString("EPC.pgw.host")
@@ -167,12 +165,7 @@ func forwardMsgFromNetToUe(ctx context.Context, conn net.Conn, bconn *net.UDPCon
 			}
 			if n != 0 {
 				// 将收到的消息广播出去
-				msg := entity.VIP(data[:n])
-				if msg != nil {
-					working(ctx, bconn, baddr, 0, data[:n])
-				} else {
-					logger.Error("[%v] 基站接收拨号寻呼被叫IP解析失败", ctx.Value("Entity"))
-				}
+				working(ctx, bconn, baddr, 0, data[:n])
 			}
 		}
 	}
@@ -184,7 +177,6 @@ func forwardMsgFromUeToNet(ctx context.Context, src *net.UDPConn, cConn *CoreNet
 
 	var n int
 	var err error
-	var raddr *net.UDPAddr
 	for {
 		select {
 		case <-ctx.Done():
@@ -192,29 +184,13 @@ func forwardMsgFromUeToNet(ctx context.Context, src *net.UDPConn, cConn *CoreNet
 			return
 		default:
 			data := make([]byte, 10240) // 10KB
-			n, raddr, err = src.ReadFromUDP(data)
+			n, _, err = src.ReadFromUDP(data)
 			if err != nil && n == 0 {
 				logger.Error("[%v] 基站接收消息失败 %x %v", ctx.Value("Entity"), n, err)
 			}
-			// 如果用户随机接入则响应给用户分配的唯一ID
-			if ok, id := entity.UeRandomAccess(data, raddr); ok {
-				working(ctx, src, raddr, -1, id)
-				continue
-			}
-			id, ok := entity.Attached(raddr)
-			if !ok {
-				if err.Error() == "ErrNeedAccessInfo" {
-					working(ctx, src, raddr, -1, []byte("RandomAccess"))
-				}
-				continue
-			} else {
-				message := make([]byte, 4, 10240)
-				binary.BigEndian.PutUint32(message, id)
-				message = append(message, data[:n]...)
-				err = send(ctx, cConn.PgwConn, message[:])
-				if err != nil {
-					logger.Error("[%v] 基站转发消息失败[to pgw] %v %v", ctx.Value("Entity"), n, err)
-				}
+			err = send(ctx, cConn.PgwConn, data[:n])
+			if err != nil {
+				logger.Error("[%v] 基站转发消息失败[to pgw] %v %v", ctx.Value("Entity"), n, err)
 			}
 		}
 	}

@@ -53,7 +53,7 @@ func initCache() *Cache {
 	}
 }
 
-// PGW 更新基站网络地址
+// PGW 更新基站网络连接
 func (p *Cache) updateAddress(ra *net.UDPAddr, enb string) error {
 	_, ok := p.Get(enb)
 	val := ra
@@ -67,18 +67,13 @@ func (p *Cache) updateAddress(ra *net.UDPAddr, enb string) error {
 	return nil
 }
 
-// PGW 获取基站地址
+// PGW 根据基站标识获取基站网络连接
 func (p *Cache) getAddress(name string) *net.UDPAddr {
 	ra, ok := p.Get(name)
 	if !ok {
 		return nil
 	}
 	return ra.(*net.UDPAddr)
-}
-
-// PGW 设置基站地址
-func (p *Cache) setAddress(ip, ap string) {
-	p.Add(ip, ap, cache.NoExpiration)
 }
 
 // ICSCF 查看用户请求是否存在

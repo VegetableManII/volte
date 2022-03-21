@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strconv"
@@ -52,21 +53,23 @@ func (p *P_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *mod
 func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up, down chan *modules.Package) error {
 	defer modules.Recover(ctx)
 
-	logger.Info("[%v] Receive From PGW: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 	// 解析SIP消息
-	sipreq, err := sip.NewMessage(strings.NewReader(string(pkg.GetData())))
+	sipreq, err := sip.NewMessage(bytes.NewReader(pkg.GetData()))
 	if err != nil {
+		// TODO 错误处理
 		return err
 	}
 	branch := strconv.FormatInt(modules.GenerateSipBranch(), 16)
+	sipreq.Header.MaxForwards.Reduce()
 	// 增加Via头部信息
 	sipreq.Header.Via.Add(p.SipVia + branch)
-	sipreq.Header.MaxForwards.Reduce()
+
 	switch sipreq.RequestLine.Method {
 	case sip.MethodRegister:
+		logger.Info("[%v] Receive From PGW: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+
 		// 检查头部内容是否首次注册
 		if strings.Contains(sipreq.Header.Authorization, "response") { // 包含响应内容则为第二次注册请求
-			// TODO 第二次注册请求时PCSCF可以直接转发给ICSCF
 			pkg.SetFixedConn(p.Points["ICSCF"])
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, up)
@@ -83,42 +86,46 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			modules.Send(pkg, up)
 		}
 	case sip.MethodInvite:
-		// INVITE请求添加自己的Via直接转发给I-CSCF
-		// INVITE请求来自ICSCF则向下行节点请求
 		via, _ := sipreq.Header.Via.FirstAddrInfo()
-		if strings.Contains(via, "i-cscf") {
-			// 被叫 INVITE 请求
-			// 添加自身标识
-			sipreq.Header.Via.Add(p.SipVia + branch)
-			// 向下级请求
+		if strings.Contains(via, "i-cscf") { // INVITE请求来自ICSCF
+			logger.Info("[%v] Receive From ICSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+			// 向下行转发请求
 			pkg.SetFixedConn(p.Points["PCSCF"])
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, down)
-			return nil
+		} else { // INVITE请求来自PGW
+			logger.Info("[%v] Receive From PGW: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+			// 向上行转发请求
+			pkg.SetFixedConn(p.Points["ICSCF"])
+			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
+			modules.Send(pkg, up)
 		}
-		// 来自PGW的请求向上行节点请求
-		pkg.SetFixedConn(p.Points["ICSCF"])
-		pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
-		modules.Send(pkg, up)
 	}
-
 	return nil
 }
 
 func (p *P_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, down chan *modules.Package) error {
 	defer modules.Recover(ctx)
 
-	logger.Info("[%v] Receive From I-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 	// 解析SIP消息
-	sipreq, err := sip.NewMessage(strings.NewReader(string(pkg.GetData())))
+	sipresp, err := sip.NewMessage(bytes.NewReader(pkg.GetData()))
 	if err != nil {
+		// TODO 错误处理
 		return err
 	}
-	// 删除Via头部信息
-	sipreq.Header.Via.RemoveFirst()
-	sipreq.Header.MaxForwards.Reduce()
-	pkg.SetFixedConn(p.Points["PGW"])
-	pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipreq.String())
-	modules.Send(pkg, down)
+	// 删除第一个Via头部信息
+	sipresp.Header.Via.RemoveFirst()
+	sipresp.Header.MaxForwards.Reduce()
+	if sipresp.ResponseLine.StatusCode == sip.StatusSessionProgress.Code { // 来自下行PGW的回话建立响应
+		logger.Info("[%v] Receive From PGW: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+		pkg.SetFixedConn(p.Points["ICSCF"])
+		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
+		modules.Send(pkg, up)
+	} else { // 来自上行ICSCF的一般响应
+		logger.Info("[%v] Receive From ICSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+		pkg.SetFixedConn(p.Points["PGW"])
+		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
+		modules.Send(pkg, down)
+	}
 	return nil
 }

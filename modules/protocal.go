@@ -11,7 +11,7 @@ const CRLF = "\r\n"
 const (
 	EPCPROTOCAL byte = 0x01
 	SIPPROTOCAL byte = 0x00
-	BEATHEART   byte = 0xFF
+	BEATHEART   byte = 0x0F
 )
 
 // epc message的消息类型
@@ -41,7 +41,6 @@ const (
 )
 
 type CommonMsg struct {
-	_unique   uint32      // 全局唯一ID，供基站区分不同用户请求使用
 	_protocal uint8       // 0x01 表示电路域协议
 	_method   uint8       // 对应协议的不同请求响应方法
 	_size     uint16      // data字段的长度
@@ -79,22 +78,20 @@ SIP Header 格式如下
 func (p *Package) Init(data []byte) error {
 	// 填充消息字节数据
 	if data[4] == EPCPROTOCAL {
-		p._unique = binary.BigEndian.Uint32(data[0:4])
-		l := binary.BigEndian.Uint16(data[6:8])
-		p._protocal = data[4]
-		p._method = data[5]
+		l := binary.BigEndian.Uint16(data[2:4])
+		p._protocal = data[0]
+		p._method = data[1]
 		p._size = l
-		copy(p._data[:], data[8:l+8])
+		copy(p._data[:], data[4:l+4])
 	} else {
-		m, err := GetSipMethod(data[4:])
+		m, err := GetSipMethod(data)
 		if err != nil {
 			return err
 		}
-		p._unique = binary.BigEndian.Uint32(data[0:4])
 		p._protocal = SIPPROTOCAL
 		p._method = m
-		p._size = uint16(len(data[4:]))
-		copy(p._data[:], data[4:])
+		p._size = uint16(len(data))
+		copy(p._data[:], data[:])
 	}
 	return nil
 }
@@ -138,7 +135,7 @@ func (p *Package) Construct(_type, _method byte, body string) {
 }
 
 func (p *Package) IsBeatHeart() bool {
-	return p._unique == 0x0F0F0F0F && p._protocal == 0x0F &&
+	return p._protocal == 0x0F &&
 		p._method == 0x0F && p._size == 0x0F0F
 }
 
@@ -153,8 +150,7 @@ func (p *Package) GetData() []byte {
 
 func (msg *CommonMsg) GetEpcMessage() []byte {
 	buf := new(bytes.Buffer)
-	buf.Grow(8 + int(msg._size))
-	binary.Write(buf, binary.BigEndian, msg._unique)
+	buf.Grow(4 + int(msg._size))
 	binary.Write(buf, binary.BigEndian, msg._protocal)
 	binary.Write(buf, binary.BigEndian, msg._method)
 	binary.Write(buf, binary.BigEndian, msg._size)
@@ -163,7 +159,5 @@ func (msg *CommonMsg) GetEpcMessage() []byte {
 }
 
 func (msg *CommonMsg) GetSipMessage() []byte {
-	uqi := [4]byte{}
-	binary.BigEndian.PutUint32(uqi[:], msg._unique)
-	return append(uqi[:], msg._data[:msg._size]...)
+	return msg._data[:msg._size]
 }

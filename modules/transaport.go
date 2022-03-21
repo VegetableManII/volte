@@ -44,7 +44,6 @@ func ReceiveClientMessage(ctx context.Context, conn *net.UDPConn, in chan *Packa
 					data[4] == 0x0F && data[5] == 0x0F && data[6] == 0x0F && data[7] == 0x0F {
 					pkg := &Package{
 						CommonMsg: CommonMsg{
-							_unique:   0x0F0F0F0F,
 							_protocal: 0x0F,
 							_method:   0x0F,
 							_size:     0x0F0F,
@@ -160,7 +159,7 @@ func distribute(ctx context.Context, data []byte, ra *net.UDPAddr, conn *net.UDP
 	err := pkg.Init(data)
 
 	if err == nil {
-		if pkg._protocal == EPCPROTOCAL && pkg._method == MultiMediaAuthenticationRequest {
+		if pkg._protocal == EPCPROTOCAL && pkg._method == AttachRequest {
 			pkg.SetDynamicAddr(ra)
 		}
 		pkg.SetDynamicConn(conn) // 默认信息包都携带自身连接conn，用于需要时进行动态连接响应
