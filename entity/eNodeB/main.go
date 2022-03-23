@@ -162,6 +162,7 @@ func forwardMsgFromNetToUe(ctx context.Context, conn net.Conn, bconn *net.UDPCon
 				continue
 			}
 			if n != 0 {
+				logger.Error("[%v] 基站接收来自网络侧消息 %v(%v bytes)", ctx.Value("Entity"), data[:n], n)
 				// 将收到的消息广播出去
 				working(ctx, bconn, baddr, 0, data[:n])
 			}
@@ -186,6 +187,7 @@ func forwardMsgFromUeToNet(ctx context.Context, src *net.UDPConn, cConn *CoreNet
 			if err != nil && n == 0 {
 				logger.Error("[%v] 基站接收消息失败 %x %v", ctx.Value("Entity"), n, err)
 			}
+			logger.Error("[%v] 基站接收来自Ue消息 %v(%v bytes)", ctx.Value("Entity"), data[:n], n)
 			err = send(ctx, cConn.PgwConn, data[:n])
 			if err != nil {
 				logger.Error("[%v] 基站转发消息失败[to pgw] %v %v", ctx.Value("Entity"), n, err)

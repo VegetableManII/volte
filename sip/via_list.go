@@ -60,8 +60,6 @@ func (vl *ViaList) AddServerInfo() {
 		Client:     ServerDomainHost(),
 		Arguments: NewArgs(map[string]string{
 			"branch": vl.TransactionBranch(),
-			// "branch": "z9hG4bK" + util.GenerateNonce(29),
-			"rport": "",
 		}),
 	}
 	vl.value = append([]Via{via}, vl.value...)

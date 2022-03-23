@@ -22,9 +22,6 @@ func (rr *RecordRoute) AddServerInfo() {
 			Scheme:   SchemeSip,
 			Username: "",
 			Domain:   ServerDomainHost(),
-			Arguments: NewArgs(map[string]string{
-				"lr": "",
-			}),
 		},
 		Arguments: Args{},
 	}

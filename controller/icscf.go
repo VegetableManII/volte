@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/VegetableManII/volte/modules"
@@ -26,7 +25,6 @@ type User struct {
 }
 
 type I_CscfEntity struct {
-	SipVia string
 	Points map[string]string
 	*Mux
 	iCache *Cache
@@ -35,7 +33,7 @@ type I_CscfEntity struct {
 // 暂时先试用固定的uri，后期实现dns使用域名加IP的映射方式
 func (i *I_CscfEntity) Init(domain string) {
 	i.Mux = new(Mux)
-	i.SipVia = "SIP/2.0/UDP i-cscf@" + domain + ";branch="
+	sip.ServerDomain = "i-cscf@" + domain
 	i.Points = make(map[string]string)
 	i.router = make(map[[2]byte]BaseSignallingT)
 	i.iCache = initCache()
@@ -71,10 +69,9 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		return err
 	}
 	// 增加Via头部信息
-	branch := strconv.FormatInt(modules.GenerateSipBranch(), 16)
 	user := sipreq.Header.From.Username()
 	sipreq.Header.MaxForwards.Reduce()
-	sipreq.Header.Via.Add(i.SipVia + branch)
+	sipreq.Header.Via.AddServerInfo()
 	switch sipreq.RequestLine.Method {
 	case sip.MethodRegister:
 		logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
@@ -82,6 +79,7 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		_, ok := i.iCache.getUserRegistReq(user)
 		if !ok {
 			// 首次注册请求，请求S-CSCF拿到用户向量
+			i.iCache.setUserRegistReq(user, &sipreq)
 			pkg.SetFixedConn(i.Points["SCSCF"])
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, up)

@@ -186,7 +186,7 @@ type UserTable struct {
 	Utime       time.Time `gorm:"column:utime"`
 }
 
-func (User) TableName() string {
+func (UserTable) TableName() string {
 	return "users"
 }
 

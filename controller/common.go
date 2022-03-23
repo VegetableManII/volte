@@ -91,7 +91,7 @@ func (i *Cache) setUserRegistReq(key string, msg *sip.Message) {
 	rc := new(RegistCombine)
 	rc.Req = msg
 	rc.XRES = "NONE"
-	i.Set(key, msg, defExpire)
+	i.Set(key, rc, defExpire)
 }
 
 // ICSCF 添加用户注册请求对应鉴权向量

@@ -60,13 +60,11 @@ type Package struct {
 /*
 EPC消息内容布局 byte
 	| 0 | 1 | 2 | 3 |
-	|    uniq_id    |
-	| p | m | size  |
-	|     data      |
+  0 | p | m | size  |
+  1	|     data      |
 SIP消息布局
 	| 0 | 1 | 2 | 3 |
-	|    uniq_id    |
-	|     data      |
+  0	|     data      |
 
 SIP Header 格式如下
 	请求：REGISTER sip:apn.sip.voice.ng4t.com SIP/2.0
@@ -77,7 +75,7 @@ SIP Header 格式如下
 // 接收消息时通过字节流创建Package
 func (p *Package) Init(data []byte) error {
 	// 填充消息字节数据
-	if data[4] == EPCPROTOCAL {
+	if data[0] == EPCPROTOCAL {
 		l := binary.BigEndian.Uint16(data[2:4])
 		p._protocal = data[0]
 		p._method = data[1]

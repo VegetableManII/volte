@@ -8,7 +8,7 @@ eNodeB:
   TAI: "100231511300031"
 # 修改TAI值模拟不同的基站
 # 统一局域网内的不同设备上部署不同基站
-  beatheart.time: 1
+  beatheart.time: 10
 
 # epc 网络功能实体
 EPC: 
