@@ -16,16 +16,16 @@ const (
 
 // epc message的消息类型
 const (
-	AttachRequest                   byte = 0x00 // UE发起Attach请求
-	AuthenticationInformatRequest   byte = 0x01
-	AuthenticationInformatResponse  byte = 0x02
-	AuthenticationRequest           byte = 0x03 // 网络侧向UE发起，UE侧需要实现该接口
-	AuthenticationResponse          byte = 0x04 // UE响应网络侧，由UE实现
-	UpdateLocationRequest           byte = 0x05
-	UpdateLocationACK               byte = 0x06
-	CreateSessionRequest            byte = 0x07
-	CreateSessionResponse           byte = 0x08
-	QCI                             byte = 0x09
+	AttachRequest byte = 0x00 // UE发起Attach请求
+	// AuthenticationInformatRequest   byte = 0x01
+	// AuthenticationInformatResponse  byte = 0x02
+	// AuthenticationRequest           byte = 0x03 // 网络侧向UE发起，UE侧需要实现该接口
+	// AuthenticationResponse          byte = 0x04 // UE响应网络侧，由UE实现
+	// UpdateLocationRequest           byte = 0x05
+	// UpdateLocationACK               byte = 0x06
+	// CreateSessionRequest            byte = 0x07
+	// CreateSessionResponse           byte = 0x08
+	// QCI                             byte = 0x09
 	AttachAccept                    byte = 0x0A // 网络侧向UE发起，通知附着成功
 	UserAuthorizationRequest        byte = 0x0B
 	UserAuthorizationAnswer         byte = 0x0C

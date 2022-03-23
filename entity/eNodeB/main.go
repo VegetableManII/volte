@@ -3,12 +3,15 @@ package main
 import (
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -17,6 +20,13 @@ import (
 	"github.com/spf13/viper"
 	"github.com/wonderivan/logger"
 )
+
+type EpcMsg struct {
+	Protocal string `json:"protocal"`
+	Method   string `json:"method"`
+	EnbID    string `json:"utan-cell-id-3gpp,omitempty"`
+	UserIP   string `json:"ue-ip,omitempty"`
+}
 
 type CoreNetConnection struct {
 	PgwAddr   string
@@ -28,17 +38,18 @@ var (
 	bConn       *net.UDPConn
 	bAddr       *net.UDPAddr
 	sTime       int
+	bmsg        []byte
+	CellID      string
 	NetSideConn *CoreNetConnection
-	TAI         string
 )
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	ctx = context.WithValue(ctx, "Entity", "eNodeB")
-	quit := make(chan os.Signal)
+	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	// 开启广播工作消息，不区分ue
-	go working(ctx, bConn, bAddr, sTime, []byte(TAI))
+	go working(ctx, bConn, bAddr, sTime, bmsg)
 
 	// 建立ue与核心网的通信隧道
 	go tunneling(ctx, NetSideConn, bConn, bAddr)
@@ -54,7 +65,12 @@ func init() {
 	sport := viper.GetInt("eNodeB.server.port")
 	bcPort := viper.GetInt("eNodeB.broadcast.port")
 	sTime = viper.GetInt("eNodeB.scan.time")
-	TAI = viper.GetString("eNodeB.TAI")
+	CellID = viper.GetString("eNodeB.TAI")
+	bmsg, _ = json.Marshal(&EpcMsg{
+		Protocal: "epc",
+		Method:   "random access",
+		EnbID:    CellID,
+	})
 
 	// 启动与ue连接的服务器
 	bConn, bAddr = initAPServer(sport, bcPort)
@@ -136,7 +152,7 @@ func tunneling(ctx context.Context, coreConn *CoreNetConnection, bConn *net.UDPC
 func heartbeat(ctx context.Context, conn net.Conn, period int) {
 	for {
 		signal := []byte{0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F}
-		msg := append(signal, []byte(TAI)...)
+		msg := append(signal, []byte(CellID)...)
 		_, err := conn.Write(msg)
 		if err != nil {
 			logger.Error("心跳探测发送失败 %v", err)
@@ -162,9 +178,14 @@ func forwardMsgFromNetToUe(ctx context.Context, conn net.Conn, bconn *net.UDPCon
 				continue
 			}
 			if n != 0 {
-				logger.Error("[%v] 基站接收来自网络侧消息 %v(%v bytes)", ctx.Value("Entity"), data[:n], n)
+				msg, isSip := parseSipData(data[:n])
+				if !isSip {
+					logger.Error("[%v] 基站接收来自网络侧消息 %v %v(%v bytes)", ctx.Value("Entity"), data[0:4], string(data[4:n]), n)
+				} else {
+					logger.Error("[%v] 基站接收来自网络侧消息 %v(%v bytes)", ctx.Value("Entity"), string(data[:n]), n)
+				}
 				// 将收到的消息广播出去
-				working(ctx, bconn, baddr, 0, data[:n])
+				working(ctx, bconn, baddr, 0, msg)
 			}
 		}
 	}
@@ -187,8 +208,9 @@ func forwardMsgFromUeToNet(ctx context.Context, src *net.UDPConn, cConn *CoreNet
 			if err != nil && n == 0 {
 				logger.Error("[%v] 基站接收消息失败 %x %v", ctx.Value("Entity"), n, err)
 			}
-			logger.Error("[%v] 基站接收来自Ue消息 %v(%v bytes)", ctx.Value("Entity"), data[:n], n)
-			err = send(ctx, cConn.PgwConn, data[:n])
+			msg, _ := parseSipData(data[:n])
+			logger.Error("[%v] 基站接收来自Ue消息 %v(%v bytes)", ctx.Value("Entity"), string(data[:n]), n)
+			err = send(ctx, cConn.PgwConn, msg)
 			if err != nil {
 				logger.Error("[%v] 基站转发消息失败[to pgw] %v %v", ctx.Value("Entity"), n, err)
 			}
@@ -202,6 +224,35 @@ func send(ctx context.Context, conn net.Conn, msg []byte) error {
 		return err
 	}
 	return nil
+}
+
+func parseSipData(data []byte) ([]byte, bool) {
+	em := new(EpcMsg)
+	err := json.Unmarshal(data, em)
+	if err == nil { // JSON格式消息来自Ue且非SIP消息类型
+		pd := make([]byte, 0, 10240)
+		body := fmt.Sprintln("UTRAN-CELL-ID-3GPP=" + em.EnbID)
+		pd = append(pd, []byte{0x01, 0x00}...) // attach request
+		pd = append(pd, []byte(body)...)
+		return pd, false
+	}
+	if data[0] == 0x01 { // 来自核心网
+		em.Protocal = PotoMap[data[0]]
+		em.Method = MethMap[data[1]]
+		for k, v := range modules.StrLineUnmarshal(data[4:]) {
+			if strings.ToLower(k) == "utan-cell-id-3gpp" {
+				em.EnbID = v
+				continue
+			}
+			if strings.ToLower(k) == "ip" {
+				em.UserIP = v
+			}
+		}
+		pda, _ := json.Marshal(em)
+		return pda, false
+	}
+	// 来自核心网的SIP消息不需要解析
+	return data, true
 }
 
 func getLocalLanIP() (*net.IPNet, error) {
@@ -253,3 +304,6 @@ func lastAddr(n *net.IPNet) (net.IP, error) {
 	binary.BigEndian.PutUint32(ip, binary.BigEndian.Uint32(n.IP.To4())|^binary.BigEndian.Uint32(net.IP(n.Mask).To4()))
 	return ip, nil
 }
+
+var PotoMap = map[byte]string{0x01: "epc"}
+var MethMap = map[byte]string{0x00: "attach request", 0x0A: "attach accept"}
