@@ -43,6 +43,7 @@ func (p *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *module
 		case pkg := <-in:
 			// 兼容心跳包
 			if pkg.IsBeatHeart() {
+				logger.Warn("来自基站的心跳探测")
 				p.pCache.updateAddress(pkg.GetDynamicAddr(), pkg.GetFixedConn())
 			} else {
 				f, ok := p.router[pkg.GetRoute()]
