@@ -41,7 +41,7 @@ func (p *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *module
 		case pkg := <-in:
 			// 兼容心跳包
 			if pkg.IsBeatHeart() {
-				logger.Warn("来自基站的心跳探测")
+				logger.Warn("来自基站的心跳探测 %v", pkg.GetData())
 				p.pCache.updateAddress(pkg.GetDynamicAddr(), pkg.GetFixedConn())
 			} else {
 				f, ok := p.router[pkg.GetRoute()]
@@ -90,8 +90,10 @@ func (p *PgwEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up, d
 		return err
 	}
 	utran := sipreq.Header.AccessNetworkInfo
+	logger.Info("[%v] 接入点 %v", ctx.Value("Entity"), utran)
 	// 判断来自上游节点还是下游节点
 	if raddr := p.pCache.getAddress(utran); pkg.GetDynamicAddr().String() != raddr.String() {
+		logger.Info("[%v] 缓存接入点 %v, 数据包连接 addr: %v", ctx.Value("Entity"), raddr.String(), pkg.GetDynamicAddr().String())
 		// 来自上游节点，向下游转发
 		logger.Info("[%v] Receive From PCSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 		pkg.SetDynamicAddr(raddr)
