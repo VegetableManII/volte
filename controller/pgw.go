@@ -46,12 +46,12 @@ func (p *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *module
 			} else {
 				f, ok := p.router[pkg.GetRoute()]
 				if !ok {
-					logger.Error("[%v] PGW不支持的消息类型数据 %v", ctx.Value("Entity"), pkg)
+					logger.Error("[%v] PGW不支持的消息类型数据 %x %v %v", ctx.Value("Entity"), pkg.GetRoute(), pkg.GetDynamicAddr().String(), string(pkg.GetData()))
 					continue
 				}
 				err = f(ctx, pkg, up, down)
 				if err != nil {
-					logger.Error("[%v] PGW消息处理失败 %v %v", ctx.Value("Entity"), pkg, err)
+					logger.Error("[%v] PGW消息处理失败 %v", ctx.Value("Entity"), err)
 				}
 			}
 		case <-ctx.Done():
