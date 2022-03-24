@@ -31,7 +31,6 @@ const (
 	UserAuthorizationAnswer         byte = 0x0C
 	MultiMediaAuthenticationRequest byte = 0x0D
 	MultiMediaAuthenticationAnswer  byte = 0x0E
-	HeartBeatUpdate                 byte = 0xFF
 )
 
 // sip message的消息类型
@@ -104,6 +103,11 @@ func (p *Package) SetDynamicConn(conn *net.UDPConn) {
 
 func (p *Package) SetDynamicAddr(addr *net.UDPAddr) {
 	p.remoteAddr = addr
+}
+
+func (p *Package) DefaultDynamic() {
+	p.conn = nil
+	p.remoteAddr = nil
 }
 
 func (p *Package) GetFixedConn() string {

@@ -1,8 +1,6 @@
 /*
 	PGW的主要功能：
-	1、接收UE附着请求，并为UE分配该域的IP地址
-	2、向上行链路PCSCF转发SIP消息
-	3、根据SIP消息中的P-Access-Network-Info，向下行链路转发SIP消息
+	1、区分上下行数据，并做出转发动作
 */
 package controller
 
@@ -91,20 +89,18 @@ func (p *PgwEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up, d
 	if err != nil {
 		return err
 	}
-	via, _ := sipreq.Header.Via.FirstAddrInfo()
-	if strings.Contains(via, "p-cscf") { // 来自上行发起的INVITE请求
+	utran := sipreq.Header.AccessNetworkInfo
+	// 判断来自上游节点还是下游节点
+	if raddr := p.pCache.getAddress(utran); pkg.GetDynamicAddr() != raddr {
+		// 来自上游节点，向下游转发
 		logger.Info("[%v] Receive From PCSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-		// 根据INVITE请求中的P-Access-Network-Info从缓存中获取对应基站的网络连接
-		utran := sipreq.Header.AccessNetworkInfo
-		raddr := p.pCache.getAddress(utran)
-		if raddr != nil {
-			// 向基站转发INVITE请求
-			pkg.SetDynamicAddr(raddr)
-			modules.Send(pkg, down) // 下行
-		}
-	} else { // 来自下行发起的REGISTER请求
+		pkg.SetDynamicAddr(raddr)
+		modules.Send(pkg, down) // 下行
+	} else {
+		// 来自下游节点，向上游转发
 		logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 		pkg.SetFixedConn(p.Points["CSCF"])
+		pkg.DefaultDynamic()
 		modules.Send(pkg, up) // 上行
 	}
 	return nil

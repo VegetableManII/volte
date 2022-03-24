@@ -25,12 +25,12 @@ func CreateServer(host string) *net.UDPConn {
 }
 
 // 通用网络中的功能实体与接收客户端数据的通用方法
-func ReceiveClientMessage(ctx context.Context, conn *net.UDPConn, in chan *Package) {
+func ReceiveMessage(ctx context.Context, conn *net.UDPConn, in chan *Package) {
 	for {
 		select {
 		case <-ctx.Done():
 			// 释放资源
-			logger.Warn("[%v] 与下级节点通信协程退出", ctx.Value("Entity"))
+			logger.Warn("[%v] 接收消息协程退出", ctx.Value("Entity"))
 			return
 		default:
 			data := make([]byte, 10240) // 10KB
@@ -158,13 +158,11 @@ func distribute(ctx context.Context, data []byte, ra *net.UDPAddr, conn *net.UDP
 	pkg := new(Package)
 	err := pkg.Init(data)
 
-	if err == nil {
-		if pkg._protocal == EPCPROTOCAL && pkg._method == AttachRequest {
-			pkg.SetDynamicAddr(ra)
-		}
-		pkg.SetDynamicConn(conn) // 默认信息包都携带自身连接conn，用于需要时进行动态连接响应
-		c <- pkg                 // 默认 发送核心处理
-	} else {
+	if err != nil {
 		logger.Error("[%v] 消息分发失败, Error: %v", ctx.Value("Entity"), err)
+	} else {
+		pkg.SetDynamicAddr(ra)   // 默认携带请求对端地址，用于判断是上行还是下行
+		pkg.SetDynamicConn(conn) // 默认信息包都携带自身连接conn，用于需要时进行动态连接响应
+		c <- pkg
 	}
 }

@@ -155,7 +155,7 @@ func heartbeat(ctx context.Context, conn net.Conn, period int) {
 		msg := append(signal, []byte(CellID)...)
 		_, err := conn.Write(msg)
 		if err != nil {
-			logger.Error("心跳探测发送失败 %v", err)
+			logger.Error("[%v] 心跳探测发送失败 %v", ctx.Value("Entity"), err)
 			return
 		}
 		time.Sleep(time.Second * time.Duration(period))
@@ -210,7 +210,7 @@ func forwardMsgFromUeToNet(ctx context.Context, src *net.UDPConn, cConn *CoreNet
 			}
 			msg, _ := parseSipData(data[:n])
 			logger.Info("[%v] 基站接收来自Ue消息 %v(%v bytes)", ctx.Value("Entity"), string(data[:n]), n)
-			err = send(ctx, cConn.PgwConn, msg)
+			err = send(cConn.PgwConn, msg)
 			if err != nil {
 				logger.Error("[%v] 基站转发消息失败[to pgw] %v %v", ctx.Value("Entity"), n, err)
 			}
@@ -218,7 +218,7 @@ func forwardMsgFromUeToNet(ctx context.Context, src *net.UDPConn, cConn *CoreNet
 	}
 }
 
-func send(ctx context.Context, conn net.Conn, msg []byte) error {
+func send(conn net.Conn, msg []byte) error {
 	_, err := conn.Write(msg)
 	if err != nil {
 		return err
@@ -237,6 +237,7 @@ func parseSipData(data []byte) ([]byte, bool) {
 		pd = append(pd, []byte(body)...)
 		return pd, false
 	}
+
 	if data[0] == 0x01 { // 来自核心网
 		em.Protocal = PotoMap[data[0]]
 		em.Method = MethMap[data[1]]

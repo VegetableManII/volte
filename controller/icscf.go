@@ -1,3 +1,8 @@
+/*
+◆ 注册功能：为用户指定某个S-CSCF来执行SIP注册。
+◆ 消息流处理功能：从HSS中获取S-CSCF的地址，转发SIP请求；将其他网络传来的SIP请求路由到S-CSCF。
+*/
+
 package controller
 
 import (

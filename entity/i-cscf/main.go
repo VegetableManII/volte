@@ -32,7 +32,7 @@ func main() {
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	conn := CreateServer(localhost)
-	go ReceiveClientMessage(ctx, conn, coreIn)
+	go ReceiveMessage(ctx, conn, coreIn)
 	go ProcessDownStreamData(ctx, coreOutDown)
 	go ProcessUpStreamData(ctx, coreOutUp)
 	// 开启IMS域的逻辑处理协程

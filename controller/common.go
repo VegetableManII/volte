@@ -126,26 +126,6 @@ func (i *Cache) delUserRegistReqXRES(key string) {
 	i.Delete(key)
 }
 
-// // ICSCF 添加请求和对应分支的缓存
-// func (i *Cache) addRequestCache(key string, meth, bh string, req *sip.Message) error {
-// 	rc := new(RequestCache)
-// 	rc.Type = meth
-// 	rc.Branch = bh
-// 	rc.Req = req
-// 	i.Set(key, rc, cache.NoExpiration)
-// 	return nil
-// }
-
-// // ICSCF 根据分支获取对应请求
-// func (i *Cache) getRequestCache(key string) *RequestCache {
-// 	m, ok := i.Get(key)
-// 	if !ok {
-// 		return nil
-// 	}
-// 	rc := m.(*RequestCache)
-// 	return rc
-// }
-
 // ICSCF 添加用户信息到系统
 func (i *Cache) setUserInfo(key string, val *User) error {
 	return i.Add(key, val, cache.NoExpiration)

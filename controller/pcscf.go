@@ -1,3 +1,8 @@
+/*
+◆ 转发UE发来的SIP注册请求给I-CSCF，由UE提供的域名决定I-CSCF；
+◆ 转发UE发来的SIP消息给S-CSCF，由P-CSCF在UE发起注册流程时确定S-CSCF。
+*/
+
 package controller
 
 import (

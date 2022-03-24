@@ -35,7 +35,7 @@ func main() {
 	go self.CoreProcessor(ctx, coreIn, coreOutUp, coreOutDown)
 
 	conn := CreateServer(localhost)
-	go ReceiveClientMessage(ctx, conn, coreIn)
+	go ReceiveMessage(ctx, conn, coreIn)
 	go ProcessDownStreamData(ctx, coreOutDown)
 	go ProcessUpStreamData(ctx, coreOutUp)
 
