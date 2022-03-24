@@ -75,7 +75,7 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 			var err error
 			if pkg._protocal == EPCPROTOCAL {
 				// 同步响应结果 或 使用动态连接
-				if pkg.remoteAddr != nil && pkg.conn != nil {
+				if host == "" {
 					n, err := pkg.conn.WriteToUDP(pkg.GetEpcMessage(), pkg.remoteAddr)
 					if err != nil || n == 0 {
 						logger.Error("[%v] 同步响应下级节点失败 %v", ctx.Value("Entity"), err)
@@ -88,7 +88,7 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 				}
 
 			} else {
-				if pkg.remoteAddr != nil && pkg.conn != nil {
+				if host == "" {
 					n, err := pkg.conn.WriteToUDP(pkg.GetSipMessage(), pkg.remoteAddr)
 					if err != nil || n == 0 {
 						logger.Error("[%v] 同步响应下级节点失败 %v", ctx.Value("Entity"), err)
