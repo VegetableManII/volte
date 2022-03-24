@@ -99,9 +99,10 @@ func (p *PgwEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up, d
 	} else {
 		// 来自下游节点，向上游转发
 		logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-		pkg0 := new(modules.Package)
-		pkg0.SetFixedConn(p.Points["CSCF"])
-		modules.Send(pkg0, up) // 上行
+		pkg.SetFixedConn(p.Points["CSCF"])
+		pkg.SetDynamicAddr(nil)
+		pkg.SetDynamicConn(nil)
+		modules.Send(pkg, up) // 上行
 	}
 	return nil
 }
