@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/VegetableManII/volte/modules"
@@ -19,7 +18,6 @@ import (
 )
 
 type P_CscfEntity struct {
-	SipVia string
 	Points map[string]string
 	*Mux
 }
@@ -27,7 +25,7 @@ type P_CscfEntity struct {
 // 暂时先试用固定的uri，后期实现dns使用域名加IP的映射方式
 func (p *P_CscfEntity) Init(domain string) {
 	p.Mux = new(Mux)
-	p.SipVia = "SIP/2.0/UDP p-cscf@" + domain + ";branch="
+	sip.ServerDomain = domain
 	p.Points = make(map[string]string)
 	p.router = make(map[[2]byte]BaseSignallingT)
 }
@@ -62,11 +60,8 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		// TODO 错误处理
 		return err
 	}
-	branch := strconv.FormatInt(modules.GenerateSipBranch(), 16)
 	sipreq.Header.MaxForwards.Reduce()
-	// 增加Via头部信息
-	sipreq.Header.Via.Add(p.SipVia + branch)
-
+	sipreq.Header.Via.AddServerInfo()
 	switch sipreq.RequestLine.Method {
 	case sip.MethodRegister:
 		logger.Info("[%v] Receive From PGW: \n%v", ctx.Value("Entity"), string(pkg.GetData()))

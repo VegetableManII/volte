@@ -38,7 +38,7 @@ type I_CscfEntity struct {
 // 暂时先试用固定的uri，后期实现dns使用域名加IP的映射方式
 func (i *I_CscfEntity) Init(domain string) {
 	i.Mux = new(Mux)
-	sip.ServerDomain = "i-cscf@" + domain
+	sip.ServerDomain = domain
 	i.Points = make(map[string]string)
 	i.router = make(map[[2]byte]BaseSignallingT)
 	i.iCache = initCache()

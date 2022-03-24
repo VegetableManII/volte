@@ -8,7 +8,6 @@ package controller
 import (
 	"bytes"
 	"context"
-	"strconv"
 
 	"github.com/VegetableManII/volte/modules"
 	"github.com/VegetableManII/volte/sip"
@@ -19,7 +18,6 @@ import (
 )
 
 type S_CscfEntity struct {
-	SipVia string
 	core   chan *modules.Package
 	Points map[string]string
 	*Mux
@@ -29,7 +27,7 @@ type S_CscfEntity struct {
 // 暂时先试用固定的uri，后期实现dns使用域名加IP的映射方式
 func (s *S_CscfEntity) Init(domain string) {
 	s.Mux = new(Mux)
-	s.SipVia = "SIP/2.0/UDP s-cscf@" + domain + ";branch="
+	sip.ServerDomain = domain
 	s.Points = make(map[string]string)
 	s.router = make(map[[2]byte]BaseSignallingT)
 	s.sCache = initCache()
@@ -47,7 +45,7 @@ func (s *S_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *mod
 			}
 			err := f(ctx, pkg, up, down)
 			if err != nil {
-				logger.Error("[%v] P-CSCF消息处理失败 %x %v %v", ctx.Value("Entity"), pkg.GetRoute(), string(pkg.GetData()), err)
+				logger.Error("[%v] S-CSCF消息处理失败 %x %v %v", ctx.Value("Entity"), pkg.GetRoute(), string(pkg.GetData()), err)
 			}
 		case <-ctx.Done():
 			// 释放资源
@@ -92,7 +90,7 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		// 向对应域的ICSCF发起请求
 		if callee.Domain == domain { // 同一域 直接返回被叫地址，无需更改无线接入点
 			// 添加自身Via标识
-			sipreq.Header.Via.Add(s.SipVia + strconv.FormatInt(modules.GenerateSipBranch(), 16))
+			sipreq.Header.Via.AddServerInfo()
 			pkg.SetFixedConn(s.Points["ICSCF"])
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, down)
