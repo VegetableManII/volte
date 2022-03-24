@@ -8,6 +8,9 @@ package controller
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/VegetableManII/volte/modules"
 	"github.com/VegetableManII/volte/sip"
@@ -25,9 +28,11 @@ type S_CscfEntity struct {
 }
 
 // 暂时先试用固定的uri，后期实现dns使用域名加IP的映射方式
-func (s *S_CscfEntity) Init(domain string) {
+func (s *S_CscfEntity) Init(domain, host string) {
 	s.Mux = new(Mux)
 	sip.ServerDomain = domain
+	sip.ServerIP = strings.Split(host, ";")[0]
+	sip.ServerPort, _ = strconv.Atoi(strings.Split(host, ";")[1])
 	s.Points = make(map[string]string)
 	s.router = make(map[[2]byte]BaseSignallingT)
 	s.sCache = initCache()
@@ -90,6 +95,7 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		// 向对应域的ICSCF发起请求
 		if callee.Domain == domain { // 同一域 直接返回被叫地址，无需更改无线接入点
 			// 添加自身Via标识
+			sipreq.Header.Via.SetReceivedInfo("UDP", fmt.Sprintf("%s:%d", sip.ServerIP, sip.ServerPort))
 			sipreq.Header.Via.AddServerInfo()
 			pkg.SetFixedConn(s.Points["ICSCF"])
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())

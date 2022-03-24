@@ -53,7 +53,7 @@ func init() {
 	logger.Info("配置文件读取成功", "")
 	// 启动 CSCF 的UDP服务器
 	self = new(controller.I_CscfEntity)
-	self.Init(dns)
+	self.Init("i-cscf."+dns, localhost)
 	self.Points["PCSCF"] = pcscf
 	self.Points["SCSCF"] = scscf
 	self.Points["HSS"] = hss

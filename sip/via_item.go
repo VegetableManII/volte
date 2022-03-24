@@ -42,4 +42,4 @@ func (v *Via) parse(str string) (err error) {
 	return
 }
 
-var viaRegExp = regexp.MustCompile("^(SIP\\/[^\\/]+)\\/([^ ]+) ([^;]+)(.+)$")
+var viaRegExp = regexp.MustCompile(`^(SIP/[^/]+)/([^ ]+) ([^;]+)(.+)$`)

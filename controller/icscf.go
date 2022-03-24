@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/VegetableManII/volte/modules"
@@ -36,9 +37,11 @@ type I_CscfEntity struct {
 }
 
 // 暂时先试用固定的uri，后期实现dns使用域名加IP的映射方式
-func (i *I_CscfEntity) Init(domain string) {
+func (i *I_CscfEntity) Init(domain, host string) {
 	i.Mux = new(Mux)
 	sip.ServerDomain = domain
+	sip.ServerIP = strings.Split(host, ";")[0]
+	sip.ServerPort, _ = strconv.Atoi(strings.Split(host, ";")[1])
 	i.Points = make(map[string]string)
 	i.router = make(map[[2]byte]BaseSignallingT)
 	i.iCache = initCache()
@@ -76,10 +79,12 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 	// 增加Via头部信息
 	user := sipreq.Header.From.Username()
 	sipreq.Header.MaxForwards.Reduce()
+	sipreq.Header.Via.SetReceivedInfo("UDP", fmt.Sprintf("%s:%d", sip.ServerIP, sip.ServerPort))
 	sipreq.Header.Via.AddServerInfo()
 	switch sipreq.RequestLine.Method {
 	case sip.MethodRegister:
 		logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+		// TODO 根据Request-URI获取对应域，向HSS询问对应域的cscf的IP地址
 		// 查看本地是否存在鉴权缓存
 		_, ok := i.iCache.getUserRegistReq(user)
 		if !ok {

@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/VegetableManII/volte/modules"
@@ -23,9 +24,11 @@ type P_CscfEntity struct {
 }
 
 // 暂时先试用固定的uri，后期实现dns使用域名加IP的映射方式
-func (p *P_CscfEntity) Init(domain string) {
+func (p *P_CscfEntity) Init(domain, host string) {
 	p.Mux = new(Mux)
 	sip.ServerDomain = domain
+	sip.ServerIP = strings.Split(host, ";")[0]
+	sip.ServerPort, _ = strconv.Atoi(strings.Split(host, ";")[1])
 	p.Points = make(map[string]string)
 	p.router = make(map[[2]byte]BaseSignallingT)
 }
@@ -61,6 +64,7 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		return err
 	}
 	sipreq.Header.MaxForwards.Reduce()
+	sipreq.Header.Via.SetReceivedInfo("UDP", fmt.Sprintf("%s:%d", sip.ServerIP, sip.ServerPort))
 	sipreq.Header.Via.AddServerInfo()
 	switch sipreq.RequestLine.Method {
 	case sip.MethodRegister:
