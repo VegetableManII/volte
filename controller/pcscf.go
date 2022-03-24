@@ -27,8 +27,8 @@ type P_CscfEntity struct {
 func (p *P_CscfEntity) Init(domain, host string) {
 	p.Mux = new(Mux)
 	sip.ServerDomain = domain
-	sip.ServerIP = strings.Split(host, ";")[0]
-	sip.ServerPort, _ = strconv.Atoi(strings.Split(host, ";")[1])
+	sip.ServerIP = strings.Split(host, ":")[0]
+	sip.ServerPort, _ = strconv.Atoi(strings.Split(host, ":")[1])
 	p.Points = make(map[string]string)
 	p.router = make(map[[2]byte]BaseSignallingT)
 }

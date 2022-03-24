@@ -40,8 +40,8 @@ type I_CscfEntity struct {
 func (i *I_CscfEntity) Init(domain, host string) {
 	i.Mux = new(Mux)
 	sip.ServerDomain = domain
-	sip.ServerIP = strings.Split(host, ";")[0]
-	sip.ServerPort, _ = strconv.Atoi(strings.Split(host, ";")[1])
+	sip.ServerIP = strings.Split(host, ":")[0]
+	sip.ServerPort, _ = strconv.Atoi(strings.Split(host, ":")[1])
 	i.Points = make(map[string]string)
 	i.router = make(map[[2]byte]BaseSignallingT)
 	i.iCache = initCache()
