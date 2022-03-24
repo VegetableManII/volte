@@ -42,6 +42,11 @@ func ReceiveMessage(ctx context.Context, conn *net.UDPConn, in chan *Package) {
 				// 心跳兼容
 				if data[0] == 0x0F && data[1] == 0x0F && data[2] == 0x0F && data[3] == 0x0F {
 					pkg := &Package{
+						CommonMsg: CommonMsg{
+							_protocal: 0x0F,
+							_method:   0x0F,
+							_size:     0x0F0F,
+						},
 						FixedConn: FixedConn(data[4:n]),
 					}
 					pkg.SetDynamicAddr(ra)
