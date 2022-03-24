@@ -90,6 +90,7 @@ func (p *PgwEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up, d
 		return err
 	}
 	utran := sipreq.Header.AccessNetworkInfo
+	logger.Error("%v\n   %v", p.pCache.getAddress(utran).String(), pkg.GetDynamicAddr().String())
 	// 判断来自上游节点还是下游节点
 	if raddr := p.pCache.getAddress(utran); pkg.GetDynamicAddr() != raddr {
 		// 来自上游节点，向下游转发
