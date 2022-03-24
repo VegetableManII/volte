@@ -151,7 +151,7 @@ func tunneling(ctx context.Context, coreConn *CoreNetConnection, bConn *net.UDPC
 
 func heartbeat(ctx context.Context, conn net.Conn, period int) {
 	for {
-		signal := []byte{0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F}
+		signal := []byte{0x0F, 0x0F, 0x0F, 0x0F}
 		msg := append(signal, []byte(CellID)...)
 		_, err := conn.Write(msg)
 		if err != nil {

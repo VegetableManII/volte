@@ -40,14 +40,8 @@ func ReceiveMessage(ctx context.Context, conn *net.UDPConn, in chan *Package) {
 			}
 			if n != 0 {
 				// 心跳兼容
-				if data[0] == 0x0F && data[1] == 0x0F && data[2] == 0x0F && data[3] == 0x0F &&
-					data[4] == 0x0F && data[5] == 0x0F && data[6] == 0x0F && data[7] == 0x0F {
+				if data[0] == 0x0F && data[1] == 0x0F && data[2] == 0x0F && data[3] == 0x0F {
 					pkg := &Package{
-						CommonMsg: CommonMsg{
-							_protocal: 0x0F,
-							_method:   0x0F,
-							_size:     0x0F0F,
-						},
 						FixedConn: FixedConn(data[8:n]),
 					}
 					pkg.SetDynamicAddr(ra)
