@@ -124,8 +124,6 @@ func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, 
 		// 请求寻找无线接入点
 		utran := strings.Trim(sipresp.Header.AccessNetworkInfo, " ")
 		raddr := p.pCache.getAddress(utran)
-
-		pkg.SetFixedConn("eNodeB")
 		pkg.SetDynamicAddr(raddr)
 		modules.Send(pkg, down)
 	}
