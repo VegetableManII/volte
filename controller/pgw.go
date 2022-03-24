@@ -69,12 +69,12 @@ func (p *PgwEntity) AttachRequestF(ctx context.Context, pkg *modules.Package, up
 	data := pkg.GetData()
 	args := modules.StrLineUnmarshal(data)
 	// 分配IP地址
-	ippoollock.Lock()
-	l := len(ippool)
-	ip := ippool[l-1]
-	ippool = ippool[:l-1]
-	ippoollock.Unlock()
-	args["IP"] = ip
+	// ippoollock.Lock()
+	// l := len(ippool)
+	// ip := ippool[l-1]
+	// ippool = ippool[:l-1]
+	// ippoollock.Unlock()
+	args["IP"] = "10.10.10.1"
 	// Attach过程仅仅是基站和PGW的交互过程消息体可以直接保存基站的网络连接
 	// 接收Attach消息时，消息体携带基站的网络连接，所以无需通过基站标识从缓存中查找
 	pkg.Construct(modules.EPCPROTOCAL, modules.AttachAccept, modules.StrLineMarshal(args))
