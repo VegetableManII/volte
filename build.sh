@@ -4,6 +4,11 @@ go build ./entity/s-cscf
 go build ./entity/p-cscf
 go build ./entity/pgw
 
+kill -9 ./hss -f ./config.yml
+kill -9 ./s-cscf -f ./config.yml
+kill -9 ./i-cscf -f ./config.yml
+kill -9 ./p-cscf -f ./config.yml
+kill -9 ./pgw -f ./config.yml
 
 
 nohup ./hss -f ./config.yml &
