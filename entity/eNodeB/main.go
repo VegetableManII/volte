@@ -266,6 +266,9 @@ func getLocalLanIP() (*net.IPNet, error) {
 		return nil, e
 	}
 	for i := 0; i < len(ifs); i++ {
+		if ifs[i].Flags != net.FlagUp {
+			continue
+		}
 		addrs, e := ifs[i].Addrs()
 		if e != nil {
 			return nil, e
