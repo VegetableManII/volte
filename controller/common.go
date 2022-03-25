@@ -103,7 +103,7 @@ func (i *Cache) setUserRegistXRES(key string, val string) error {
 	}
 	rc := m.(*RegistCombine)
 	rc.XRES = val
-	remain := expire.Sub(time.Now())
+	remain := time.Until(expire)
 	i.Set(key, rc, remain)
 	return nil
 }
