@@ -98,8 +98,15 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			pkg.SetFixedConn(downlink)
 
 			values := parseAuthentication(sipreq.Header.Authorization)
-			RES := i.iCache.getUserRegistXRES(user)
-			if RES != "" && RES == values["response"] { // 验证通过
+			XRES := i.iCache.getUserRegistXRES(user)
+			res, err := base64.RawStdEncoding.DecodeString(values["response"])
+			if err != nil {
+				logger.Error("[%v] 解码response失败: %v", ctx.Value("Entity"), err)
+				return err
+			}
+			RES := hex.EncodeToString(res)
+			logger.Warn("[%v] XRES: %v, RES: %v", ctx.Value("Entity"), XRES, RES)
+			if XRES != "" && RES == XRES { // 验证通过
 				// 用户完成注册后，登记用户信息到系统中
 				u := new(User)
 				name := sipreq.Header.From.Username()
