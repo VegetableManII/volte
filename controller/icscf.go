@@ -85,9 +85,7 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 	case sip.MethodRegister:
 		logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 		// TODO 根据Request-URI获取对应域，向HSS询问对应域的cscf的IP地址
-		// 查看本地是否存在鉴权缓存
-		_, ok := i.iCache.getUserRegistReq(user)
-		if !ok {
+		if sipreq.Header.Authorization == "" {
 			// 首次注册请求，请求S-CSCF拿到用户向量
 			i.iCache.setUserRegistReq(user, &sipreq)
 			pkg.SetFixedConn(i.Points["SCSCF"])
@@ -98,7 +96,7 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			pkg.SetFixedConn(downlink)
 
 			values := parseAuthentication(sipreq.Header.Authorization)
-			XRES := i.iCache.getUserRegistXRES(user)
+			XRES := i.iCache.getUserRegistXRES("req" + user)
 			res, err := base64.RawStdEncoding.DecodeString(values["response"])
 			if err != nil {
 				logger.Error("[%v] 解码response失败: %v", ctx.Value("Entity"), err)
@@ -199,7 +197,7 @@ func (i *I_CscfEntity) MutimediaAuthorizationAnswerF(ctx context.Context, pkg *m
 	XRES := resp["XRES"]
 	RAND := resp["RAND"]
 	// 首先获取缓存中的请求
-	req, ok := i.iCache.getUserRegistReq(user)
+	req, ok := i.iCache.getUserRegistReq("req" + user)
 	if !ok {
 		// 鉴权请求已过期
 		sipresp := sip.NewResponse(sip.StatusGone, req)
@@ -209,7 +207,7 @@ func (i *I_CscfEntity) MutimediaAuthorizationAnswerF(ctx context.Context, pkg *m
 		return errors.New("ErrRequestExpired")
 	}
 	// 保存用户鉴权
-	err := i.iCache.setUserRegistXRES(user, XRES)
+	err := i.iCache.setUserRegistXRES("req"+user, XRES)
 	if err != nil {
 		sipresp := sip.NewResponse(sip.StatusServerTimeout, req)
 		pkg.SetFixedConn(i.Points["PCSCF"])
