@@ -105,7 +105,7 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 				return err
 			}
 			RES := hex.EncodeToString(res)
-			logger.Warn("[%v] XRES: %v, RES: %v", ctx.Value("Entity"), XRES, RES)
+			logger.Warn("[%v] XRES: %v, RES: %v(byte: %x)", ctx.Value("Entity"), XRES, RES, res)
 			if XRES != "" && RES == XRES { // 验证通过
 				// 用户完成注册后，登记用户信息到系统中
 				u := new(User)
@@ -236,7 +236,9 @@ func (i *I_CscfEntity) MutimediaAuthorizationAnswerF(ctx context.Context, pkg *m
 
 func parseAuthentication(authHeader string) map[string]string {
 	res := make(map[string]string)
-	items := strings.Split(authHeader, " ")
+	auth := strings.TrimLeft(authHeader, "Digest ")
+	logger.Warn("Authorization := %v", auth)
+	items := strings.Split(auth, ",")
 	for _, item := range items {
 		val := strings.Split(item, "=")
 		if len(val) >= 2 {
