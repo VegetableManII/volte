@@ -7,6 +7,9 @@ package controller
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
+	"errors"
+	"net"
 	"strings"
 	"sync"
 
@@ -16,11 +19,33 @@ import (
 	"github.com/wonderivan/logger"
 )
 
+type Pool struct {
+	CurIP  uint32
+	Mask   uint32
+	LastIP uint32
+	sync.Mutex
+}
+
 type PgwEntity struct {
 	*Mux
-	Points   map[string]string
-	DHCPConf string
-	pCache   *Cache
+	Points map[string]string
+	pool   *Pool
+	pCache *Cache
+}
+
+func initpool(cidr string) *Pool {
+	_, net, err := net.ParseCIDR(cidr)
+	if err != nil {
+		panic(err)
+	}
+	ip := binary.BigEndian.Uint32(net.IP)
+	mask := binary.BigEndian.Uint32(net.Mask)
+	last := ip | ^mask
+	return &Pool{
+		CurIP:  ip,
+		Mask:   mask,
+		LastIP: last,
+	}
 }
 
 func (p *PgwEntity) Init(dhcp string) {
@@ -28,7 +53,7 @@ func (p *PgwEntity) Init(dhcp string) {
 	p.Mux = new(Mux)
 	p.router = make(map[[2]byte]BaseSignallingT)
 	p.Points = make(map[string]string)
-	p.DHCPConf = dhcp
+	p.pool = initpool(dhcp)
 	p.pCache = initCache()
 	// 初始化IP地址池子
 
@@ -69,12 +94,11 @@ func (p *PgwEntity) AttachRequestF(ctx context.Context, pkg *modules.Package, up
 	data := pkg.GetData()
 	args := modules.StrLineUnmarshal(data)
 	// 分配IP地址
-	// ippoollock.Lock()
-	// l := len(ippool)
-	// ip := ippool[l-1]
-	// ippool = ippool[:l-1]
-	// ippoollock.Unlock()
-	args["IP"] = "10.10.10.1"
+	ip, err := p.getIP()
+	if err != nil {
+		return err
+	}
+	args["IP"] = ip.String()
 	// Attach过程仅仅是基站和PGW的交互过程消息体可以直接保存基站的网络连接
 	// 接收Attach消息时，消息体携带基站的网络连接，所以无需通过基站标识从缓存中查找
 	pkg.Construct(modules.EPCPROTOCAL, modules.AttachAccept, modules.StrLineMarshal(args))
@@ -130,17 +154,16 @@ func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, 
 	return nil
 }
 
-var ippool = []string{
-	"10.10.10.1",
-	"10.10.10.2",
-	"10.10.10.3",
-	"10.10.10.4",
-	"10.10.10.5",
-	"10.10.10.6",
-	"10.10.10.7",
-	"10.10.10.8",
-	"10.10.10.9",
-	"10.10.10.10",
-	"10.10.10.11",
+func (p *PgwEntity) getIP() (net.IP, error) {
+	p.pool.Lock()
+	cur := p.pool.CurIP
+	last := p.pool.LastIP
+	p.pool.Unlock()
+	cur = cur + 1
+	if cur == last {
+		return nil, errors.New("ErrNotEnoughIP")
+	}
+	ip := make([]byte, 4)
+	binary.BigEndian.PutUint32(ip, cur)
+	return ip, nil
 }
-var ippoollock sync.Mutex
