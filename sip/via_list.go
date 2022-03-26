@@ -3,6 +3,8 @@ package sip
 import (
 	"fmt"
 	"strings"
+
+	"github.com/wonderivan/logger"
 )
 
 // Via信息列表
@@ -69,6 +71,7 @@ func (vl *ViaList) AddServerInfo() {
 // (转发应答) 移除第一个是自己服务器的Via
 func (vl *ViaList) RemoveFirst() {
 	via := vl.value[0]
+	logger.Warn("via: %v, firt: %v, server: %v", vl.value[0], via.Client, ServerDomainHost())
 	if via.Client == ServerDomainHost() || via.Client == ServerDomain {
 		vl.value = vl.value[1:]
 	}

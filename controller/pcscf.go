@@ -123,6 +123,8 @@ func (p *P_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 		// TODO 错误处理
 		return err
 	}
+	via, _ := sipresp.Header.Via.FirstAddrInfo()
+	logger.Warn("@@@@@@@@@%v", via)
 	// 删除第一个Via头部信息
 	sipresp.Header.Via.RemoveFirst()
 	sipresp.Header.MaxForwards.Reduce()
