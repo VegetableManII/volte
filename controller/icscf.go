@@ -148,9 +148,7 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		// INVITE 回话建立请求，分为 同域 和 不同域
 		// 向对应域的ICSCF发起请求
 		if callee.Domain == domain { // 同一域 直接返回被叫地址，无需更改无线接入点
-			// 添加自身Via标识
 			sipreq.Header.Via.SetReceivedInfo("UDP", fmt.Sprintf("%s:%d", sip.ServerIP, sip.ServerPort))
-			sipreq.Header.Via.AddServerInfo()
 			pkg.SetFixedConn(i.Points["PCSCF"])
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, down)
@@ -169,6 +167,8 @@ func (i *I_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 		// TODO 错误处理
 		return err
 	}
+	via, _ := sipresp.Header.Via.FirstAddrInfo()
+	logger.Warn("@@@@@@@@@first: %v, server: %v", via, sip.ServerDomainHost())
 	// 删除Via头部信息
 	sipresp.Header.Via.RemoveFirst()
 	sipresp.Header.MaxForwards.Reduce()
@@ -220,6 +220,10 @@ func (i *I_CscfEntity) MutimediaAuthorizationAnswerF(ctx context.Context, pkg *m
 
 	sipresp := sip.NewResponse(sip.StatusUnauthorized, req)
 	sipresp.Header.WWWAuthenticate = wwwAuth
+	// 用户鉴权信息经过s-cscf发起
+	// 转发给s-cscf的时候会携带自身的via header
+	sipresp.Header.Via.RemoveFirst()
+	sipresp.Header.MaxForwards.Reduce()
 	pkg.SetFixedConn(i.Points["PCSCF"])
 	pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 	modules.Send(pkg, down)

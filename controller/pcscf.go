@@ -124,11 +124,13 @@ func (p *P_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 		return err
 	}
 	via, _ := sipresp.Header.Via.FirstAddrInfo()
-	logger.Warn("@@@@@@@@@%v", via)
+	logger.Warn("@@@@@@@@@first: %v, server: %v", via, sip.ServerDomainHost())
 	// 删除第一个Via头部信息
 	sipresp.Header.Via.RemoveFirst()
 	sipresp.Header.MaxForwards.Reduce()
-	if sipresp.ResponseLine.StatusCode == sip.StatusSessionProgress.Code { // 来自下行PGW的回话建立响应
+	// 判断下一跳是否是s-cscf
+	via, _ = sipresp.Header.Via.FirstAddrInfo()
+	if strings.Contains(via, "s-cscf") {
 		logger.Info("[%v] Receive From PGW: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 		pkg.SetFixedConn(p.Points["ICSCF"])
 		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
