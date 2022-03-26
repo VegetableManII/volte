@@ -141,7 +141,7 @@ func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, 
 	}
 	if sipresp.ResponseLine.StatusCode == sip.StatusSessionProgress.Code {
 		logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-		pkg.SetFixedConn(p.Points["PCSCF"])
+		pkg.SetFixedConn(p.Points["CSCF"])
 		modules.Send(pkg, up)
 	} else {
 		logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
