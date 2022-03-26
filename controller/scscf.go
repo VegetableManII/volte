@@ -8,7 +8,6 @@ package controller
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -80,37 +79,7 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		pkg.Construct(modules.EPCPROTOCAL, modules.MultiMediaAuthenticationRequest, modules.StrLineMarshal(table))
 		modules.Send(pkg, up)
 	case "INVITE":
-		// INVITE 回话建立请求，分为 同域 和 不同域
-		domain := sipreq.RequestLine.RequestURI.Domain
-		user := sipreq.RequestLine.RequestURI.Username
-		callee := s.sCache.getUserInfo(user)
 
-		logger.Warn("callee domain: %v, request domain: %v", callee.Domain, domain)
-
-		if callee == nil {
-			// 被叫用户在系统中找不到
-			sipresp := sip.NewResponse(sip.StatusRequestTerminated, &sipreq)
-			pkg.SetFixedConn(s.Points["ICSCF"])
-			pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
-			modules.Send(pkg, down)
-			return nil
-		}
-		// 向对应域的ICSCF发起请求
-		if callee.Domain == domain { // 同一域 直接返回被叫地址，无需更改无线接入点
-			// 添加自身Via标识
-			sipreq.Header.Via.SetReceivedInfo("UDP", fmt.Sprintf("%s:%d", sip.ServerIP, sip.ServerPort))
-			sipreq.Header.Via.AddServerInfo()
-			pkg.SetFixedConn(s.Points["ICSCF"])
-			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
-			modules.Send(pkg, down)
-		} else { // 不同域 查询对应域的ICSCF网络地址，修改无线接入点信息，向对应域发起请求
-		}
-		// 向主叫发起域响应trying
-		pkg0 := new(modules.Package)
-		sipresp := sip.NewResponse(sip.StatusTrying, &sipreq)
-		pkg0.SetFixedConn(s.Points["ICSCF"])
-		pkg0.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
-		modules.Send(pkg0, down)
 	}
 	return nil
 }

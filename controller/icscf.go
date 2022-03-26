@@ -131,29 +131,30 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			}
 		}
 	case sip.MethodInvite:
-		// 检查第一个Via是否是SCSCF的标识
-		via, _ := sipreq.Header.Via.FirstAddrInfo()
-		if strings.Contains(via, "s-cscf") {
-			logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+		domain := sipreq.RequestLine.RequestURI.Domain
+		user := sipreq.RequestLine.RequestURI.Username
+		callee := i.iCache.getUserInfo(user)
 
-			// 被叫侧建立回话的请求，转发给下行PCSCF
+		logger.Warn("callee domain: %v, request domain: %v", callee.Domain, domain)
+
+		if callee == nil {
+			// 被叫用户在系统中找不到
+			sipresp := sip.NewResponse(sip.StatusRequestTerminated, &sipreq)
+			pkg.SetFixedConn(i.Points["ICSCF"])
+			pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
+			modules.Send(pkg, down)
+			return nil
+		}
+		// INVITE 回话建立请求，分为 同域 和 不同域
+		// 向对应域的ICSCF发起请求
+		if callee.Domain == domain { // 同一域 直接返回被叫地址，无需更改无线接入点
+			// 添加自身Via标识
+			sipreq.Header.Via.SetReceivedInfo("UDP", fmt.Sprintf("%s:%d", sip.ServerIP, sip.ServerPort))
+			sipreq.Header.Via.AddServerInfo()
 			pkg.SetFixedConn(i.Points["PCSCF"])
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, down)
-			return nil
-		} else {
-			logger.Info("[%v] Receive From S-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-
-			// 主叫侧建立回话请求，转发给上行SCSCF
-			pkg.SetFixedConn(i.Points["SCSCF"])
-			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
-			modules.Send(pkg, up)
-			// 向主叫响应trying
-			sipresp := sip.NewResponse(sip.StatusTrying, &sipreq)
-			pkg0 := new(modules.Package)
-			pkg0.SetFixedConn(i.Points["ICSCF"])
-			pkg0.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
-			modules.Send(pkg0, down)
+		} else { // 不同域 查询对应域的ICSCF网络地址，修改无线接入点信息，向对应域发起请求
 		}
 	}
 	return nil
@@ -171,18 +172,11 @@ func (i *I_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 	// 删除Via头部信息
 	sipresp.Header.Via.RemoveFirst()
 	sipresp.Header.MaxForwards.Reduce()
-	if sipresp.ResponseLine.StatusCode == sip.StatusSessionProgress.Code {
-		// INVITE请求，被叫响应应答
-		logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-		pkg.SetFixedConn(i.Points["SCSCF"])
-		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
-		modules.Send(pkg, up)
-	} else {
-		logger.Info("[%v] Receive From S-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-		pkg.SetFixedConn(i.Points["PCSCF"])
-		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
-		modules.Send(pkg, down)
-	}
+	// INVITE请求，被叫响应应答
+	logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+	pkg.SetFixedConn(i.Points["PCSCF"])
+	pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
+	modules.Send(pkg, down)
 	return nil
 }
 
