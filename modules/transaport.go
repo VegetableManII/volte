@@ -27,6 +27,7 @@ func CreateServer(host string) *net.UDPConn {
 // 通用网络中的功能实体与接收客户端数据的通用方法
 func ReceiveMessage(ctx context.Context, conn *net.UDPConn, in chan *Package) {
 	for {
+		defer Recover(ctx)
 		select {
 		case <-ctx.Done():
 			// 释放资源
@@ -65,6 +66,7 @@ func ReceiveMessage(ctx context.Context, conn *net.UDPConn, in chan *Package) {
 // 接收逻辑核心处理结果
 func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 	for {
+		defer Recover(ctx)
 		select {
 		case <-ctx.Done():
 			// 释放资源
@@ -106,6 +108,7 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 
 func ProcessUpStreamData(ctx context.Context, up chan *Package) {
 	for {
+		defer Recover(ctx)
 		select {
 		case <-ctx.Done():
 			logger.Warn("[%v] 与上级节点通信协程退出...", ctx.Value("Entity"))
