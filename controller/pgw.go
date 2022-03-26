@@ -139,17 +139,23 @@ func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, 
 		// TODO 失败处理
 		return err
 	}
-	if sipresp.ResponseLine.StatusCode == sip.StatusSessionProgress.Code {
-		logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-		pkg.SetFixedConn(p.Points["CSCF"])
-		modules.Send(pkg, up)
-	} else {
+	utran := sipresp.Header.AccessNetworkInfo
+	logger.Info("[%v] 接入点 %v", ctx.Value("Entity"), utran)
+	raddr := p.pCache.getAddress(utran)
+	logger.Warn("[%v] 缓存接入点 %v, 数据包连接 addr: %v", ctx.Value("Entity"), raddr.String(), pkg.GetDynamicAddr().String())
+	// 判断来自上游节点还是下游节点
+	if pkg.GetDynamicAddr().String() != raddr.String() {
+		// 来自上游，向下游转发
 		logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 		// 请求寻找无线接入点
 		utran := strings.Trim(sipresp.Header.AccessNetworkInfo, " ")
 		raddr := p.pCache.getAddress(utran)
 		pkg.SetDynamicAddr(raddr)
 		modules.Send(pkg, down)
+	} else {
+		logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+		pkg.SetFixedConn(p.Points["CSCF"])
+		modules.Send(pkg, up)
 	}
 	return nil
 }
