@@ -85,7 +85,7 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 	case sip.MethodRegister:
 		logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 		// TODO 根据Request-URI获取对应域，向HSS询问对应域的cscf的IP地址
-		if sipreq.Header.WWWAuthenticate == "" {
+		if !strings.Contains(sipreq.Header.Authorization, "response") {
 			// 首次注册请求，请求S-CSCF拿到用户向量
 			i.iCache.setUserRegistReq("req"+user, &sipreq)
 			pkg.SetFixedConn(i.Points["SCSCF"])
