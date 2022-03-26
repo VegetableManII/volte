@@ -65,11 +65,11 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 	}
 	sipreq.Header.MaxForwards.Reduce()
 	sipreq.Header.Via.SetReceivedInfo("UDP", fmt.Sprintf("%s:%d", sip.ServerIP, sip.ServerPort))
-	sipreq.Header.Via.AddServerInfo()
 	switch sipreq.RequestLine.Method {
 	case sip.MethodRegister:
 		logger.Info("[%v] Receive From PGW: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 
+		sipreq.Header.Via.AddServerInfo()
 		// 检查头部内容是否首次注册
 		if strings.Contains(sipreq.Header.Authorization, "response") { // 包含响应内容则为第二次注册请求
 			pkg.SetFixedConn(p.Points["ICSCF"])
@@ -92,11 +92,13 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		if strings.Contains(via, "i-cscf") { // INVITE请求来自ICSCF
 			logger.Info("[%v] Receive From ICSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 			// 向下行转发请求
+			sipreq.Header.Via.AddServerInfo()
 			pkg.SetFixedConn(p.Points["PGW"])
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, down)
 		} else { // INVITE请求来自PGW
 			logger.Info("[%v] Receive From PGW: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+			sipreq.Header.Via.AddServerInfo()
 			// 向上行转发请求
 			pkg.SetFixedConn(p.Points["ICSCF"])
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())

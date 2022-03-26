@@ -114,9 +114,10 @@ func (p *PgwEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up, d
 	}
 	utran := sipreq.Header.AccessNetworkInfo
 	logger.Info("[%v] 接入点 %v", ctx.Value("Entity"), utran)
+	raddr := p.pCache.getAddress(utran)
+	logger.Warn("[%v] 缓存接入点 %v, 数据包连接 addr: %v", ctx.Value("Entity"), raddr.String(), pkg.GetDynamicAddr().String())
 	// 判断来自上游节点还是下游节点
-	if raddr := p.pCache.getAddress(utran); pkg.GetDynamicAddr().String() != raddr.String() {
-		logger.Info("[%v] 缓存接入点 %v, 数据包连接 addr: %v", ctx.Value("Entity"), raddr.String(), pkg.GetDynamicAddr().String())
+	if pkg.GetDynamicAddr().String() != raddr.String() {
 		// 来自上游节点，向下游转发
 		logger.Info("[%v] Receive From PCSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 		pkg.SetDynamicAddr(raddr)
