@@ -1,0 +1,31 @@
+# 基站
+eNodeB:
+  server.port: 10000
+# 基站广播端口
+  broadcast.port: 65532
+# 广播扫描参数
+  scan.time: 3
+  TAI: "100231511300032"
+# 修改TAI值模拟不同的基站
+# 统一局域网内的不同设备上部署不同基站
+  beatheart.time: 10
+
+# epc 网络功能实体
+EPC: 
+  pgw.host: 192.168.0.129:12347
+  pgw.dhcp : 10.0.1.0/24
+
+# 归属地查询服务器
+HSS:
+  host: 127.0.0.1:7777
+
+# ims 网络功能实体
+IMS: 
+  p-cscf.host: 127.0.0.1:44321
+  i-cscf.host: 127.0.0.1:44322
+  s-cscf.host: 127.0.0.1:44323
+  domain: dianqingdianxin.3gpp.net
+
+# 数据库配置信息
+mysql: 
+  host: "root:@tcp(127.0.0.1:3306)/volte?charset=utf8&parseTime=True&loc=Local"

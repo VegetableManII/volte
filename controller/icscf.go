@@ -153,6 +153,10 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, down)
 		} else { // 不同域 查询对应域的ICSCF网络地址，修改无线接入点信息，向对应域发起请求
+			sipreq.Header.Via.SetReceivedInfo("UDP", fmt.Sprintf("%s:%d", sip.ServerIP, sip.ServerPort))
+			pkg.SetFixedConn("127.0.0.1:44322")
+			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
+			modules.Send(pkg, up)
 		}
 	}
 	return nil
@@ -172,6 +176,14 @@ func (i *I_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 	// 删除Via头部信息
 	sipresp.Header.Via.RemoveFirst()
 	sipresp.Header.MaxForwards.Reduce()
+	// 如果下一个via包含s-cscf说明是另一个域的响应
+	if strings.Contains(via, "s-cscf") {
+		logger.Info("[%v] Receive From Other I-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+		pkg.SetFixedConn("127.0.0.1:54322")
+		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
+		modules.Send(pkg, up)
+		return nil
+	}
 	// INVITE请求，被叫响应应答
 	logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 	pkg.SetFixedConn(i.Points["PCSCF"])
