@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/VegetableManII/volte/controller"
+	"github.com/VegetableManII/volte/entity"
 	. "github.com/VegetableManII/volte/modules"
 
 	"github.com/spf13/viper"
@@ -45,10 +46,10 @@ func main() {
 }
 
 func init() {
-	icscf := viper.GetString("IMS.i-cscf.host")
-	pgw := viper.GetString("EPC.pgw.host")
-	localhost = viper.GetString("IMS.p-cscf.host")
-	dns := viper.GetString("IMS.domain")
+	icscf := viper.GetString(entity.Domain + ".i-cscf.host")
+	pgw := viper.GetString(entity.Domain + ".pgw.host")
+	localhost = viper.GetString(entity.Domain + ".p-cscf.host")
+	dns := viper.GetString(entity.Domain + ".domain")
 	logger.Info("配置文件读取成功", "")
 	// 启动 CSCF 的UDP服务器
 	self = new(controller.P_CscfEntity)

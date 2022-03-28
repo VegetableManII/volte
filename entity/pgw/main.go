@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/VegetableManII/volte/controller"
+	"github.com/VegetableManII/volte/entity"
 	. "github.com/VegetableManII/volte/modules"
 
 	"github.com/spf13/viper"
@@ -46,10 +47,10 @@ func main() {
 }
 
 func init() {
-	localhost = viper.GetString("EPC.pgw.host")
-	eNodeBhost = viper.GetString("EPC.eNodeB.host")
-	cscfHost = viper.GetString("IMS.p-cscf.host")
-	dhcp := viper.GetString("EPC.pgw.dhcp")
+	localhost = viper.GetString(entity.Domain + ".pgw.host")
+	eNodeBhost = viper.GetString(entity.Domain + ".eNodeB.host")
+	cscfHost = viper.GetString(entity.Domain + ".p-cscf.host")
+	dhcp := viper.GetString(entity.Domain + ".pgw.dhcp")
 	logger.Info("配置文件读取成功", "")
 	self = new(controller.PgwEntity)
 	self.Init(dhcp)

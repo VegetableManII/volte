@@ -1,4 +1,4 @@
-package modules
+package entity
 
 import (
 	"flag"
@@ -11,13 +11,16 @@ import (
 	"github.com/wonderivan/logger"
 )
 
+var Domain string
+
 func init() {
 	var confile string
+	flag.StringVar(&Domain, "d", "", "网络域")
 	flag.StringVar(&confile, "f", "", "配置文件路径")
 	flag.Parse()
 
 	_, err := os.Stat(confile)
-	if err != nil {
+	if err != nil || len(os.Args) < 3 {
 		flag.Usage()
 		os.Exit(0)
 	}
@@ -27,14 +30,13 @@ func init() {
 		log.Fatal("获取运行目录失败")
 	}
 
+	args := strings.Split(os.Args[0], "/")
+	pgnm := args[len(args)-1]
+	logconf = strings.ReplaceAll(logconf, "#entity", pgnm)
 	if runtime.GOOS != "windows" {
-		args := strings.Split(os.Args[0], "/")
-		pgnm := args[len(args)-1]
-		logconf = strings.ReplaceAll(logconf, "#entity", pgnm)
-		if pgnm == "eNodeB.exe" {
-			logconf = ""
-		}
 		logger.SetLogger(logconf)
+	} else {
+		logconf = strings.Replace(logconf, "/tmp", ".", 1)
 	}
 
 	logger.SetLogPathTrim(path)

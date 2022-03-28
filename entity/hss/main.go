@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/VegetableManII/volte/controller"
+	"github.com/VegetableManII/volte/entity"
 	"github.com/VegetableManII/volte/modules"
 	. "github.com/VegetableManII/volte/modules"
 
@@ -46,17 +47,15 @@ func main() {
 }
 
 func init() {
-	localhost = viper.GetString("HSS.host")
-	mme := viper.GetString("EPC.mme.host")
-	icscf := viper.GetString("IMS.i-cscf.host")
-	scscf := viper.GetString("IMS.s-cscf.host")
+	localhost = viper.GetString("hss.host")
+	icscf := viper.GetString(entity.Domain + ".i-cscf.host")
+	scscf := viper.GetString(entity.Domain + ".s-cscf.host")
 
-	dbhost := viper.GetString("mysql.host")
-	logger.Info("配置文件读取成功 HSS.host: %v EPC.mme.host: %v IMS.i-cscf.host: %v IMS.s-cscf.host: %v", localhost, mme, icscf, scscf)
+	db := viper.GetString("mysql.host")
+	logger.Info("配置文件读取成功 HSS.host: %v i-cscf.host: %v s-cscf.host: %v", localhost, icscf, scscf)
 
 	self = new(controller.HssEntity)
-	self.Init(dbhost)
-	self.Points["MME"] = mme
+	self.Init(db)
 	self.Points["ICSCF"] = icscf
 	self.Points["SCSCF"] = scscf
 	RegistRouter()
