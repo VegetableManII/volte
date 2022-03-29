@@ -12,7 +12,7 @@ eNodeB:
 hebeiyidong:
   # epc 网络功能实体
   enb.id: "100231511300031"
-  pgw.host: 192.168.0.129:12348
+  pgw.host: 114.115.174.184:12348
   pgw.dhcp : 10.0.1.0/24
   # ims 网络功能实体
   p-cscf.host: 127.0.0.1:54321
@@ -22,7 +22,7 @@ hebeiyidong:
 chongqingdianxin:
   # epc 网络功能实体
   enb.id: "100231511300032"
-  pgw.host: 192.168.0.129:12347
+  pgw.host: 114.115.174.184:12347
   pgw.dhcp : 10.0.1.0/24
   # ims 网络功能实体
   p-cscf.host: 127.0.0.1:44321
