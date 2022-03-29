@@ -23,13 +23,13 @@ type HssEntity struct {
 	Points   map[string]string
 }
 
-func (h *HssEntity) Init(dbhost string) {
+func (h *HssEntity) Init(conf string) {
 	// 初始化路由
 	h.Mux = new(Mux)
 	h.router = make(map[[2]byte]BaseSignallingT)
 	h.Points = make(map[string]string)
 	// 初始化数据库连接
-	db, err := gorm.Open("mysql", dbhost)
+	db, err := gorm.Open("mysql", conf)
 	if err != nil {
 		log.Panicln("HSS初始化数据库连接失败", err)
 	}

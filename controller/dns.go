@@ -1,4 +1,4 @@
-package entity
+package controller
 
 import "github.com/spf13/viper"
 
@@ -39,7 +39,7 @@ func Init() {
 	Nodes["s-cscf."+domain] = &Node{Domain: "s-cscf." + domain, Host: scscf}
 }
 
-func Query(domain string) string {
+func DNSQuery(domain string) string {
 	if node, ok := Nodes[domain]; !ok {
 		return ""
 	} else {

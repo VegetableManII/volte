@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/VegetableManII/volte/entity"
+	"github.com/VegetableManII/volte/config"
 	"github.com/VegetableManII/volte/modules"
 
 	"github.com/spf13/viper"
@@ -66,7 +66,7 @@ func init() {
 	sport := viper.GetInt("eNodeB.server.port")
 	bcPort := viper.GetInt("eNodeB.broadcast.port")
 	sTime = viper.GetInt("eNodeB.scan.time")
-	CellID = viper.GetString(entity.Domain + ".enb.id")
+	CellID = viper.GetString(config.Domain + ".enb.id")
 	bmsg, _ = json.Marshal(&EpcMsg{
 		Protocal: "epc",
 		Method:   "random access",
@@ -77,7 +77,7 @@ func init() {
 	bConn, bAddr = initAPServer(sport, bcPort)
 	NetSideConn = new(CoreNetConnection)
 	// 创建于PGW的UDP连接
-	NetSideConn.PgwAddr = viper.GetString(entity.Domain + ".pgw.host")
+	NetSideConn.PgwAddr = viper.GetString(config.Domain + ".pgw.host")
 	NetSideConn.beatheart = viper.GetInt("eNodeB.beatheart.time")
 	logger.Info("配置文件读取成功", "")
 }

@@ -6,8 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/VegetableManII/volte/config"
 	"github.com/VegetableManII/volte/controller"
-	"github.com/VegetableManII/volte/entity"
 	. "github.com/VegetableManII/volte/modules"
 
 	"github.com/spf13/viper"
@@ -47,16 +47,16 @@ func main() {
 }
 
 func init() {
-	localhost = viper.GetString(entity.Domain + ".pgw.host")
-	eNodeBhost = viper.GetString(entity.Domain + ".eNodeB.host")
-	cscfHost = viper.GetString(entity.Domain + ".p-cscf.host")
-	dhcp := viper.GetString(entity.Domain + ".pgw.dhcp")
+	localhost = viper.GetString(config.Domain + ".pgw.host")
+	eNodeBhost = viper.GetString(config.Domain + ".eNodeB.host")
+	cscfHost = viper.GetString(config.Domain + ".p-cscf.host")
+	dhcp := viper.GetString(config.Domain + ".pgw.dhcp")
 	logger.Info("配置文件读取成功", "")
 	self = new(controller.PgwEntity)
 	self.Init(dhcp)
 	self.Points["CSCF"] = cscfHost
 	RegistRouter()
-	entity.Init()
+	controller.Init()
 }
 
 func RegistRouter() {

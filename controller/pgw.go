@@ -13,7 +13,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/VegetableManII/volte/entity"
 	"github.com/VegetableManII/volte/modules"
 	"github.com/VegetableManII/volte/sip"
 
@@ -128,7 +127,7 @@ func (p *PgwEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up, d
 		logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 		domain := sipreq.RequestLine.RequestURI.Domain
 		logger.Warn("[%v] request domain: %v", ctx.Value("Entity"), domain)
-		if host := entity.Query(domain); host != "" {
+		if host := DNSQuery(domain); host != "" {
 			pkg.SetFixedConn(host)
 		} else {
 			pkg.SetFixedConn(p.Points["CSCF"])
@@ -164,7 +163,7 @@ func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, 
 		logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 		domain := sipresp.RequestLine.RequestURI.Domain
 		logger.Warn("[%v] response domain: %v", ctx.Value("Entity"), domain)
-		if host := entity.Query(domain); host != "" {
+		if host := DNSQuery(domain); host != "" {
 			pkg.SetFixedConn(host)
 		} else {
 			pkg.SetFixedConn(p.Points["CSCF"])

@@ -6,8 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/VegetableManII/volte/config"
 	"github.com/VegetableManII/volte/controller"
-	"github.com/VegetableManII/volte/entity"
 	. "github.com/VegetableManII/volte/modules"
 
 	"github.com/spf13/viper"
@@ -46,11 +46,11 @@ func main() {
 }
 
 func init() {
-	pcscf := viper.GetString(entity.Domain + ".p-cscf.host")
-	scscf := viper.GetString(entity.Domain + ".s-cscf.host")
+	pcscf := viper.GetString(config.Domain + ".p-cscf.host")
+	scscf := viper.GetString(config.Domain + ".s-cscf.host")
 	hss := viper.GetString("hss.host")
-	localhost = viper.GetString(entity.Domain + ".i-cscf.host")
-	dns := viper.GetString(entity.Domain + ".domain")
+	localhost = viper.GetString(config.Domain + ".i-cscf.host")
+	dns := viper.GetString(config.Domain + ".domain")
 	logger.Info("配置文件读取成功", "")
 	// 启动 ISCF 的UDP服务器
 	self = new(controller.I_CscfEntity)
@@ -59,7 +59,6 @@ func init() {
 	self.Points["SCSCF"] = scscf
 	self.Points["HSS"] = hss
 	RegistRouter()
-	entity.Init()
 }
 
 func RegistRouter() {
