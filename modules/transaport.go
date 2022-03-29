@@ -83,7 +83,7 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 						logger.Error("[%v] 同步响应下级节点失败 %v", ctx.Value("Entity"), err)
 					}
 				} else { // 使用固定连接
-					err = sendUDPMessage(ctx, host, pkg)
+					err = sendUDPMessage(ctx, host, pkg.GetEpcMessage())
 					if err != nil {
 						logger.Error("[%v] 请求下级节点失败 %v", ctx.Value("Entity"), err)
 					}
@@ -96,7 +96,7 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 						logger.Error("[%v] 同步响应下级节点失败 %v", ctx.Value("Entity"), err)
 					}
 				} else {
-					err = sendUDPMessage(ctx, host, pkg)
+					err = sendUDPMessage(ctx, host, pkg.GetSipMessage())
 					if err != nil {
 						logger.Error("[%v] 请求下级节点失败 %v", ctx.Value("Entity"), err)
 					}
@@ -117,12 +117,12 @@ func ProcessUpStreamData(ctx context.Context, up chan *Package) {
 			host := string(pkt.FixedConn)
 			var err error
 			if pkt._protocal == EPCPROTOCAL {
-				err = sendUDPMessage(ctx, host, pkt)
+				err = sendUDPMessage(ctx, host, pkt.GetEpcMessage())
 				if err != nil {
 					logger.Error("[%v] 请求上级节点失败 %v", ctx.Value("Entity"), err)
 				}
 			} else {
-				err = sendUDPMessage(ctx, host, pkt)
+				err = sendUDPMessage(ctx, host, pkt.GetSipMessage())
 				if err != nil {
 					logger.Error("[%v] 请求上级节点失败 %v", ctx.Value("Entity"), err)
 				}
@@ -169,14 +169,14 @@ func Send(pkg *Package, out chan *Package) {
 // }
 
 // 需要向其他功能实体发送数据是的通用方法，异步接收
-func sendUDPMessage(ctx context.Context, host string, pkg *Package) (err error) {
+func sendUDPMessage(ctx context.Context, host string, data []byte) (err error) {
 	defer Recover(ctx)
 	ra, err := net.Dial("udp4", host)
 	if err != nil {
 		return err
 	}
 	defer ra.Close()
-	err = binary.Write(ra, binary.BigEndian, pkg.CommonMsg)
+	err = binary.Write(ra, binary.BigEndian, data)
 	if err != nil {
 		return err
 	}
