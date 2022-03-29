@@ -130,7 +130,7 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 				modules.Send(pkg, down)
 			}
 		}
-	case sip.MethodInvite:
+	case sip.MethodInvite, sip.MethodPrack, sip.MethodUpdate:
 		domain := sipreq.RequestLine.RequestURI.Domain
 		user := sipreq.RequestLine.RequestURI.Username
 		callee := i.iCache.getUserInfo(user)

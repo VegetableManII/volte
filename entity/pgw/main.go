@@ -56,6 +56,7 @@ func init() {
 	self.Init(dhcp)
 	self.Points["CSCF"] = cscfHost
 	RegistRouter()
+	entity.Init()
 }
 
 func RegistRouter() {

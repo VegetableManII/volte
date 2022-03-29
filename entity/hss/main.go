@@ -59,6 +59,7 @@ func init() {
 	self.Points["ICSCF"] = icscf
 	self.Points["SCSCF"] = scscf
 	RegistRouter()
+	entity.Init()
 }
 
 func RegistRouter() {

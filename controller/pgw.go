@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/VegetableManII/volte/entity"
 	"github.com/VegetableManII/volte/modules"
 	"github.com/VegetableManII/volte/sip"
 
@@ -125,7 +126,13 @@ func (p *PgwEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up, d
 	} else {
 		// 来自下游节点，向上游转发
 		logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-		pkg.SetFixedConn(p.Points["CSCF"])
+		domain := sipreq.RequestLine.RequestURI.Domain
+		logger.Warn("[%v] request domain: %v", ctx.Value("Entity"), domain)
+		if host := entity.Query(domain); host != "" {
+			pkg.SetFixedConn(host)
+		} else {
+			pkg.SetFixedConn(p.Points["CSCF"])
+		}
 		modules.Send(pkg, up) // 上行
 	}
 	return nil
@@ -154,6 +161,13 @@ func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, 
 		modules.Send(pkg, down)
 	} else {
 		logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+		domain := sipresp.RequestLine.RequestURI.Domain
+		logger.Warn("[%v] response domain: %v", ctx.Value("Entity"), domain)
+		if host := entity.Query(domain); host != "" {
+			pkg.SetFixedConn(host)
+		} else {
+			pkg.SetFixedConn(p.Points["CSCF"])
+		}
 		pkg.SetFixedConn(p.Points["CSCF"])
 		modules.Send(pkg, up)
 	}

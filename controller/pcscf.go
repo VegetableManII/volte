@@ -87,7 +87,7 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, up)
 		}
-	case sip.MethodInvite:
+	case sip.MethodInvite, sip.MethodPrack, sip.MethodUpdate:
 		via, _ := sipreq.Header.Via.FirstAddrInfo()
 		if strings.Contains(via, "i-cscf") { // INVITE请求来自ICSCF
 			logger.Info("[%v] Receive From ICSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))

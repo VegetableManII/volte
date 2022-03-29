@@ -78,7 +78,7 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		pkg.SetFixedConn(s.Points["HSS"])
 		pkg.Construct(modules.EPCPROTOCAL, modules.MultiMediaAuthenticationRequest, modules.StrLineMarshal(table))
 		modules.Send(pkg, up)
-	case "INVITE":
+	case sip.MethodInvite, sip.MethodPrack, sip.MethodUpdate:
 
 	}
 	return nil

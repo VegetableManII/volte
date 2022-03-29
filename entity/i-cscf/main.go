@@ -59,6 +59,7 @@ func init() {
 	self.Points["SCSCF"] = scscf
 	self.Points["HSS"] = hss
 	RegistRouter()
+	entity.Init()
 }
 
 func RegistRouter() {
