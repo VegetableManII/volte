@@ -30,3 +30,6 @@ chongqingdianxin:
   s-cscf.host: 127.0.0.1:44323
   domain: chongqingdianxin.3gpp.net
 
+hss:
+  host: 127.0.0.1:7777
+

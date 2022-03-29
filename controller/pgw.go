@@ -132,7 +132,6 @@ func (p *PgwEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up, d
 		} else {
 			pkg.SetFixedConn(p.Points["CSCF"])
 		}
-
 		modules.Send(pkg, up) // 上行
 	}
 	return nil
