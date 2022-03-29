@@ -84,7 +84,6 @@ func (h *HssEntity) MultimediaAuthorizationRequestF(ctx context.Context, p *modu
 		AV_IK:      hex.EncodeToString(IK),
 	}
 	// 在接收消息的步骤中已经设置同步连接
-	p.SetFixedConn(h.Points["ICSCF"])
 	p.Construct(modules.EPCPROTOCAL, modules.MultiMediaAuthenticationAnswer, modules.StrLineMarshal(response))
 	modules.Send(p, down)
 	return nil
