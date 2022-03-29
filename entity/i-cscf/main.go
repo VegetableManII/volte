@@ -48,7 +48,7 @@ func main() {
 func init() {
 	pcscf := viper.GetString(config.Domain + ".p-cscf.host")
 	scscf := viper.GetString(config.Domain + ".s-cscf.host")
-	hss := viper.GetString("hss.host")
+	hss := viper.GetString(config.Domain + "hss.host")
 	localhost = viper.GetString(config.Domain + ".i-cscf.host")
 	dns := viper.GetString(config.Domain + ".domain")
 	logger.Info("配置文件读取成功", "")

@@ -47,7 +47,7 @@ func main() {
 }
 
 func init() {
-	hss := viper.GetString("hss.host")
+	hss := viper.GetString(config.Domain + "hss.host")
 	icscf := viper.GetString(config.Domain + ".i-cscf.host")
 	localhost = viper.GetString(config.Domain + ".s-cscf.host")
 	dns := viper.GetString(config.Domain + ".domain")
