@@ -2,7 +2,7 @@ package modules
 
 import (
 	"context"
-	"errors"
+	"encoding/binary"
 	"log"
 	"net"
 	"time"
@@ -83,7 +83,7 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 						logger.Error("[%v] 同步响应下级节点失败 %v", ctx.Value("Entity"), err)
 					}
 				} else { // 使用固定连接
-					err = sendUDPMessage(ctx, host, pkg.GetEpcMessage())
+					err = sendUDPMessage(ctx, host, pkg)
 					if err != nil {
 						logger.Error("[%v] 请求下级节点失败 %v", ctx.Value("Entity"), err)
 					}
@@ -96,7 +96,7 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 						logger.Error("[%v] 同步响应下级节点失败 %v", ctx.Value("Entity"), err)
 					}
 				} else {
-					err = sendUDPMessage(ctx, host, pkg.GetSipMessage())
+					err = sendUDPMessage(ctx, host, pkg)
 					if err != nil {
 						logger.Error("[%v] 请求下级节点失败 %v", ctx.Value("Entity"), err)
 					}
@@ -117,12 +117,12 @@ func ProcessUpStreamData(ctx context.Context, up chan *Package) {
 			host := string(pkt.FixedConn)
 			var err error
 			if pkt._protocal == EPCPROTOCAL {
-				err = sendUDPMessage(ctx, host, pkt.GetEpcMessage())
+				err = sendUDPMessage(ctx, host, pkt)
 				if err != nil {
 					logger.Error("[%v] 请求上级节点失败 %v", ctx.Value("Entity"), err)
 				}
 			} else {
-				err = sendUDPMessage(ctx, host, pkt.GetSipMessage())
+				err = sendUDPMessage(ctx, host, pkt)
 				if err != nil {
 					logger.Error("[%v] 请求上级节点失败 %v", ctx.Value("Entity"), err)
 				}
@@ -135,21 +135,50 @@ func Send(pkg *Package, out chan *Package) {
 	out <- pkg
 }
 
+// func SyncRequest(ctx context.Context, pkg *Package) (*Package, error) {
+// 	logger.Error("[%v] 同步请求", ctx.Value("Entity"))
+// 	host := pkg.GetFixedConn()
+// 	ra, err := net.Dial("udp4", host)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	ra.SetReadDeadline(time.Now().Add(time.Second * 5))
+// 	defer ra.Close()
+// 	err = binary.Write(ra, binary.BigEndian, pkg.CommonMsg)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	data := make([]byte, 65535)
+// 	n, err := ra.Read(data)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	if n == 0 {
+// 		logger.Error("[%v] 同步请求,响应数据结果为空", ctx.Value("Entity"))
+// 		return nil, errors.New("ErrEmptyResponse")
+// 	}
+// 	pkg0 := new(Package)
+// 	err = pkg0.Init(data)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	// 同步响应忽略数据来源
+// 	// pkg0.SetDynamicAddr()
+// 	// pkg0.SetDynamicConn()
+// 	return pkg0, nil
+// }
+
 // 需要向其他功能实体发送数据是的通用方法，异步接收
-func sendUDPMessage(ctx context.Context, host string, data []byte) (err error) {
+func sendUDPMessage(ctx context.Context, host string, pkg *Package) (err error) {
 	defer Recover(ctx)
-	var n int
 	ra, err := net.Dial("udp4", host)
 	if err != nil {
 		return err
 	}
 	defer ra.Close()
-	n, err = ra.Write(data)
+	err = binary.Write(ra, binary.BigEndian, pkg.CommonMsg)
 	if err != nil {
 		return err
-	}
-	if n == 0 {
-		return errors.New("ErrSendEmpty")
 	}
 	return nil
 }
@@ -159,7 +188,6 @@ func distribute(ctx context.Context, data []byte, ra *net.UDPAddr, conn *net.UDP
 	defer Recover(ctx)
 	pkg := new(Package)
 	err := pkg.Init(data)
-
 	if err != nil {
 		logger.Error("[%v] 消息分发失败, Error: %v", ctx.Value("Entity"), err)
 	} else {

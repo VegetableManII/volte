@@ -67,7 +67,7 @@ func (p *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *module
 		case pkg := <-in:
 			// 兼容心跳包
 			if pkg.IsBeatHeart() {
-				p.pCache.updateAddress(pkg.GetDynamicAddr(), pkg.GetFixedConn())
+				p.pCache.updateAddress(AddrPrefix+pkg.GetFixedConn(), pkg.GetDynamicAddr())
 			} else {
 				f, ok := p.router[pkg.GetRoute()]
 				if !ok {
@@ -115,7 +115,7 @@ func (p *PgwEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up, d
 	}
 	utran := sipreq.Header.AccessNetworkInfo
 	logger.Info("[%v] 接入点 %v", ctx.Value("Entity"), utran)
-	raddr := p.pCache.getAddress(utran)
+	raddr := p.pCache.getAddress(AddrPrefix + utran)
 	logger.Warn("[%v] 缓存接入点 %v, 数据包连接 addr: %v", ctx.Value("Entity"), raddr.String(), pkg.GetDynamicAddr().String())
 	// 判断来自上游节点还是下游节点
 	if pkg.GetDynamicAddr().String() != raddr.String() {
@@ -149,7 +149,7 @@ func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, 
 	}
 	utran := sipresp.Header.AccessNetworkInfo
 	logger.Info("[%v] 接入点 %v", ctx.Value("Entity"), utran)
-	raddr := p.pCache.getAddress(utran)
+	raddr := p.pCache.getAddress(AddrPrefix + utran)
 	logger.Warn("[%v] 缓存接入点 %v, 数据包连接 addr: %v", ctx.Value("Entity"), raddr.String(), pkg.GetDynamicAddr().String())
 	// 判断来自上游节点还是下游节点
 	if pkg.GetDynamicAddr().String() != raddr.String() {
@@ -157,7 +157,7 @@ func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, 
 		logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 		// 请求寻找无线接入点
 		utran := strings.Trim(sipresp.Header.AccessNetworkInfo, " ")
-		raddr := p.pCache.getAddress(utran)
+		raddr := p.pCache.getAddress(AddrPrefix + utran)
 		pkg.SetDynamicAddr(raddr)
 		modules.Send(pkg, down)
 	} else {

@@ -87,16 +87,21 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		// TODO 根据Request-URI获取对应域，向HSS询问对应域的cscf的IP地址
 		if !strings.Contains(sipreq.Header.Authorization, "response") {
 			// 首次注册请求，请求S-CSCF拿到用户向量
-			i.iCache.setUserRegistReq("req"+user, &sipreq)
-			pkg.SetFixedConn(i.Points["SCSCF"])
-			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
+			i.iCache.setUserRegistReq(ReqPrefix+user, &sipreq)
+			user := sipreq.Header.From.Username()
+			// 向HSS发起MAR，查询信息
+			table := map[string]string{
+				"UserName": user,
+			}
+			pkg.SetFixedConn(i.Points["HSS"])
+			pkg.Construct(modules.EPCPROTOCAL, modules.MultiMediaAuthenticationRequest, modules.StrLineMarshal(table))
 			modules.Send(pkg, up)
 		} else { // 第二次发起注册，进行用户身份验证
 			downlink := i.Points["PCSCF"]
 			pkg.SetFixedConn(downlink)
 
 			values := parseAuthentication(sipreq.Header.Authorization)
-			XRES := i.iCache.getUserRegistXRES("req" + user)
+			XRES := i.iCache.getUserRegistXRES(ReqPrefix + user)
 			res, err := base64.RawStdEncoding.DecodeString(values["response"])
 			if err != nil {
 				logger.Error("[%v] 解码response失败: %v", ctx.Value("Entity"), err)
@@ -110,8 +115,8 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 				name := sipreq.Header.From.Username()
 				u.Domain = sipreq.Header.From.URI.Domain
 				u.AccessPoint = sipreq.Header.AccessNetworkInfo
-				i.iCache.delUserRegistReqXRES(user)
-				if err := i.iCache.setUserInfo(name, u); err != nil {
+				i.iCache.delUserRegistReqXRES(ReqPrefix + user)
+				if err := i.iCache.setUserInfo(UeInfoPrefix+name, u); err != nil {
 					// 录入系统失败，注册失败
 					sipresp := sip.NewResponse(sip.StatusServerInternalError, &sipreq)
 					pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
@@ -123,7 +128,7 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 				pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 				modules.Send(pkg, down)
 			} else { // 验证不通过
-				i.iCache.delUserRegistReqXRES(user)
+				i.iCache.delUserRegistReqXRES(ReqPrefix + user)
 				sresp := sip.NewResponse(sip.StatusUnauthorized, &sipreq)
 				logger.Info("[%v] 发起对UE鉴权: %v", ctx.Value("Entity"), sresp.String())
 				pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sresp.String())
@@ -133,7 +138,7 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 	case sip.MethodInvite, sip.MethodPrack, sip.MethodUpdate:
 		domain := sipreq.RequestLine.RequestURI.Domain
 		user := sipreq.RequestLine.RequestURI.Username
-		callee := i.iCache.getUserInfo(user)
+		callee := i.iCache.getUserInfo(UeInfoPrefix + user)
 
 		logger.Warn("callee domain: %v, request domain: %v", callee.Domain, domain)
 
@@ -203,7 +208,7 @@ func (i *I_CscfEntity) MutimediaAuthorizationAnswerF(ctx context.Context, pkg *m
 	XRES := resp["XRES"]
 	RAND := resp["RAND"]
 	// 首先获取缓存中的请求
-	req, ok := i.iCache.getUserRegistReq("req" + user)
+	req, ok := i.iCache.getUserRegistReq(ReqPrefix + user)
 	if !ok {
 		// 鉴权请求已过期
 		sipresp := sip.NewResponse(sip.StatusGone, req)
@@ -213,14 +218,14 @@ func (i *I_CscfEntity) MutimediaAuthorizationAnswerF(ctx context.Context, pkg *m
 		return errors.New("ErrRequestExpired")
 	}
 	// 保存用户鉴权
-	err := i.iCache.setUserRegistXRES("req"+user, XRES)
+	err := i.iCache.setUserRegistXRES(ReqPrefix+user, XRES)
 	if err != nil {
 		sipresp := sip.NewResponse(sip.StatusServerTimeout, req)
 		pkg.SetFixedConn(i.Points["PCSCF"])
 		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 		modules.Send(pkg, down)
 		// 删除注册请求
-		i.iCache.delUserRegistReqXRES(user)
+		i.iCache.delUserRegistReqXRES(ReqPrefix + user)
 		return err
 	}
 	// 组装WWW-Authenticate

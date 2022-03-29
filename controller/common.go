@@ -42,6 +42,9 @@ type Base interface {
 }
 
 var defExpire time.Duration = 120 * time.Second
+var ReqPrefix = "req:"
+var AddrPrefix = "addr:"
+var UeInfoPrefix = "uinfo:"
 
 type Cache struct {
 	*cache.Cache
@@ -54,22 +57,21 @@ func initCache() *Cache {
 }
 
 // PGW 更新基站网络连接
-func (p *Cache) updateAddress(ra *net.UDPAddr, enb string) error {
-	_, ok := p.Get(enb)
-	val := ra
+func (p *Cache) updateAddress(key string, val *net.UDPAddr) error {
+	_, ok := p.Get(key)
 	if !ok { // 不存在该无线接入点的缓存
-		err := p.Add(enb, ra, cache.NoExpiration)
+		err := p.Add(key, val, cache.NoExpiration)
 		if err != nil {
 			return err
 		}
 	}
-	p.Set(enb, val, cache.NoExpiration)
+	p.Set(key, val, cache.NoExpiration)
 	return nil
 }
 
 // PGW 根据基站标识获取基站网络连接
-func (p *Cache) getAddress(name string) *net.UDPAddr {
-	ra, ok := p.Get(name)
+func (p *Cache) getAddress(key string) *net.UDPAddr {
+	ra, ok := p.Get(key)
 	if !ok {
 		return nil
 	}

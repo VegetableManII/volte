@@ -15,11 +15,8 @@ type Node struct {
 
 var Nodes map[string]*Node
 
-func init() {
-	Nodes = make(map[string]*Node)
-}
-
 func Init() {
+	Nodes = make(map[string]*Node)
 	// 河北移动
 	domain := viper.GetString("hebeiyidong.domain")
 	pgw := viper.GetString("hebeiyidong.pgw.host")
