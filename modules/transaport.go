@@ -70,22 +70,22 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 		select {
 		case <-ctx.Done():
 			// 释放资源
-			logger.Warn("[%v] 发送消息协程退出", ctx.Value("Entity"))
+			logger.Warn("[%v] 发送下行消息协程退出", ctx.Value("Entity"))
 			return
 		case pkg := <-down:
 			host := string(pkg.FixedConn)
 			var err error
 			if pkg._protocal == EPCPROTOCAL {
-				// 同步响应结果 或 使用动态连接
+				// 使用下游固定地址 或 使用下游连接
 				if host == "" {
 					n, err := pkg.conn.WriteToUDP(pkg.GetEpcMessage(), pkg.remoteAddr)
 					if err != nil || n == 0 {
-						logger.Error("[%v] 同步响应下级节点失败 %v", ctx.Value("Entity"), err)
+						logger.Error("[%v] 向下行连接发送数据失败 err: %v, down: %v", ctx.Value("Entity"), err, pkg.remoteAddr)
 					}
 				} else { // 使用固定连接
 					err = sendUDPMessage(ctx, host, pkg.GetEpcMessage())
 					if err != nil {
-						logger.Error("[%v] 请求下级节点失败 %v", ctx.Value("Entity"), err)
+						logger.Error("[%v] 向下行固定网络地址发送数据失败 err: %v, dowm: %v", ctx.Value("Entity"), err, host)
 					}
 				}
 
@@ -93,12 +93,12 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 				if host == "" {
 					n, err := pkg.conn.WriteToUDP(pkg.GetSipMessage(), pkg.remoteAddr)
 					if err != nil || n == 0 {
-						logger.Error("[%v] 同步响应下级节点失败 %v", ctx.Value("Entity"), err)
+						logger.Error("[%v] 向下行连接发送数据失败 err: %v, down: %v", ctx.Value("Entity"), err, pkg.remoteAddr)
 					}
 				} else {
 					err = sendUDPMessage(ctx, host, pkg.GetSipMessage())
 					if err != nil {
-						logger.Error("[%v] 请求下级节点失败 %v", ctx.Value("Entity"), err)
+						logger.Error("[%v] 向下行固定网络地址发送数据失败 err: %v, dowm: %v", ctx.Value("Entity"), err, host)
 					}
 				}
 			}
@@ -111,7 +111,7 @@ func ProcessUpStreamData(ctx context.Context, up chan *Package) {
 		defer Recover(ctx)
 		select {
 		case <-ctx.Done():
-			logger.Warn("[%v] 与上级节点通信协程退出...", ctx.Value("Entity"))
+			logger.Warn("[%v] 与上行节点通信协程退出...", ctx.Value("Entity"))
 			return
 		case pkt := <-up:
 			host := string(pkt.FixedConn)
@@ -119,12 +119,12 @@ func ProcessUpStreamData(ctx context.Context, up chan *Package) {
 			if pkt._protocal == EPCPROTOCAL {
 				err = sendUDPMessage(ctx, host, pkt.GetEpcMessage())
 				if err != nil {
-					logger.Error("[%v] 请求上级节点失败 %v", ctx.Value("Entity"), err)
+					logger.Error("[%v] 向上行节点发送数据失败 err: %v, up: %v", ctx.Value("Entity"), err, host)
 				}
 			} else {
 				err = sendUDPMessage(ctx, host, pkt.GetSipMessage())
 				if err != nil {
-					logger.Error("[%v] 请求上级节点失败 %v", ctx.Value("Entity"), err)
+					logger.Error("[%v] 向上行节点发送数据失败 err: %v, up: %v", ctx.Value("Entity"), err, host)
 				}
 			}
 		}
