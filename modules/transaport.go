@@ -75,7 +75,7 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 		case pkg := <-down:
 			host := string(pkg.FixedConn)
 			var err error
-			logger.Warn("#######%v,%v,%v,%v", pkg._protocal, pkg._method, string(pkg.GetData()))
+			logger.Warn("#######%v,%v,%v", pkg._protocal, pkg._method, string(pkg.GetData()))
 			if pkg._protocal == EPCPROTOCAL {
 				// 使用下游固定地址 或 使用下游连接
 				if host == "" {
