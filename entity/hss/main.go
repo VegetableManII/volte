@@ -57,6 +57,7 @@ func init() {
 	self = new(controller.HssEntity)
 	self.Init("root:@tcp(127.0.0.1:3306)/volte?charset=utf8&parseTime=True&loc=Local")
 	self.Points["HBICSCF"] = "127.0.0.1:54322"
+	self.Points["CQICSCF"] = "127.0.0.1:44322"
 	RegistRouter()
 }
 
