@@ -134,6 +134,7 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		if first, _ := sipreq.Header.Via.FirstAddrInfo(); strings.Contains(first, "i-cscf") {
 			// 直接向下行转发
 		} else {
+			//
 			sipreq.Header.Via.AddServerInfo()
 			domain := sipreq.RequestLine.RequestURI.Domain
 			user := sipreq.RequestLine.RequestURI.Username
