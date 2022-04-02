@@ -56,7 +56,6 @@ func init() {
 	} else {
 		other = viper.GetString("hebeiyidong.i-cscf.host")
 	}
-	self.Points["OTHER"] = other
 	dns := viper.GetString(config.Domain + ".domain")
 	logger.Info("配置文件读取成功", "")
 	// 启动 ISCF 的UDP服务器
@@ -65,6 +64,7 @@ func init() {
 	self.Points["PCSCF"] = pcscf
 	self.Points["SCSCF"] = scscf
 	self.Points["HSS"] = hss
+	self.Points["OTHER"] = other
 	RegistRouter()
 }
 

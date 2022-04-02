@@ -32,10 +32,13 @@ func NewResponse(code StatusCodeItem, req *Message) *Message {
 			Via:               req.Header.Via,
 			From:              req.Header.From,
 			To:                req.Header.To,
+			Contact:           req.Header.Contact,
 			CSeq:              req.Header.CSeq,
 			CallID:            req.Header.CallID,
 			MaxForwards:       req.Header.MaxForwards,
 			AccessNetworkInfo: req.Header.AccessNetworkInfo,
+			ContentLength:     req.Header.ContentLength,
+			ContentType:       req.Header.ContentType,
 		},
 		Body: "",
 	}
