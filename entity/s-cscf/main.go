@@ -48,15 +48,15 @@ func main() {
 
 func init() {
 	hss := viper.GetString("hss.host")
-	icscf := viper.GetString(config.Domain + ".i-cscf.host")
 	localhost = viper.GetString(config.Domain + ".s-cscf.host")
+	pcscf := viper.GetString(config.Domain + ".p-cscf.host")
 	dns := viper.GetString(config.Domain + ".domain")
 	logger.Info("配置文件读取成功", "")
 	// 启动 CSCF 的UDP服务器
 	self = new(controller.S_CscfEntity)
 	self.Init("s-cscf."+dns, localhost)
+	self.Points["PCSCF"] = pcscf
 	self.Points["HSS"] = hss
-	self.Points["ICSCF"] = icscf
 	RegistRouter()
 }
 

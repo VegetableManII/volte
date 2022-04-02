@@ -77,92 +77,15 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		return err
 	}
 	// 增加Via头部信息
-	user := sipreq.Header.From.Username()
-	sipreq.Header.MaxForwards.Reduce()
-	sipreq.Header.Via.SetReceivedInfo("UDP", fmt.Sprintf("%s:%d", sip.ServerIP, sip.ServerPort))
-	sipreq.Header.Via.AddServerInfo()
+	// user := sipreq.Header.From.Username()
+	// sipreq.Header.MaxForwards.Reduce()
+	// sipreq.Header.Via.SetReceivedInfo("UDP", fmt.Sprintf("%s:%d", sip.ServerIP, sip.ServerPort))
+	// sipreq.Header.Via.AddServerInfo()
 	switch sipreq.RequestLine.Method {
 	case sip.MethodRegister:
-		logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-		// TODO 根据Request-URI获取对应域，向HSS询问对应域的cscf的IP地址
-		if !strings.Contains(sipreq.Header.Authorization, "response") {
-			// 首次注册请求，请求S-CSCF拿到用户向量
-			i.iCache.setUserRegistReq(ReqPrefix+user, &sipreq)
-			user := sipreq.Header.From.Username()
-			// 向HSS发起MAR，查询信息
-			table := map[string]string{
-				"UserName": user,
-			}
-			pkg.SetFixedConn(i.Points["HSS"])
-			pkg.Construct(modules.EPCPROTOCAL, modules.MultiMediaAuthenticationRequest, modules.StrLineMarshal(table))
-			modules.Send(pkg, up)
-		} else { // 第二次发起注册，进行用户身份验证
-			downlink := i.Points["PCSCF"]
-			pkg.SetFixedConn(downlink)
-
-			values := parseAuthentication(sipreq.Header.Authorization)
-			XRES := i.iCache.getUserRegistXRES(ReqPrefix + user)
-			res, err := base64.RawStdEncoding.DecodeString(values["response"])
-			if err != nil {
-				logger.Error("[%v] 解码response失败: %v", ctx.Value("Entity"), err)
-				return err
-			}
-			RES := hex.EncodeToString(res)
-			logger.Warn("[%v] XRES: %v, RES: %v(byte: %x)", ctx.Value("Entity"), XRES, RES, res)
-			if XRES != "" && RES == XRES { // 验证通过
-				// 用户完成注册后，登记用户信息到系统中
-				u := new(User)
-				name := sipreq.Header.From.Username()
-				u.Domain = sipreq.Header.From.URI.Domain
-				u.AccessPoint = sipreq.Header.AccessNetworkInfo
-				i.iCache.delUserRegistReqXRES(ReqPrefix + user)
-				if err := i.iCache.setUserInfo(UeInfoPrefix+name, u); err != nil {
-					// 录入系统失败，注册失败
-					sipresp := sip.NewResponse(sip.StatusServerInternalError, &sipreq)
-					pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
-					modules.Send(pkg, down)
-					return err
-				}
-				// 注册成功
-				sipresp := sip.NewResponse(sip.StatusOK, &sipreq)
-				pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
-				modules.Send(pkg, down)
-			} else { // 验证不通过
-				i.iCache.delUserRegistReqXRES(ReqPrefix + user)
-				sresp := sip.NewResponse(sip.StatusUnauthorized, &sipreq)
-				logger.Info("[%v] 发起对UE鉴权: %v", ctx.Value("Entity"), sresp.String())
-				pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sresp.String())
-				modules.Send(pkg, down)
-			}
-		}
+		// TODO
 	case sip.MethodInvite, sip.MethodPrack, sip.MethodUpdate:
-		domain := sipreq.RequestLine.RequestURI.Domain
-		user := sipreq.RequestLine.RequestURI.Username
-		callee := i.iCache.getUserInfo(UeInfoPrefix + user)
 
-		logger.Warn("callee domain: %v, request domain: %v", callee.Domain, domain)
-
-		if callee == nil {
-			// 被叫用户在系统中找不到
-			sipresp := sip.NewResponse(sip.StatusRequestTerminated, &sipreq)
-			pkg.SetFixedConn(i.Points["ICSCF"])
-			pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
-			modules.Send(pkg, down)
-			return nil
-		}
-		// INVITE 回话建立请求，分为 同域 和 不同域
-		// 向对应域的ICSCF发起请求
-		if callee.Domain == domain { // 同一域 直接返回被叫地址，无需更改无线接入点
-			sipreq.Header.Via.SetReceivedInfo("UDP", fmt.Sprintf("%s:%d", sip.ServerIP, sip.ServerPort))
-			pkg.SetFixedConn(i.Points["PCSCF"])
-			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
-			modules.Send(pkg, down)
-		} else { // 不同域 查询对应域的ICSCF网络地址，修改无线接入点信息，向对应域发起请求
-			sipreq.Header.Via.SetReceivedInfo("UDP", fmt.Sprintf("%s:%d", sip.ServerIP, sip.ServerPort))
-			pkg.SetFixedConn("127.0.0.1:44322")
-			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
-			modules.Send(pkg, up)
-		}
 	}
 	return nil
 }
