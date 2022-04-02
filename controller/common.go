@@ -69,6 +69,15 @@ func (p *Cache) updateAddress(key string, val *net.UDPAddr) error {
 	return nil
 }
 
+// PCSCF添加客户端连接
+func (p *Cache) addAddress(key string, val *net.UDPAddr) error {
+	err := p.Add(key, val, cache.NoExpiration)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // PGW 根据基站标识获取基站网络连接
 func (p *Cache) getAddress(key string) *net.UDPAddr {
 	ra, ok := p.Get(key)

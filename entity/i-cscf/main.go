@@ -50,6 +50,13 @@ func init() {
 	scscf := viper.GetString(config.Domain + ".s-cscf.host")
 	hss := viper.GetString("hss.host")
 	localhost = viper.GetString(config.Domain + ".i-cscf.host")
+	other := ""
+	if config.Domain == "hebeiyidong" {
+		other = viper.GetString("chongqingdianxin.i-cscf.host")
+	} else {
+		other = viper.GetString("hebeiyidong.i-cscf.host")
+	}
+	self.Points["OTHER"] = other
 	dns := viper.GetString(config.Domain + ".domain")
 	logger.Info("配置文件读取成功", "")
 	// 启动 ISCF 的UDP服务器

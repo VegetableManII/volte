@@ -19,6 +19,7 @@ import (
 )
 
 type P_CscfEntity struct {
+	pCache *Cache
 	Points map[string]string
 	*Mux
 }
@@ -31,6 +32,7 @@ func (p *P_CscfEntity) Init(domain, host string) {
 	sip.ServerPort, _ = strconv.Atoi(strings.Split(host, ":")[1])
 	p.Points = make(map[string]string)
 	p.router = make(map[[2]byte]BaseSignallingT)
+	p.pCache = initCache()
 }
 
 func (p *P_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *modules.Package) {
@@ -63,6 +65,10 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		// TODO 错误处理
 		return err
 	}
+	// 缓存客户端连接
+	clt := sipreq.Header.Contact.URI.Domain
+	p.pCache.addAddress(AddrPrefix+clt, pkg.GetDynamicAddr())
+
 	sipreq.Header.MaxForwards.Reduce()
 	sipreq.Header.Via.SetReceivedInfo("UDP", fmt.Sprintf("%s:%d", sip.ServerIP, sip.ServerPort))
 	switch sipreq.RequestLine.Method {
@@ -123,6 +129,9 @@ func (p *P_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 		// TODO 错误处理
 		return err
 	}
+	// 查看有无缓存
+	clt := sipresp.Header.Contact.URI.Domain
+	addr := p.pCache.getAddress(AddrPrefix + clt)
 	via, _ := sipresp.Header.Via.FirstAddrInfo()
 	logger.Warn("@@@@@@@@@first: %v, server: %v", via, sip.ServerDomainHost())
 	// 删除第一个Via头部信息
@@ -130,14 +139,14 @@ func (p *P_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 	sipresp.Header.MaxForwards.Reduce()
 	// 判断下一跳是否是s-cscf
 	via, _ = sipresp.Header.Via.FirstAddrInfo()
-	if strings.Contains(via, "s-cscf") {
+	if strings.Contains(via, "i-cscf") {
 		logger.Info("[%v] Receive From PGW: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-		pkg.SetFixedConn(p.Points["ICSCF"])
+		pkg.SetDynamicAddr(addr)
 		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 		modules.Send(pkg, up)
 	} else { // 来自上行ICSCF的一般响应
 		logger.Info("[%v] Receive From ICSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-		pkg.SetFixedConn(p.Points["PGW"])
+		pkg.SetDynamicAddr(addr)
 		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 		modules.Send(pkg, down)
 	}

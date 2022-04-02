@@ -17,6 +17,7 @@ import (
 
 	"github.com/VegetableManII/volte/config"
 	"github.com/VegetableManII/volte/modules"
+	"github.com/VegetableManII/volte/sip"
 
 	"github.com/spf13/viper"
 	"github.com/wonderivan/logger"
@@ -113,17 +114,41 @@ func initAPServer(port int, bport int) (*net.UDPConn, *net.UDPAddr) {
 }
 
 // 广播基站工作消息
-// scan = 0, 广播网络侧消息
-// scan = >0, 间断广播工作消息让UE捕获
-// scan = -1, 此时remote为具体的ue，为端到端发送
 func working(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, scan int, msg []byte) {
 	defer modules.Recover(ctx)
-
+	// 供客户端进行测试
+	ch := make(chan *sip.Message, 1)
+	go func(c chan *sip.Message) {
+		CRLF := "\r\n"
+		for {
+			time.Sleep(time.Second * 10)
+			msg, err := sip.NewMessage(strings.NewReader("INVITE sip:jiqimao@hebeiyidong.3gpp.net SIP/2.0" + CRLF +
+				"Via: SIP/2.0/UDP 10.255.1.111:5090;branch=z9hG4bK199912928954841999" + CRLF + // 注册请求携带一个自己的VIP
+				`From: "jiqimao" <sip:jiqimao@hebeiyidong.3gpp.net>;tag=690713` + CRLF +
+				`To: "jiqimao" <sip:jiqimao@hebeiyidong.3gpp.net>;tag=690711` + CRLF + // 注册请求填自己
+				"Call-ID: RgeX-136783086082016@10.255.1.111" + CRLF + // 随便编一个 目前网络侧没有用到
+				"CSeq: 3 INVITE" + CRLF + // 客户端保证序列
+				"Contact: <sip:jiqimao@10.255.1.111:5090>" + CRLF + // INVITE时需要填写自己实际局域网IP和端口
+				"P-Access-Network-Info: 100231511300032" + CRLF +
+				"Max-Forwards: 70" + CRLF +
+				"Expires: 600000" + CRLF +
+				"Content-Length: 0" + CRLF + CRLF))
+			if err != nil {
+				logger.Fatal("INVITE 消息创建失败")
+			}
+			ch <- &msg
+		}
+	}(ch)
 	for {
 		select {
 		case <-ctx.Done():
 			logger.Warn("[%v] 基站工作广播协程退出...", ctx.Value("Entity"))
 			return
+		case msg := <-ch:
+			_, err := conn.WriteToUDP([]byte(msg.String()), remote)
+			if err != nil {
+				logger.Error("[%v] INVITE消息广播失败... %v", ctx.Value("Entity"), err)
+			}
 		default:
 			_, err := conn.WriteToUDP(msg, remote)
 			if err != nil {
