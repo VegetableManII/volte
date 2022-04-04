@@ -115,6 +115,7 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 				u.AccessPoint = sipreq.Header.AccessNetworkInfo
 				s.sCache.delUserRegistReqXRES(ReqPrefix + user)
 				s.sCache.updateUserInfo(UeInfoPrefix+name, u)
+				logger.Info("[%v] %v注册成功, %v", ctx.Value("Entity"), sip.ServerDomainHost(), u)
 				// 注册成功
 				sipresp := sip.NewResponse(sip.StatusOK, &sipreq)
 				pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
@@ -133,7 +134,7 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			// 查询被叫用户，修改无线接入点信息，直接向下行转发
 			callee := sipreq.RequestLine.RequestURI.Username
 			logger.Warn("[%v] 被叫%v", ctx.Value("Entity"), callee)
-			user := s.sCache.getUserInfo(UeInfoPrefix + callee)
+			user := s.sCache.getUserInfo(UeInfoPrefix + user)
 			logger.Warn("[%v] 被叫接入点%v", ctx.Value("Entity"), user.AccessPoint)
 			sipreq.Header.Via.AddServerInfo()
 			sipreq.Header.AccessNetworkInfo = user.AccessPoint
