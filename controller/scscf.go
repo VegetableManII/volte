@@ -129,7 +129,7 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		}
 	case sip.MethodInvite, sip.MethodPrack, sip.MethodUpdate:
 		// 来自另一个域的请求
-		if first, _ := sipreq.Header.Via.FirstAddrInfo(); strings.Contains(first, "i-cscf") {
+		if first, _ := sipreq.Header.Via.FirstAddrInfo(); strings.Contains(first, "s-cscf") {
 			// 直接向下行转发
 			sipreq.Header.Via.AddServerInfo()
 			pkg.SetFixedConn(s.Points["PCSCF"])
