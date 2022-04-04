@@ -114,13 +114,7 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 				u.Domain = sipreq.Header.From.URI.Domain
 				u.AccessPoint = sipreq.Header.AccessNetworkInfo
 				s.sCache.delUserRegistReqXRES(ReqPrefix + user)
-				if err := s.sCache.setUserInfo(UeInfoPrefix+name, u); err != nil {
-					// 录入系统失败，注册失败
-					sipresp := sip.NewResponse(sip.StatusServerInternalError, &sipreq)
-					pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
-					modules.Send(pkg, down)
-					return err
-				}
+				s.sCache.updateUserInfo(UeInfoPrefix+name, u)
 				// 注册成功
 				sipresp := sip.NewResponse(sip.StatusOK, &sipreq)
 				pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())

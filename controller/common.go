@@ -129,8 +129,8 @@ func (i *Cache) delUserRegistReqXRES(key string) {
 }
 
 // ICSCF 添加用户信息到系统
-func (i *Cache) setUserInfo(key string, val *User) error {
-	return i.Add(key, val, cache.NoExpiration)
+func (i *Cache) updateUserInfo(key string, val *User) {
+	i.Set(key, val, cache.NoExpiration)
 }
 
 // ICSCF/SCSCF 查询用户信息
