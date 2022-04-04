@@ -198,7 +198,7 @@ func (s *S_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 	// 如果下一跳via包含s-cscf说明是另一个域的响应
 	if strings.Contains(via2, "s-cscf") {
 		logger.Info("[%v] Receive From Other I-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-		pkg.SetFixedConn("OTHER")
+		pkg.SetFixedConn(s.Points["OTHER"])
 		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 		modules.Send(pkg, up)
 		return nil
