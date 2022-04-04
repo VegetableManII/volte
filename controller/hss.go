@@ -67,6 +67,7 @@ func (h *HssEntity) MultimediaAuthorizationRequestF(ctx context.Context, p *modu
 	logger.Info("[%v] Receive From S-CSCF: \n%v", ctx.Value("Entity"), string(p.GetData()))
 	table := modules.StrLineUnmarshal(p.GetData())
 	un := table["UserName"]
+	host := table["Host"]
 	user, err := GetUserBySipUserName(ctx, h.dbclient, un)
 	if err != nil {
 		return err
@@ -84,7 +85,7 @@ func (h *HssEntity) MultimediaAuthorizationRequestF(ctx context.Context, p *modu
 		AV_IK:      hex.EncodeToString(IK),
 	}
 	// 在接收消息的步骤中已经设置同步连接
-	p.SetFixedConn(h.Points["HBSCSCF"])
+	p.SetFixedConn(host)
 	p.Construct(modules.EPCPROTOCAL, modules.MultiMediaAuthenticationAnswer, modules.StrLineMarshal(response))
 	modules.Send(p, down)
 	return nil

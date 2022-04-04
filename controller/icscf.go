@@ -96,7 +96,6 @@ func (i *I_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 		return err
 	}
 	via, _ := sipresp.Header.Via.FirstAddrInfo()
-	logger.Warn("ICSCF@@@@@@@@@first: %v, server: %v", via, sip.ServerDomainHost())
 	// 删除Via头部信息
 	sipresp.Header.Via.RemoveFirst()
 	sipresp.Header.MaxForwards.Reduce()

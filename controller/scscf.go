@@ -25,6 +25,7 @@ import (
 
 type S_CscfEntity struct {
 	core   chan *modules.Package
+	Host   string
 	Points map[string]string
 	*Mux
 	sCache *Cache
@@ -33,6 +34,7 @@ type S_CscfEntity struct {
 // 暂时先试用固定的uri，后期实现dns使用域名加IP的映射方式
 func (s *S_CscfEntity) Init(domain, host string) {
 	s.Mux = new(Mux)
+	s.Host = host
 	sip.ServerDomain = domain
 	sip.ServerIP = strings.Split(host, ":")[0]
 	sip.ServerPort, _ = strconv.Atoi(strings.Split(host, ":")[1])
@@ -87,6 +89,7 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			// 向HSS发起MAR，查询信息
 			table := map[string]string{
 				"UserName": user,
+				"Host":     s.Host,
 			}
 			pkg.SetFixedConn(s.Points["HSS"])
 			pkg.Construct(modules.EPCPROTOCAL, modules.MultiMediaAuthenticationRequest, modules.StrLineMarshal(table))
@@ -172,16 +175,27 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 
 func (s *S_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, down chan *modules.Package) error {
 	defer modules.Recover(ctx)
-	logger.Info("[%v] Receive From ICSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-
+	// 解析SIP消息
 	sipresp, err := sip.NewMessage(bytes.NewReader(pkg.GetData()))
 	if err != nil {
-		// TODO
+		// TODO 错误处理
 		return err
 	}
-	// S-CSCF接收到SIP响应消息则一定是被叫对INVITE请求的响应
+	via, _ := sipresp.Header.Via.FirstAddrInfo()
+	// 删除Via头部信息
 	sipresp.Header.Via.RemoveFirst()
-	pkg.SetFixedConn(s.Points["ICSCF"])
+	sipresp.Header.MaxForwards.Reduce()
+	// 如果下一个via包含s-cscf说明是另一个域的响应
+	if strings.Contains(via, "p-cscf") {
+		logger.Info("[%v] Receive From Other I-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+		pkg.SetFixedConn("OTHER")
+		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
+		modules.Send(pkg, up)
+		return nil
+	}
+	// INVITE请求，被叫响应应答
+	logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+	pkg.SetFixedConn(s.Points["PCSCF"])
 	pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 	modules.Send(pkg, down)
 	return nil
