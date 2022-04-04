@@ -47,22 +47,11 @@ func main() {
 
 func init() {
 	scscf := viper.GetString(config.Domain + ".s-cscf.host")
-	hss := viper.GetString("hss.host")
 	localhost = viper.GetString(config.Domain + ".i-cscf.host")
-	icscf1 := viper.GetString("hebeiyidong.i-cscf.host")
-	icscf2 := viper.GetString("chongqingdianxin.i-cscf.host")
-	dns := viper.GetString(config.Domain + ".domain")
 	logger.Info("配置文件读取成功", "")
 	// 启动 ISCF 的UDP服务器
 	self = new(controller.I_CscfEntity)
-	self.Init("i-cscf."+dns, localhost)
-	if config.Domain == "hebeiyidong" {
-		self.Points["OTHER"] = icscf1
-	} else {
-		self.Points["OTHER"] = icscf2
-	}
 	self.Points["SCSCF"] = scscf
-	self.Points["HSS"] = hss
 	RegistRouter()
 }
 

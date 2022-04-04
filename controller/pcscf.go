@@ -72,7 +72,7 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		sipreq.Header.Via.AddServerInfo()
 		// 检查头部内容是否首次注册
 		if strings.Contains(sipreq.Header.Authorization, "response") { // 包含响应内容则为第二次注册请求
-			pkg.SetFixedConn(p.Points["ICSCF"])
+			pkg.SetFixedConn(p.Points["SCSCF"])
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, up)
 		} else {
@@ -83,14 +83,14 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			auth := fmt.Sprintf("Digest username=%s integrity protection:no", username)
 			sipreq.Header.Authorization = auth
 			// 第一次注册请求SCSCF还未与UE绑定所以转发给ICSCF
-			pkg.SetFixedConn(p.Points["ICSCF"])
+			pkg.SetFixedConn(p.Points["SCSCF"])
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, up)
 		}
 	case sip.MethodInvite, sip.MethodPrack, sip.MethodUpdate:
 		via, _ := sipreq.Header.Via.FirstAddrInfo()
-		if strings.Contains(via, "i-cscf") { // INVITE请求来自ICSCF
-			logger.Info("[%v] Receive From ICSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+		if strings.Contains(via, "s-cscf") { // INVITE请求来自ICSCF
+			logger.Info("[%v] Receive From SCSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 			// 向下行转发请求
 			sipreq.Header.Via.AddServerInfo()
 			pkg.SetFixedConn(p.Points["PGW"])
@@ -100,7 +100,7 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			logger.Info("[%v] Receive From PGW: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 			sipreq.Header.Via.AddServerInfo()
 			// 向上行转发请求
-			pkg.SetFixedConn(p.Points["ICSCF"])
+			pkg.SetFixedConn(p.Points["SCSCF"])
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, up)
 			// 向主叫响应trying
@@ -124,7 +124,6 @@ func (p *P_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 		return err
 	}
 	via, _ := sipresp.Header.Via.FirstAddrInfo()
-	logger.Warn("@@@@@@@@@first: %v, server: %v", via, sip.ServerDomainHost())
 	// 删除第一个Via头部信息
 	sipresp.Header.Via.RemoveFirst()
 	sipresp.Header.MaxForwards.Reduce()
@@ -132,7 +131,7 @@ func (p *P_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 	via, _ = sipresp.Header.Via.FirstAddrInfo()
 	if strings.Contains(via, "s-cscf") {
 		logger.Info("[%v] Receive From PGW: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-		pkg.SetFixedConn(p.Points["ICSCF"])
+		pkg.SetFixedConn(p.Points["SCSCF"])
 		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 		modules.Send(pkg, up)
 	} else { // 来自上行ICSCF的一般响应

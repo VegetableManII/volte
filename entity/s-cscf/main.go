@@ -50,6 +50,8 @@ func init() {
 	hss := viper.GetString("hss.host")
 	localhost = viper.GetString(config.Domain + ".s-cscf.host")
 	pcscf := viper.GetString(config.Domain + ".p-cscf.host")
+	scscf1 := viper.GetString("hebeiyidong.s-cscf.host")
+	scscf2 := viper.GetString("chongqingdianxin.s-cscf.host")
 	dns := viper.GetString(config.Domain + ".domain")
 	logger.Info("配置文件读取成功", "")
 	// 启动 CSCF 的UDP服务器
@@ -57,6 +59,11 @@ func init() {
 	self.Init("s-cscf."+dns, localhost)
 	self.Points["PCSCF"] = pcscf
 	self.Points["HSS"] = hss
+	if config.Domain == "hebeiyidong" {
+		self.Points["OTHER"] = scscf1
+	} else {
+		self.Points["OTHER"] = scscf2
+	}
 	RegistRouter()
 }
 

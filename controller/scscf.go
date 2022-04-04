@@ -133,6 +133,10 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		// 来自另一个域的请求
 		if first, _ := sipreq.Header.Via.FirstAddrInfo(); strings.Contains(first, "i-cscf") {
 			// 直接向下行转发
+			sipreq.Header.Via.AddServerInfo()
+			pkg.SetFixedConn(s.Points["PCSCF"])
+			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
+			modules.Send(pkg, down)
 		} else {
 			//
 			sipreq.Header.Via.AddServerInfo()
