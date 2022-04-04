@@ -88,29 +88,5 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 
 func (i *I_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, down chan *modules.Package) error {
 	defer modules.Recover(ctx)
-
-	// 解析SIP消息
-	sipresp, err := sip.NewMessage(bytes.NewReader(pkg.GetData()))
-	if err != nil {
-		// TODO 错误处理
-		return err
-	}
-	via, _ := sipresp.Header.Via.FirstAddrInfo()
-	// 删除Via头部信息
-	sipresp.Header.Via.RemoveFirst()
-	sipresp.Header.MaxForwards.Reduce()
-	// 如果下一个via包含s-cscf说明是另一个域的响应
-	if strings.Contains(via, "s-cscf") {
-		logger.Info("[%v] Receive From Other I-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-		pkg.SetFixedConn("127.0.0.1:54322")
-		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
-		modules.Send(pkg, up)
-		return nil
-	}
-	// INVITE请求，被叫响应应答
-	logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-	pkg.SetFixedConn(i.Points["PCSCF"])
-	pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
-	modules.Send(pkg, down)
 	return nil
 }
