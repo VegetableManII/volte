@@ -60,9 +60,9 @@ func init() {
 	self.Points["PCSCF"] = pcscf
 	self.Points["HSS"] = hss
 	if config.Domain == "hebeiyidong" {
-		self.Points["OTHER"] = scscf1
-	} else {
 		self.Points["OTHER"] = scscf2
+	} else {
+		self.Points["OTHER"] = scscf1
 	}
 	RegistRouter()
 }
