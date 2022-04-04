@@ -133,7 +133,7 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			// 查询被叫用户，修改无线接入点信息，直接向下行转发
 			callee := sipreq.RequestLine.RequestURI.Username
 			logger.Warn("[%v] 被叫%v", ctx.Value("Entity"), callee)
-			user := s.sCache.getUserInfo(UeInfoPrefix + user)
+			user := s.sCache.getUserInfo(UeInfoPrefix + callee)
 			logger.Warn("[%v] 被叫接入点%v", ctx.Value("Entity"), user.AccessPoint)
 			sipreq.Header.Via.AddServerInfo()
 			sipreq.Header.AccessNetworkInfo = user.AccessPoint
@@ -181,12 +181,21 @@ func (s *S_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 		// TODO 错误处理
 		return err
 	}
-	via, _ := sipresp.Header.Via.FirstAddrInfo()
+	via1, _ := sipresp.Header.Via.FirstAddrInfo()
 	// 删除Via头部信息
 	sipresp.Header.Via.RemoveFirst()
 	sipresp.Header.MaxForwards.Reduce()
-	// 如果下一个via包含s-cscf说明是另一个域的响应
-	if strings.Contains(via, "p-cscf") {
+	via2, _ := sipresp.Header.Via.FirstAddrInfo()
+	// 当前跳为s-cscf，下一跳不是s-cscf，则说明响应来自另一个域,更新无线接入点
+	if strings.Contains(via1, "s-cscf") && strings.Contains(via2, "s-cscf") {
+		caller := sipresp.Header.To.URI.Username
+		logger.Warn("[%v] 主叫%v", ctx.Value("Entity"), caller)
+		user := s.sCache.getUserInfo(UeInfoPrefix + caller)
+		logger.Warn("[%v] 主叫接入点%v", ctx.Value("Entity"), user.AccessPoint)
+		sipresp.Header.AccessNetworkInfo = user.AccessPoint
+	}
+	// 如果下一跳via包含s-cscf说明是另一个域的响应
+	if strings.Contains(via2, "s-cscf") {
 		logger.Info("[%v] Receive From Other I-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 		pkg.SetFixedConn("OTHER")
 		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())

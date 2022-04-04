@@ -123,12 +123,11 @@ func (p *P_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 		// TODO 错误处理
 		return err
 	}
-	via, _ := sipresp.Header.Via.FirstAddrInfo()
 	// 删除第一个Via头部信息
 	sipresp.Header.Via.RemoveFirst()
 	sipresp.Header.MaxForwards.Reduce()
 	// 判断下一跳是否是s-cscf
-	via, _ = sipresp.Header.Via.FirstAddrInfo()
+	via, _ := sipresp.Header.Via.FirstAddrInfo()
 	if strings.Contains(via, "s-cscf") {
 		logger.Info("[%v] Receive From PGW: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 		pkg.SetFixedConn(p.Points["SCSCF"])
