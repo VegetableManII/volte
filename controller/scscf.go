@@ -134,7 +134,7 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			// 查询被叫用户，修改无线接入点信息，直接向下行转发
 			callee := sipreq.RequestLine.RequestURI.Username
 			logger.Warn("[%v] 被叫%v", ctx.Value("Entity"), callee)
-			user := s.sCache.getUserInfo(UeInfoPrefix + user)
+			user := s.sCache.getUserInfo(UeInfoPrefix + callee)
 			logger.Warn("[%v] 被叫接入点%v", ctx.Value("Entity"), user.AccessPoint)
 			sipreq.Header.Via.AddServerInfo()
 			sipreq.Header.AccessNetworkInfo = user.AccessPoint
@@ -188,7 +188,7 @@ func (s *S_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 	sipresp.Header.MaxForwards.Reduce()
 	via2, _ := sipresp.Header.Via.FirstAddrInfo()
 	// 当前跳为s-cscf，下一跳不是s-cscf，则说明响应来自另一个域,更新无线接入点
-	if strings.Contains(via1, "s-cscf") && strings.Contains(via2, "s-cscf") {
+	if strings.Contains(via1, "s-cscf") && !strings.Contains(via2, "s-cscf") {
 		caller := sipresp.Header.To.URI.Username
 		logger.Warn("[%v] 主叫%v", ctx.Value("Entity"), caller)
 		user := s.sCache.getUserInfo(UeInfoPrefix + caller)
