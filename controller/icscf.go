@@ -8,10 +8,6 @@ package controller
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
-	"encoding/hex"
-	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -118,69 +114,4 @@ func (i *I_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 	pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 	modules.Send(pkg, down)
 	return nil
-}
-
-func (i *I_CscfEntity) MutimediaAuthorizationAnswerF(ctx context.Context, pkg *modules.Package, up, down chan *modules.Package) error {
-	defer modules.Recover(ctx)
-
-	logger.Info("[%v] Receive From HSS: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-	// 获得用户鉴权信息
-	resp := modules.StrLineUnmarshal(pkg.GetData())
-	user := resp["UserName"]
-	AUTN := resp["AUTN"]
-	XRES := resp["XRES"]
-	RAND := resp["RAND"]
-	// 首先获取缓存中的请求
-	req, ok := i.iCache.getUserRegistReq(ReqPrefix + user)
-	if !ok {
-		// 鉴权请求已过期
-		sipresp := sip.NewResponse(sip.StatusGone, req)
-		pkg.SetFixedConn(i.Points["PCSCF"])
-		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
-		modules.Send(pkg, down)
-		return errors.New("ErrRequestExpired")
-	}
-	// 保存用户鉴权
-	err := i.iCache.setUserRegistXRES(ReqPrefix+user, XRES)
-	if err != nil {
-		sipresp := sip.NewResponse(sip.StatusServerTimeout, req)
-		pkg.SetFixedConn(i.Points["PCSCF"])
-		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
-		modules.Send(pkg, down)
-		// 删除注册请求
-		i.iCache.delUserRegistReqXRES(ReqPrefix + user)
-		return err
-	}
-	// 组装WWW-Authenticate
-	autn, _ := hex.DecodeString(AUTN)
-	rand, _ := hex.DecodeString(RAND)
-	nonce := append(rand, autn...)
-	wwwAuth := fmt.Sprintf(`Digest realm=hebeiyidomg.3gpp.net nonce=%s qop=auth-int algorithm=AKAv1-MD5`, base64.StdEncoding.EncodeToString(nonce))
-	// 向终端发起鉴权
-
-	sipresp := sip.NewResponse(sip.StatusUnauthorized, req)
-	sipresp.Header.WWWAuthenticate = wwwAuth
-	// 用户鉴权信息经过s-cscf发起
-	// 转发给s-cscf的时候会携带自身的via header
-	sipresp.Header.Via.RemoveFirst()
-	sipresp.Header.MaxForwards.Reduce()
-	pkg.SetFixedConn(i.Points["PCSCF"])
-	pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
-	modules.Send(pkg, down)
-	logger.Info("[%v] MAA响应: %v", ctx.Value("Entity"), sipresp.String())
-	return nil
-}
-
-func parseAuthentication(authHeader string) map[string]string {
-	res := make(map[string]string)
-	auth := strings.TrimLeft(authHeader, "Digest ")
-	logger.Warn("Authorization := %v", auth)
-	items := strings.Split(auth, ",")
-	for _, item := range items {
-		val := strings.Split(item, "=")
-		if len(val) >= 2 {
-			res[val[0]] = val[1]
-		}
-	}
-	return res
 }

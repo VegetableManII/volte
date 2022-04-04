@@ -59,6 +59,4 @@ func init() {
 
 func RegistRouter() {
 	self.Regist([2]byte{SIPPROTOCAL, SipRequest}, self.SIPREQUESTF)
-	self.Regist([2]byte{SIPPROTOCAL, SipResponse}, self.SIPRESPONSEF)
-	self.Regist([2]byte{EPCPROTOCAL, MultiMediaAuthenticationAnswer}, self.MutimediaAuthorizationAnswerF)
 }
