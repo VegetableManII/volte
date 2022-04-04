@@ -130,8 +130,13 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 	case sip.MethodInvite, sip.MethodPrack, sip.MethodUpdate:
 		// 来自另一个域的请求
 		if first, _ := sipreq.Header.Via.FirstAddrInfo(); strings.Contains(first, "s-cscf") {
-			// 直接向下行转发
+			// 查询被叫用户，修改无线接入点信息，直接向下行转发
+			callee := sipreq.RequestLine.RequestURI.Username
+			logger.Warn("[%v] 被叫%v", ctx.Value("Entity"), callee)
+			user := s.sCache.getUserInfo(UeInfoPrefix + user)
+			logger.Warn("[%v] 被叫接入点%v", ctx.Value("Entity"), user.AccessPoint)
 			sipreq.Header.Via.AddServerInfo()
+			sipreq.Header.AccessNetworkInfo = user.AccessPoint
 			pkg.SetFixedConn(s.Points["PCSCF"])
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, down)
@@ -157,7 +162,7 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 				pkg.SetFixedConn(s.Points["PCSCF"])
 				pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 				modules.Send(pkg, down)
-			} else { // 不同域 查询对应域的ICSCF网络地址，修改无线接入点信息，向对应域发起请求
+			} else { // 不同域 查询对应域的ICSCF网络地址,向对应域发起请求
 				pkg.SetFixedConn(s.Points["OTHER"])
 				pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 				modules.Send(pkg, up)
