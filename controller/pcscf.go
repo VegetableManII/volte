@@ -135,7 +135,7 @@ func (p *P_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 		modules.Send(pkg, up)
 	} else { // 来自上行ICSCF的一般响应
-		logger.Info("[%v] Receive From ICSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+		logger.Info("[%v] Receive From SCSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 		pkg.SetFixedConn(p.Points["PGW"])
 		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 		modules.Send(pkg, down)
