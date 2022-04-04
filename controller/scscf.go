@@ -139,8 +139,9 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			//
 			sipreq.Header.Via.AddServerInfo()
 			domain := sipreq.RequestLine.RequestURI.Domain
-			user := sipreq.RequestLine.RequestURI.Username
+			user := sipreq.Header.From.URI.Username
 			caller := s.sCache.getUserInfo(UeInfoPrefix + user)
+			logger.Warn("caller: %v, callee domain: %v", caller, domain)
 			if caller == nil {
 				// 主叫用户在系统中找不到
 				sipresp := sip.NewResponse(sip.StatusRequestTerminated, &sipreq)
