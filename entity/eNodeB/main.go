@@ -118,7 +118,6 @@ func initAPServer(port int, bport int) (*net.UDPConn, *net.UDPAddr) {
 // scan = -1, 此时remote为具体的ue，为端到端发送
 func working(ctx context.Context, conn *net.UDPConn, remote *net.UDPAddr, scan int, msg []byte) {
 	defer modules.Recover(ctx)
-	logger.Warn("[%v] 基站下发消息%v(%v)", ctx.Value("Entity"), msg, len(msg))
 	for {
 		select {
 		case <-ctx.Done():
