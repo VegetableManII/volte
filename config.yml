@@ -12,20 +12,20 @@ eNodeB:
 hebeiyidong:
   # epc 网络功能实体
   enb.id: "100231511300031"
-  pgw.host: 114.115.174.184:12348
+  pgw.host: 192.168.0.129:12348
   pgw.dhcp : 10.0.1.0/24
   # ims 网络功能实体
-  p-cscf.host: 114.115.174.184:54321
+  p-cscf.host: 192.168.0.129:54321
   i-cscf.host: 127.0.0.1:54322
   s-cscf.host: 127.0.0.1:54323
   domain: hebeiyidong.3gpp.net
 chongqingdianxin:
   # epc 网络功能实体
   enb.id: "100231511300032"
-  pgw.host: 114.115.174.184:12347
+  pgw.host: 192.168.0.129:12347
   pgw.dhcp : 10.0.2.0/24
   # ims 网络功能实体
-  p-cscf.host: 127.0.0.1:44321
+  p-cscf.host: 192.168.0.129:44321
   i-cscf.host: 127.0.0.1:44322
   s-cscf.host: 127.0.0.1:44323
   domain: chongqingdianxin.3gpp.net
