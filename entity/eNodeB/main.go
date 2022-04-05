@@ -180,9 +180,9 @@ func forwardMsgFromNetToUe(ctx context.Context, conn net.Conn, bconn *net.UDPCon
 			if n != 0 {
 				msg, isSip := parseSipData(data[:n])
 				if !isSip {
-					logger.Info("[%v] 基站接收来自网络侧消息 %v %v(%v bytes)", ctx.Value("Entity"), data[0:4], string(data[4:n]), n)
+					logger.Info("[%v] 基站接收来自网络侧消息 %v\n %v(%v bytes)", ctx.Value("Entity"), data[0:4], string(data[4:n]), n)
 				} else {
-					logger.Info("[%v] 基站接收来自网络侧消息 %v(%v bytes)", ctx.Value("Entity"), string(data[:n]), n)
+					logger.Info("[%v] 基站接收来自网络侧消息 \n%v(%v bytes)", ctx.Value("Entity"), string(data[:n]), n)
 				}
 				// 将收到的消息广播出去
 				working(ctx, bconn, baddr, 0, msg)
@@ -209,7 +209,7 @@ func forwardMsgFromUeToNet(ctx context.Context, src *net.UDPConn, cConn *CoreNet
 				logger.Error("[%v] 基站接收消息失败 %x %v", ctx.Value("Entity"), n, err)
 			}
 			msg, _ := parseSipData(data[:n])
-			logger.Info("[%v] 基站接收来自Ue消息 %v(%v bytes)", ctx.Value("Entity"), string(data[:n]), n)
+			logger.Info("[%v] 基站接收来自Ue消息 \n%v(%v bytes)", ctx.Value("Entity"), string(data[:n]), n)
 			err = send(cConn.PgwConn, msg)
 			if err != nil {
 				logger.Error("[%v] 基站转发消息失败[to pgw] %v %v", ctx.Value("Entity"), n, err)

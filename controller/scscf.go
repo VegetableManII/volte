@@ -67,7 +67,6 @@ func (s *S_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *mod
 
 func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up, down chan *modules.Package) error {
 	defer modules.Recover(ctx)
-	logger.Info("[%v] Receive From ICSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 
 	// 解析SIP消息
 	sipreq, err := sip.NewMessage(bytes.NewReader(pkg.GetData()))
@@ -131,18 +130,24 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 	case sip.MethodInvite, sip.MethodPrack, sip.MethodUpdate:
 		// 来自另一个域的请求
 		if first, _ := sipreq.Header.Via.FirstAddrInfo(); strings.Contains(first, "s-cscf") {
+			logger.Info("[%v][%v] Receive From Other ICSCF: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
 			// 查询被叫用户，修改无线接入点信息，直接向下行转发
 			callee := sipreq.RequestLine.RequestURI.Username
-			logger.Warn("[%v] 被叫%v", ctx.Value("Entity"), callee)
+			logger.Warn("被叫%v", callee)
 			user := s.sCache.getUserInfo(UeInfoPrefix + callee)
-			logger.Warn("[%v] 被叫接入点%v", ctx.Value("Entity"), user.AccessPoint)
+			if user == nil {
+				logger.Error("被叫信息不存在%v", callee)
+				return errors.New("ErrCalleeNotExist")
+			}
+			logger.Warn("被叫接入点%v", user.AccessPoint)
 			sipreq.Header.Via.AddServerInfo()
 			sipreq.Header.AccessNetworkInfo = user.AccessPoint
 			pkg.SetFixedConn(s.Points["PCSCF"])
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, down)
 		} else {
-			//
+			// 同一域的请求
+			logger.Info("[%v][%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
 			sipreq.Header.Via.AddServerInfo()
 			domain := sipreq.RequestLine.RequestURI.Domain
 			user := sipreq.Header.From.URI.Username
@@ -190,21 +195,21 @@ func (s *S_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 	// 当前跳为s-cscf，下一跳不是s-cscf，则说明响应来自另一个域,更新无线接入点
 	if strings.Contains(via1, "s-cscf") && !strings.Contains(via2, "s-cscf") {
 		caller := sipresp.Header.To.URI.Username
-		logger.Warn("[%v] 主叫%v", ctx.Value("Entity"), caller)
+		logger.Warn("主叫%v", caller)
 		user := s.sCache.getUserInfo(UeInfoPrefix + caller)
-		logger.Warn("[%v] 主叫接入点%v", ctx.Value("Entity"), user.AccessPoint)
+		logger.Warn("主叫接入点%v", user.AccessPoint)
 		sipresp.Header.AccessNetworkInfo = user.AccessPoint
 	}
 	// 如果下一跳via包含s-cscf说明是另一个域的响应
 	if strings.Contains(via2, "s-cscf") {
-		logger.Info("[%v] Receive From Other I-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+		logger.Info("[%v][%v] Receive From Other I-CSCF: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
 		pkg.SetFixedConn(s.Points["OTHER"])
 		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 		modules.Send(pkg, up)
 		return nil
 	}
 	// INVITE请求，被叫响应应答
-	logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+	logger.Info("[%v][%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
 	pkg.SetFixedConn(s.Points["PCSCF"])
 	pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 	modules.Send(pkg, down)

@@ -113,9 +113,8 @@ func (p *PgwEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up, d
 		return err
 	}
 	utran := sipreq.Header.AccessNetworkInfo
-	logger.Info("[%v] 接入点 %v", ctx.Value("Entity"), utran)
+	logger.Info("接入点 %v", utran)
 	raddr := p.pCache.getAddress(AddrPrefix + utran)
-	logger.Warn("[%v] 缓存接入点 %v, 数据包连接 addr: %v", ctx.Value("Entity"), raddr.String(), pkg.GetDynamicAddr().String())
 	// 判断来自上游节点还是下游节点
 	if pkg.GetDynamicAddr().String() != raddr.String() {
 		// 来自上游节点，向下游转发
@@ -126,7 +125,6 @@ func (p *PgwEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up, d
 		// 来自下游节点，向上游转发
 		logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 		domain := sipreq.RequestLine.RequestURI.Domain
-		logger.Warn("[%v] request domain: %v", ctx.Value("Entity"), domain)
 		if host := DNSQuery(domain); host != "" {
 			pkg.SetFixedConn(host)
 		} else {
@@ -146,9 +144,8 @@ func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, 
 		return err
 	}
 	utran := sipresp.Header.AccessNetworkInfo
-	logger.Info("[%v] 接入点 %v", ctx.Value("Entity"), utran)
+	logger.Info("接入点 %v", utran)
 	raddr := p.pCache.getAddress(AddrPrefix + utran)
-	logger.Warn("[%v] 缓存接入点 %v, 数据包连接 addr: %v", ctx.Value("Entity"), raddr.String(), pkg.GetDynamicAddr().String())
 	// 判断来自上游节点还是下游节点
 	if pkg.GetDynamicAddr().String() != raddr.String() {
 		// 来自上游，向下游转发
@@ -161,7 +158,6 @@ func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, 
 	} else {
 		logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 		domain := sipresp.RequestLine.RequestURI.Domain
-		logger.Warn("[%v] response domain: %v", ctx.Value("Entity"), domain)
 		if host := DNSQuery(domain); host != "" {
 			pkg.SetFixedConn(host)
 		} else {

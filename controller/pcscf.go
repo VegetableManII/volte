@@ -90,25 +90,27 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 	case sip.MethodInvite, sip.MethodPrack, sip.MethodUpdate:
 		via, _ := sipreq.Header.Via.FirstAddrInfo()
 		if strings.Contains(via, "s-cscf") { // INVITE请求来自ICSCF
-			logger.Info("[%v] Receive From SCSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+			logger.Info("[%v][%v] Receive From SCSCF: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
 			// 向下行转发请求
 			sipreq.Header.Via.AddServerInfo()
 			pkg.SetFixedConn(p.Points["PGW"])
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, down)
 		} else { // INVITE请求来自PGW
-			logger.Info("[%v] Receive From PGW: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+			logger.Info("[%v][%v] Receive From PGW: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
 			sipreq.Header.Via.AddServerInfo()
 			// 向上行转发请求
 			pkg.SetFixedConn(p.Points["SCSCF"])
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, up)
 			// 向主叫响应trying
-			sipresp := sip.NewResponse(sip.StatusTrying, &sipreq)
-			pkg0 := new(modules.Package)
-			pkg0.SetFixedConn(p.Points["PGW"])
-			pkg0.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
-			modules.Send(pkg0, down)
+			if sipreq.RequestLine.Method == sip.MethodInvite {
+				sipresp := sip.NewResponse(sip.StatusTrying, &sipreq)
+				pkg0 := new(modules.Package)
+				pkg0.SetFixedConn(p.Points["PGW"])
+				pkg0.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
+				modules.Send(pkg0, down)
+			}
 		}
 	}
 	return nil
@@ -129,12 +131,12 @@ func (p *P_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 	// 判断下一跳是否是s-cscf
 	via, _ := sipresp.Header.Via.FirstAddrInfo()
 	if strings.Contains(via, "s-cscf") {
-		logger.Info("[%v] Receive From PGW: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+		logger.Info("[%v][%v] Receive From PGW: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
 		pkg.SetFixedConn(p.Points["SCSCF"])
 		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 		modules.Send(pkg, up)
 	} else { // 来自上行ICSCF的一般响应
-		logger.Info("[%v] Receive From SCSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+		logger.Info("[%v][%v] Receive From SCSCF: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
 		pkg.SetFixedConn(p.Points["PGW"])
 		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 		modules.Send(pkg, down)
