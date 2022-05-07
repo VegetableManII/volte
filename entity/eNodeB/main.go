@@ -22,6 +22,7 @@ import (
 	"github.com/wonderivan/logger"
 )
 
+// 基站与UE交换EPC域消息的消息格式
 type EpcMsg struct {
 	Protocal string `json:"protocal"`
 	Method   string `json:"method"`
@@ -29,19 +30,20 @@ type EpcMsg struct {
 	UserIP   string `json:"ue-ip,omitempty"`
 }
 
+// 基站连接核心网的配置信息
 type CoreNetConnection struct {
 	PgwAddr   string
-	PgwConn   net.Conn
-	beatheart int // 心跳时间间隔
+	PgwConn   net.Conn // 基站连接核心网的上游行链路连接
+	beatheart int      // 心跳时间间隔
 }
 
 var (
-	bConn       *net.UDPConn
-	bAddr       *net.UDPAddr
-	sTime       int
-	bmsg        []byte
-	CellID      string
-	NetSideConn *CoreNetConnection
+	bConn       *net.UDPConn       // 基站UDP广播服务器与广播地址建立的连接
+	bAddr       *net.UDPAddr       // 广播地址
+	sTime       int                // 基站广播消息的时间间隔
+	bmsg        []byte             // 广播消息
+	CellID      string             // 基站唯一ID
+	NetSideConn *CoreNetConnection // 基站连接核心网的网络侧连接
 )
 
 func main() {
@@ -76,13 +78,13 @@ func init() {
 	// 启动与ue连接的服务器
 	bConn, bAddr = initAPServer(sport, bcPort)
 	NetSideConn = new(CoreNetConnection)
-	// 创建于PGW的UDP连接
+	// 创建与核心网中PGW连接的UDP连接
 	NetSideConn.PgwAddr = viper.GetString(config.Domain + ".pgw.host")
 	NetSideConn.beatheart = viper.GetInt("eNodeB.beatheart.time")
 	logger.Info("配置文件读取成功", "")
 }
 
-// 与ue连接的UDP服务端
+// 与UE连接的UDP广播服务端
 func initAPServer(port int, bport int) (*net.UDPConn, *net.UDPAddr) {
 	localIP, err := getLocalLanIP()
 	if err != nil {
@@ -107,8 +109,8 @@ func initAPServer(port int, bport int) (*net.UDPConn, *net.UDPAddr) {
 		log.Panicln("eNodeB 广播地址配置解析失败", err)
 	}
 
-	logger.Info("ue UDP广播服务器启动成功 [%v]", la)
-	logger.Info("UDP广播子网 [%v]", ra)
+	logger.Info("UDP广播服务器启动... [%v]", la)
+	logger.Info("UDP广播子网... [%v]", ra)
 	return conn, ra
 }
 
