@@ -142,6 +142,7 @@ func (p *Package) IsBeatHeart() bool {
 }
 
 func (p *Package) GetRoute() [2]byte {
+	logger.Error("_________________%v:%v_________________", p.msg._protocal, p.msg._method)
 	return [2]byte{p.msg._protocal, p.msg._method}
 }
 
