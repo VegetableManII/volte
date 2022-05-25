@@ -149,30 +149,35 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			// 同一域的请求
 			logger.Info("[%v][%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
 			sipreq.Header.Via.AddServerInfo()
-			domain := sipreq.RequestLine.RequestURI.Domain
-			user := sipreq.Header.From.URI.Username
-			caller := s.sCache.getUserInfo(UeInfoPrefix + user)
-			logger.Warn("caller: %v, callee domain: %v", caller, domain)
-			if caller == nil {
-				// 主叫用户在系统中找不到
-				sipresp := sip.NewResponse(sip.StatusRequestTerminated, &sipreq)
-				pkg.SetFixedConn(s.Points["PCSCF"])
-				pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
-				modules.Send(pkg, down)
-				return nil
-			}
-			logger.Warn("caller domain: %v, request domain: %v", caller.Domain, domain)
+			// domain := sipreq.RequestLine.RequestURI.Domain
+			// user := sipreq.Header.From.URI.Username
+			// caller := s.sCache.getUserInfo(UeInfoPrefix + user)
+			// logger.Warn("caller: %v, callee domain: %v", caller, domain)
+			// if caller == nil {
+			// 	// 主叫用户在系统中找不到
+			// 	sipresp := sip.NewResponse(sip.StatusRequestTerminated, &sipreq)
+			// 	pkg.SetFixedConn(s.Points["PCSCF"])
+			// 	pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
+			// 	modules.Send(pkg, down)
+			// 	return nil
+			// }
+			// logger.Warn("caller domain: %v, request domain: %v", caller.Domain, domain)
 			// INVITE 回话建立请求，分为 同域 和 不同域
 			// 向对应域的ICSCF发起请求
-			if caller.Domain == domain { // 同一域 直接返回被叫地址，无需更改无线接入点
-				pkg.SetFixedConn(s.Points["PCSCF"])
-				pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
-				modules.Send(pkg, down)
-			} else { // 不同域 查询对应域的ICSCF网络地址,向对应域发起请求
-				pkg.SetFixedConn(s.Points["OTHER"])
-				pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
-				modules.Send(pkg, up)
-			}
+
+			pkg.SetFixedConn(s.Points["PCSCF"])
+			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
+			modules.Send(pkg, down)
+
+			// if caller.Domain == domain { // 同一域 直接返回被叫地址，无需更改无线接入点
+			// 	pkg.SetFixedConn(s.Points["PCSCF"])
+			// 	pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
+			// 	modules.Send(pkg, down)
+			// } else { // 不同域 查询对应域的ICSCF网络地址,向对应域发起请求
+			// 	pkg.SetFixedConn(s.Points["OTHER"])
+			// 	pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
+			// 	modules.Send(pkg, up)
+			// }
 		}
 
 	}

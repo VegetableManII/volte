@@ -24,10 +24,11 @@ import (
 
 // 基站与UE交换EPC域消息的消息格式
 type EpcMsg struct {
-	Protocal string `json:"protocal"`
-	Method   string `json:"method"`
-	EnbID    string `json:"utan-cell-id-3gpp,omitempty"`
-	UserIP   string `json:"ue-ip,omitempty"`
+	Protocal   string `json:"protocal"`
+	Method     string `json:"method"`
+	EnbID      string `json:"utran-cell-id-3gpp,omitempty"`
+	UserIP     string `json:"ue-ip,omitempty"`
+	UeIdentity string `json:"ue-identity,omitempty"`
 }
 
 // 基站连接核心网的配置信息
@@ -233,7 +234,8 @@ func parseSipData(data []byte) ([]byte, bool) {
 	err := json.Unmarshal(data, em)
 	if err == nil { // JSON格式消息来自Ue且非SIP消息类型
 		pd := make([]byte, 0, 10240)
-		body := fmt.Sprintln("UTRAN-CELL-ID-3GPP=" + em.EnbID)
+		body := fmt.Sprintf("UTRAN-CELL-ID-3GPP=%s\r\n", em.EnbID)
+		body += fmt.Sprintf("UE-IDENTITY=%s\r\n", em.UeIdentity)
 		pd = append(pd, []byte{0x01, 0x00, 0x00, 0x00}...) // attach request
 		binary.BigEndian.PutUint16(pd[2:], uint16(len(body)))
 		pd = append(pd, []byte(body)...)
@@ -244,12 +246,17 @@ func parseSipData(data []byte) ([]byte, bool) {
 		em.Protocal = PotoMap[data[0]]
 		em.Method = MethMap[data[1]]
 		for k, v := range modules.StrLineUnmarshal(data[4:]) {
-			if strings.ToLower(k) == "utan-cell-id-3gpp" {
+			if k == "UTRAN-CELL-ID-3GPP" {
 				em.EnbID = v
 				continue
 			}
 			if strings.ToLower(k) == "ip" {
 				em.UserIP = v
+				continue
+			}
+			if k == "UE-IDENTITY" {
+				em.UeIdentity = v
+				continue
 			}
 		}
 		pda, _ := json.Marshal(em)
