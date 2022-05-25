@@ -53,7 +53,6 @@ func init() {
 	self = new(controller.PgwEntity)
 	self.Init(dhcp)
 	RegistRouter()
-	self.Init(dhcp)
 }
 
 func RegistRouter() {
