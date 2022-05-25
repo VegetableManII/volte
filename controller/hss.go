@@ -63,13 +63,14 @@ func (h *HssEntity) CoreProcessor(ctx context.Context, in, up, down chan *module
 func (h *HssEntity) UserAuthorizationRequestF(ctx context.Context, p *modules.Package, up, down chan *modules.Package) error {
 	defer modules.Recover(ctx)
 
-	logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(p.GetData()))
+	logger.Info("[%v] Receive From I-CSCF: \n%v", ctx.Value("Entity"), string(p.GetData()))
 	table := modules.StrLineUnmarshal(p.GetData())
 	user := table["UserName"]
 	alloc := ServerAllocTable{
 		SipUserName: user,
 		ServerAddr:  config.Elements["SCSCF"].VirtualAddr,
 		BindT:       time.Now(),
+		UnBindT:     time.Now(),
 		Ctime:       time.Now(),
 		Utime:       time.Now(),
 	}
@@ -83,6 +84,7 @@ func (h *HssEntity) UserAuthorizationRequestF(ctx context.Context, p *modules.Pa
 	}
 	p.SetShortConn(config.Elements["ICSCF"].ActualAddr)
 	p.Construct(modules.EPCPROTOCAL, modules.UserAuthorizationAnswer, modules.StrLineMarshal(response))
+	modules.Send(p, down)
 	return nil
 }
 
