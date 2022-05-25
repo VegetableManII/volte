@@ -53,8 +53,6 @@ func (p *P_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *mod
 	}
 }
 
-func (p *P_CscfEntity) UserAuthorizationAnswer(ctx context.Context, pkg *modules.Package, up, down chan *modules.Package)
-
 func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up, down chan *modules.Package) error {
 	defer modules.Recover(ctx)
 
