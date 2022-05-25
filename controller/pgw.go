@@ -98,6 +98,8 @@ func (p *PgwEntity) AttachRequestF(ctx context.Context, pkg *modules.Package, up
 		return err
 	}
 	args["IP"] = ip.String()
+	enb := args["UTRAN-CELL-ID-3GPP"]
+	p.pCache.updateAddress(AddrPrefix+enb, pkg.GetLongConnAddr())
 	// Attach过程仅仅是基站和PGW的交互过程消息体可以直接保存基站的网络连接
 	// 接收Attach消息时，消息体携带基站的网络连接，所以无需通过基站标识从缓存中查找
 	pkg.Construct(modules.EPCPROTOCAL, modules.AttachAccept, modules.StrLineMarshal(args))
