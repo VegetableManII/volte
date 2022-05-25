@@ -232,9 +232,10 @@ func parseSipData(data []byte) ([]byte, bool) {
 	em := new(EpcMsg)
 	err := json.Unmarshal(data, em)
 	if err == nil { // JSON格式消息来自Ue且非SIP消息类型
-		pd := make([]byte, 0, 10240)
+
+		pd := make([]byte, 0, 655335)
 		body := fmt.Sprintln("UTRAN-CELL-ID-3GPP=" + em.EnbID)
-		pd = append(pd, []byte{0x01, 0x00, 0x00, 0x00}...) // attach request
+		binary.BigEndian.PutUint16(pd, 0x0100) // attach request
 		binary.BigEndian.PutUint16(pd[2:], uint16(len(body)))
 		pd = append(pd, []byte(body)...)
 		return pd, false
