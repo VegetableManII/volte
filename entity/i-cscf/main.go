@@ -46,18 +46,17 @@ func main() {
 }
 
 func init() {
-	scscf := viper.GetString(config.Domain + ".s-cscf.host")
 	localhost = viper.GetString(config.Domain + ".i-cscf.host")
 	dns := viper.GetString(config.Domain + ".domain")
 	logger.Info("配置文件读取成功", "")
 	// 启动 ISCF 的UDP服务器
 	self = new(controller.I_CscfEntity)
 	self.Init("i-cscf."+dns, localhost)
-	self.Points["SCSCF"] = scscf
 	RegistRouter()
 }
 
 func RegistRouter() {
+	self.Regist([2]byte{EPCPROTOCAL, UserAuthorizationAnswer}, self.UserAuthorizationAnswerF)
 	self.Regist([2]byte{SIPPROTOCAL, SipRequest}, self.SIPREQUESTF)
 	self.Regist([2]byte{SIPPROTOCAL, SipResponse}, self.SIPRESPONSEF)
 }

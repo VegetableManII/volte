@@ -48,15 +48,12 @@ func main() {
 
 func init() {
 	localhost = viper.GetString(config.Domain + ".pgw.host")
-	eNodeBhost = viper.GetString(config.Domain + ".eNodeB.host")
-	cscfHost = viper.GetString(config.Domain + ".p-cscf.host")
 	dhcp := viper.GetString(config.Domain + ".pgw.dhcp")
 	logger.Info("配置文件读取成功", "")
 	self = new(controller.PgwEntity)
 	self.Init(dhcp)
-	self.Points["CSCF"] = cscfHost
 	RegistRouter()
-	controller.Init()
+	self.Init(dhcp)
 }
 
 func RegistRouter() {

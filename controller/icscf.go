@@ -8,9 +8,11 @@ package controller
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 
+	"github.com/VegetableManII/volte/config"
 	"github.com/VegetableManII/volte/modules"
 	"github.com/VegetableManII/volte/sip"
 
@@ -27,7 +29,6 @@ type User struct {
 }
 
 type I_CscfEntity struct {
-	Points map[string]string
 	*Mux
 	iCache *Cache
 }
@@ -38,7 +39,6 @@ func (i *I_CscfEntity) Init(domain, host string) {
 	sip.ServerDomain = domain
 	sip.ServerIP = strings.Split(host, ":")[0]
 	sip.ServerPort, _ = strconv.Atoi(strings.Split(host, ":")[1])
-	i.Points = make(map[string]string)
 	i.router = make(map[[2]byte]BaseSignallingT)
 	i.iCache = initCache()
 }
@@ -73,13 +73,20 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		return err
 	}
 	// 增加Via头部信息
-	// user := sipreq.Header.From.Username()
-	// sipreq.Header.MaxForwards.Reduce()
-	// sipreq.Header.Via.SetReceivedInfo("UDP", fmt.Sprintf("%s:%d", sip.ServerIP, sip.ServerPort))
-	// sipreq.Header.Via.AddServerInfo()
+	sipreq.Header.MaxForwards.Reduce()
+	sipreq.Header.Via.SetReceivedInfo("UDP", fmt.Sprintf("%s:%d", sip.ServerIP, sip.ServerPort))
+	sipreq.Header.Via.AddServerInfo()
 	switch sipreq.RequestLine.Method {
 	case sip.MethodRegister:
-		// TODO
+		//根据Request-URI获取对应域，向HSS询问对应域的cscf的IP地址
+		user := sipreq.Header.From.Username()
+		// 向HSS发起UAR，查询信息
+		table := map[string]string{
+			"UserName": user,
+		}
+		pkg.SetShortConn(config.Elements["HSS"].ActualAddr)
+		pkg.Construct(modules.EPCPROTOCAL, modules.UserAuthorizationRequest, modules.StrLineMarshal(table))
+		modules.Send(pkg, up)
 	case sip.MethodInvite, sip.MethodPrack, sip.MethodUpdate:
 
 	}
@@ -87,6 +94,11 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 }
 
 func (i *I_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, down chan *modules.Package) error {
+	defer modules.Recover(ctx)
+	return nil
+}
+
+func (i *I_CscfEntity) UserAuthorizationAnswerF(ctx context.Context, pkg *modules.Package, up, down chan *modules.Package) error {
 	defer modules.Recover(ctx)
 	return nil
 }

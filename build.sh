@@ -1,5 +1,6 @@
 #!/bin/sh
 
+# 启动一套IMS网络需要指定该网络的名称，如hebeiyidong
 if [ $# -lt 1 ]; then
 echo "usage: build.sh domain"
 exit

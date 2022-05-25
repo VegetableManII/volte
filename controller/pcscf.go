@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/VegetableManII/volte/config"
 	"github.com/VegetableManII/volte/modules"
 	"github.com/VegetableManII/volte/sip"
 
@@ -19,7 +20,6 @@ import (
 )
 
 type P_CscfEntity struct {
-	Points map[string]string
 	*Mux
 }
 
@@ -29,7 +29,6 @@ func (p *P_CscfEntity) Init(domain, host string) {
 	sip.ServerDomain = domain
 	sip.ServerIP = strings.Split(host, ":")[0]
 	sip.ServerPort, _ = strconv.Atoi(strings.Split(host, ":")[1])
-	p.Points = make(map[string]string)
 	p.router = make(map[[2]byte]BaseSignallingT)
 }
 
@@ -54,6 +53,8 @@ func (p *P_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *mod
 	}
 }
 
+func (p *P_CscfEntity) UserAuthorizationAnswer(ctx context.Context, pkg *modules.Package, up, down chan *modules.Package)
+
 func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up, down chan *modules.Package) error {
 	defer modules.Recover(ctx)
 
@@ -72,7 +73,7 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		sipreq.Header.Via.AddServerInfo()
 		// 检查头部内容是否首次注册
 		if strings.Contains(sipreq.Header.Authorization, "response") { // 包含响应内容则为第二次注册请求
-			pkg.SetFixedConn(p.Points["SCSCF"])
+			pkg.SetShortConn(config.Elements["SCSCF"].ActualAddr)
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, up)
 		} else {
@@ -83,7 +84,7 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			auth := fmt.Sprintf("Digest username=%s integrity protection:no", username)
 			sipreq.Header.Authorization = auth
 			// 第一次注册请求SCSCF还未与UE绑定所以转发给ICSCF
-			pkg.SetFixedConn(p.Points["SCSCF"])
+			pkg.SetShortConn(config.Elements["ICSCF"].ActualAddr)
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, up)
 		}
@@ -93,21 +94,21 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			logger.Info("[%v][%v] Receive From SCSCF: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
 			// 向下行转发请求
 			sipreq.Header.Via.AddServerInfo()
-			pkg.SetFixedConn(p.Points["PGW"])
+			pkg.SetShortConn(config.Elements["PGW"].ActualAddr)
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, down)
 		} else { // INVITE请求来自PGW
 			logger.Info("[%v][%v] Receive From PGW: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
 			sipreq.Header.Via.AddServerInfo()
 			// 向上行转发请求
-			pkg.SetFixedConn(p.Points["SCSCF"])
+			pkg.SetShortConn(config.Elements["PGW"].ActualAddr)
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, up)
 			// 向主叫响应trying
 			if sipreq.RequestLine.Method == sip.MethodInvite {
 				sipresp := sip.NewResponse(sip.StatusTrying, &sipreq)
 				pkg0 := new(modules.Package)
-				pkg0.SetFixedConn(p.Points["PGW"])
+				pkg0.SetShortConn(config.Elements["PGW"].ActualAddr)
 				pkg0.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 				modules.Send(pkg0, down)
 			}
@@ -132,12 +133,12 @@ func (p *P_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 	via, _ := sipresp.Header.Via.FirstAddrInfo()
 	if strings.Contains(via, "s-cscf") {
 		logger.Info("[%v][%v] Receive From PGW: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
-		pkg.SetFixedConn(p.Points["SCSCF"])
+		pkg.SetShortConn(config.Elements["SCSCF"].ActualAddr)
 		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 		modules.Send(pkg, up)
 	} else { // 来自上行ICSCF的一般响应
 		logger.Info("[%v][%v] Receive From SCSCF: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
-		pkg.SetFixedConn(p.Points["PGW"])
+		pkg.SetShortConn(config.Elements["PGW"].ActualAddr)
 		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 		modules.Send(pkg, down)
 	}

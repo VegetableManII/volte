@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/VegetableManII/volte/config"
 	"github.com/VegetableManII/volte/modules"
 	"github.com/VegetableManII/volte/sip"
 
@@ -28,7 +29,6 @@ type Pool struct {
 
 type PgwEntity struct {
 	*Mux
-	Points map[string]string
 	pool   *Pool
 	pCache *Cache
 }
@@ -52,7 +52,6 @@ func (p *PgwEntity) Init(dhcp string) {
 	// 初始化路由
 	p.Mux = new(Mux)
 	p.router = make(map[[2]byte]BaseSignallingT)
-	p.Points = make(map[string]string)
 	p.pool = initpool(dhcp)
 	p.pCache = initCache()
 	// 初始化IP地址池子
@@ -66,16 +65,16 @@ func (p *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *module
 		case pkg := <-in:
 			// 兼容心跳包
 			if pkg.IsBeatHeart() {
-				p.pCache.updateAddress(AddrPrefix+pkg.GetFixedConn(), pkg.GetDynamicAddr())
+				p.pCache.updateAddress(AddrPrefix+pkg.GetShortConn(), pkg.GetLongConnAddr())
 			} else {
 				f, ok := p.router[pkg.GetRoute()]
 				if !ok {
-					logger.Error("[%v] PGW不支持的消息类型数据 %x %v", ctx.Value("Entity"), pkg.GetRoute(), pkg.GetDynamicAddr().String())
+					logger.Error("[%v] PGW不支持的消息类型数据 %x %v", ctx.Value("Entity"), pkg.GetRoute(), pkg.GetLongConnAddr().String())
 					continue
 				}
 				err = f(ctx, pkg, up, down)
 				if err != nil {
-					logger.Error("[%v] PGW消息处理失败 %x %v %v %v", pkg.GetRoute(), pkg.GetDynamicAddr().String(), string(pkg.GetData()), err)
+					logger.Error("[%v] PGW消息处理失败 %x %v %v %v", pkg.GetRoute(), pkg.GetLongConnAddr().String(), string(pkg.GetData()), err)
 				}
 			}
 		case <-ctx.Done():
@@ -116,20 +115,15 @@ func (p *PgwEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up, d
 	logger.Info("接入点 %v", utran)
 	raddr := p.pCache.getAddress(AddrPrefix + utran)
 	// 判断来自上游节点还是下游节点
-	if pkg.GetDynamicAddr().String() != raddr.String() {
+	if pkg.GetLongConnAddr().String() != raddr.String() {
 		// 来自上游节点，向下游转发
 		logger.Info("[%v] Receive From PCSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-		pkg.SetDynamicAddr(raddr)
+		pkg.SetLongAddr(raddr)
 		modules.Send(pkg, down) // 下行
 	} else {
 		// 来自下游节点，向上游转发
 		logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-		domain := sipreq.RequestLine.RequestURI.Domain
-		if host := DNSQuery(domain); host != "" {
-			pkg.SetFixedConn(host)
-		} else {
-			pkg.SetFixedConn(p.Points["CSCF"])
-		}
+		pkg.SetShortConn(config.Elements["PCSCF"].ActualAddr)
 		modules.Send(pkg, up) // 上行
 	}
 	return nil
@@ -147,23 +141,17 @@ func (p *PgwEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, 
 	logger.Info("接入点 %v", utran)
 	raddr := p.pCache.getAddress(AddrPrefix + utran)
 	// 判断来自上游节点还是下游节点
-	if pkg.GetDynamicAddr().String() != raddr.String() {
+	if pkg.GetLongConnAddr().String() != raddr.String() {
 		// 来自上游，向下游转发
 		logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 		// 请求寻找无线接入点
 		utran := strings.Trim(sipresp.Header.AccessNetworkInfo, " ")
 		raddr := p.pCache.getAddress(AddrPrefix + utran)
-		pkg.SetDynamicAddr(raddr)
+		pkg.SetLongAddr(raddr)
 		modules.Send(pkg, down)
 	} else {
 		logger.Info("[%v] Receive From eNodeB: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-		domain := sipresp.RequestLine.RequestURI.Domain
-		if host := DNSQuery(domain); host != "" {
-			pkg.SetFixedConn(host)
-		} else {
-			pkg.SetFixedConn(p.Points["CSCF"])
-		}
-		pkg.SetFixedConn(p.Points["CSCF"])
+		pkg.SetShortConn(config.Elements["PCSCF"].ActualAddr)
 		modules.Send(pkg, up)
 	}
 	return nil
