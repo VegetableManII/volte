@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"net"
+
+	"github.com/wonderivan/logger"
 )
 
 const CRLF = "\r\n"
@@ -73,6 +75,9 @@ SIP Header 格式如下
 */
 // 接收消息时通过字节流创建Package
 func (p *Package) Init(data []byte) error {
+
+	logger.Error("_________________%v_________________", data)
+
 	// 填充消息字节数据
 	if data[0] == EPCPROTOCAL {
 		l := binary.BigEndian.Uint16(data[2:4])
