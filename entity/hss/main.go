@@ -6,8 +6,10 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/VegetableManII/volte/config"
 	"github.com/VegetableManII/volte/controller"
 	. "github.com/VegetableManII/volte/modules"
+	"github.com/spf13/viper"
 
 	"github.com/wonderivan/logger"
 )
@@ -53,12 +55,14 @@ mysql:
 */
 
 func init() {
-	localhost = "127.0.0.1:7777"
+	localhost = config.Elements["HSS"].ActualAddr
+	dbconf := viper.GetString("mysql")
 	self = new(controller.HssEntity)
-	self.Init("root:@tcp(127.0.0.1:3306)/volte?charset=utf8&parseTime=True&loc=Local")
+	self.Init(dbconf)
 	RegistRouter()
 }
 
 func RegistRouter() {
 	self.Regist([2]byte{EPCPROTOCAL, MultiMediaAuthenticationRequest}, self.MultimediaAuthorizationRequestF)
+	self.Regist([2]byte{EPCPROTOCAL, UserAuthorizationRequest}, self.UserAuthorizationRequestF)
 }

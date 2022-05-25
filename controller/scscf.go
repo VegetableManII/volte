@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/VegetableManII/volte/config"
 	"github.com/VegetableManII/volte/modules"
 	"github.com/VegetableManII/volte/sip"
 
@@ -24,9 +25,8 @@ import (
 )
 
 type S_CscfEntity struct {
-	core   chan *modules.Package
-	Host   string
-	Points map[string]string
+	core chan *modules.Package
+	Host string
 	*Mux
 	sCache *Cache
 }
@@ -38,7 +38,6 @@ func (s *S_CscfEntity) Init(domain, host string) {
 	sip.ServerDomain = domain
 	sip.ServerIP = strings.Split(host, ":")[0]
 	sip.ServerPort, _ = strconv.Atoi(strings.Split(host, ":")[1])
-	s.Points = make(map[string]string)
 	s.router = make(map[[2]byte]BaseSignallingT)
 	s.sCache = initCache()
 }
@@ -79,26 +78,22 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 	sipreq.Header.Via.SetReceivedInfo("UDP", fmt.Sprintf("%s:%d", sip.ServerIP, sip.ServerPort))
 	switch sipreq.RequestLine.Method {
 	case sip.MethodRegister:
-		logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
-		// TODO 根据Request-URI获取对应域，向HSS询问对应域的cscf的IP地址
+		logger.Info("[%v] Receive From I-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+
 		if !strings.Contains(sipreq.Header.Authorization, "response") {
-			// 首次注册请求，请求S-CSCF拿到用户向量
-			s.sCache.setUserRegistReq(ReqPrefix+user, &sipreq)
-			user := sipreq.Header.From.Username()
-			// 向HSS发起MAR，查询信息
-			table := map[string]string{
+			// 首次注册请求，请求HSS鉴权向量
+			s.sCache.setUserRegistReq(MARegPrefix+user, &sipreq)
+			m := map[string]string{
 				"UserName": user,
-				"Host":     s.Host,
 			}
-			pkg.SetFixedConn(s.Points["HSS"])
-			pkg.Construct(modules.EPCPROTOCAL, modules.MultiMediaAuthenticationRequest, modules.StrLineMarshal(table))
+			pkg.Construct(modules.EPCPROTOCAL, modules.MultiMediaAuthenticationRequest, modules.StrLineMarshal(m))
+			pkg.SetShortConn(config.Elements["HSS"].ActualAddr)
 			modules.Send(pkg, up)
 		} else { // 第二次发起注册，进行用户身份验证
-			downlink := s.Points["PCSCF"]
-			pkg.SetFixedConn(downlink)
+			pkg.SetShortConn(config.Elements["ICSCF"].ActualAddr)
 
 			values := parseAuthentication(sipreq.Header.Authorization)
-			XRES := s.sCache.getUserRegistXRES(ReqPrefix + user)
+			XRES := s.sCache.getUserRegistXRES(MARegPrefix + user)
 			res, err := base64.RawStdEncoding.DecodeString(values["response"])
 			if err != nil {
 				logger.Error("[%v] 解码response失败: %v", ctx.Value("Entity"), err)
@@ -112,15 +107,16 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 				name := sipreq.Header.From.Username()
 				u.Domain = sipreq.Header.From.URI.Domain
 				u.AccessPoint = sipreq.Header.AccessNetworkInfo
-				s.sCache.delUserRegistReqXRES(ReqPrefix + user)
+				s.sCache.delUserRegistReqXRES(MARegPrefix + user)
 				s.sCache.updateUserInfo(UeInfoPrefix+name, u)
 				logger.Info("[%v] %v注册成功, %v", ctx.Value("Entity"), sip.ServerDomainHost(), u)
 				// 注册成功
 				sipresp := sip.NewResponse(sip.StatusOK, &sipreq)
+				sipresp.Header.ServiceRoute = config.Elements["SCSCF"].VirtualAddr
 				pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 				modules.Send(pkg, down)
 			} else { // 验证不通过
-				s.sCache.delUserRegistReqXRES(ReqPrefix + user)
+				s.sCache.delUserRegistReqXRES(MARegPrefix + user)
 				sresp := sip.NewResponse(sip.StatusUnauthorized, &sipreq)
 				logger.Info("[%v] 发起对UE鉴权: %v", ctx.Value("Entity"), sresp.String())
 				pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sresp.String())
@@ -129,7 +125,7 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		}
 	case sip.MethodInvite, sip.MethodPrack, sip.MethodUpdate:
 		// 来自另一个域的请求
-		if first, _ := sipreq.Header.Via.FirstAddrInfo(); strings.Contains(first, "s-cscf") {
+		if first, _ := sipreq.Header.Via.FirstAddrInfo(); strings.Contains(first, "i-cscf") {
 			logger.Info("[%v][%v] Receive From Other ICSCF: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
 			// 查询被叫用户，修改无线接入点信息，直接向下行转发
 			callee := sipreq.RequestLine.RequestURI.Username
@@ -142,42 +138,37 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			logger.Warn("被叫接入点%v", user.AccessPoint)
 			sipreq.Header.Via.AddServerInfo()
 			sipreq.Header.AccessNetworkInfo = user.AccessPoint
-			pkg.SetFixedConn(s.Points["PCSCF"])
+			pkg.SetShortConn(config.Elements["PCSCF"].ActualAddr)
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, down)
 		} else {
 			// 同一域的请求
 			logger.Info("[%v][%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
 			sipreq.Header.Via.AddServerInfo()
-			// domain := sipreq.RequestLine.RequestURI.Domain
-			// user := sipreq.Header.From.URI.Username
-			// caller := s.sCache.getUserInfo(UeInfoPrefix + user)
-			// logger.Warn("caller: %v, callee domain: %v", caller, domain)
-			// if caller == nil {
-			// 	// 主叫用户在系统中找不到
-			// 	sipresp := sip.NewResponse(sip.StatusRequestTerminated, &sipreq)
-			// 	pkg.SetFixedConn(s.Points["PCSCF"])
-			// 	pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
-			// 	modules.Send(pkg, down)
-			// 	return nil
-			// }
-			// logger.Warn("caller domain: %v, request domain: %v", caller.Domain, domain)
+			domain := sipreq.RequestLine.RequestURI.Domain
+			user := sipreq.Header.From.URI.Username
+			caller := s.sCache.getUserInfo(UeInfoPrefix + user)
+			logger.Warn("caller: %v, callee domain: %v", caller, domain)
+			if caller == nil {
+				// 主叫用户在系统中找不到
+				sipresp := sip.NewResponse(sip.StatusRequestTerminated, &sipreq)
+				pkg.SetShortConn(config.Elements["PCSCF"].ActualAddr)
+				pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
+				modules.Send(pkg, down)
+				return nil
+			}
+			logger.Warn("caller domain: %v, request domain: %v", caller.Domain, domain)
 			// INVITE 回话建立请求，分为 同域 和 不同域
 			// 向对应域的ICSCF发起请求
-
-			pkg.SetFixedConn(s.Points["PCSCF"])
-			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
-			modules.Send(pkg, down)
-
-			// if caller.Domain == domain { // 同一域 直接返回被叫地址，无需更改无线接入点
-			// 	pkg.SetFixedConn(s.Points["PCSCF"])
-			// 	pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
-			// 	modules.Send(pkg, down)
-			// } else { // 不同域 查询对应域的ICSCF网络地址,向对应域发起请求
-			// 	pkg.SetFixedConn(s.Points["OTHER"])
-			// 	pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
-			// 	modules.Send(pkg, up)
-			// }
+			if caller.Domain == domain { // 同一域 直接返回被叫地址，无需更改无线接入点
+				pkg.SetShortConn(config.Elements["PCSCF"].ActualAddr)
+				pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
+				modules.Send(pkg, down)
+			} else { // 不同域 查询对应域的ICSCF网络地址,向对应域发起请求
+				pkg.SetShortConn(config.Elements["OTHER"].ActualAddr)
+				pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
+				modules.Send(pkg, up)
+			}
 		}
 
 	}
@@ -208,14 +199,14 @@ func (s *S_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 	// 如果下一跳via包含s-cscf说明是另一个域的响应
 	if strings.Contains(via2, "s-cscf") {
 		logger.Info("[%v][%v] Receive From Other I-CSCF: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
-		pkg.SetFixedConn(s.Points["OTHER"])
+		pkg.SetShortConn(config.Elements["OTHER"].ActualAddr)
 		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 		modules.Send(pkg, up)
 		return nil
 	}
 	// INVITE请求，被叫响应应答
 	logger.Info("[%v][%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
-	pkg.SetFixedConn(s.Points["PCSCF"])
+	pkg.SetShortConn(config.Elements["PCSCF"].ActualAddr)
 	pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 	modules.Send(pkg, down)
 	return nil
@@ -232,24 +223,24 @@ func (s *S_CscfEntity) MutimediaAuthorizationAnswerF(ctx context.Context, pkg *m
 	XRES := resp["XRES"]
 	RAND := resp["RAND"]
 	// 首先获取缓存中的请求
-	req, ok := s.sCache.getUserRegistReq(ReqPrefix + user)
+	req, ok := s.sCache.getUserRegistReq(MARegPrefix + user)
 	if !ok {
 		// 鉴权请求已过期
 		sipresp := sip.NewResponse(sip.StatusGone, req)
-		pkg.SetFixedConn(s.Points["PCSCF"])
+		pkg.SetShortConn(config.Elements["PCSCF"].ActualAddr)
 		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 		modules.Send(pkg, down)
 		return errors.New("ErrRequestExpired")
 	}
 	// 保存用户鉴权
-	err := s.sCache.setUserRegistXRES(ReqPrefix+user, XRES)
+	err := s.sCache.setUserRegistXRES(MARegPrefix+user, XRES)
 	if err != nil {
 		sipresp := sip.NewResponse(sip.StatusServerTimeout, req)
-		pkg.SetFixedConn(s.Points["PCSCF"])
+		pkg.SetShortConn(config.Elements["PCSCF"].ActualAddr)
 		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 		modules.Send(pkg, down)
 		// 删除注册请求
-		s.sCache.delUserRegistReqXRES(ReqPrefix + user)
+		s.sCache.delUserRegistReqXRES(MARegPrefix + user)
 		return err
 	}
 	// 组装WWW-Authenticate
@@ -265,7 +256,7 @@ func (s *S_CscfEntity) MutimediaAuthorizationAnswerF(ctx context.Context, pkg *m
 	// 转发给s-cscf的时候会携带自身的via header
 	sipresp.Header.Via.RemoveFirst()
 	sipresp.Header.MaxForwards.Reduce()
-	pkg.SetFixedConn(s.Points["PCSCF"])
+	pkg.SetShortConn(config.Elements["PCSCF"].ActualAddr)
 	pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 	modules.Send(pkg, down)
 	logger.Info("[%v] MAA响应: %v", ctx.Value("Entity"), sipresp.String())

@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/VegetableManII/volte/config"
 	"github.com/VegetableManII/volte/modules"
 	"github.com/wmnsk/milenage"
 
@@ -20,16 +21,14 @@ import (
 type HssEntity struct {
 	*Mux
 	dbclient *gorm.DB
-	Points   map[string]string
 }
 
-func (h *HssEntity) Init(conf string) {
+func (h *HssEntity) Init(dbconf string) {
 	// 初始化路由
 	h.Mux = new(Mux)
 	h.router = make(map[[2]byte]BaseSignallingT)
-	h.Points = make(map[string]string)
 	// 初始化数据库连接
-	db, err := gorm.Open("mysql", conf)
+	db, err := gorm.Open("mysql", dbconf)
 	if err != nil {
 		log.Panicln("HSS初始化数据库连接失败", err)
 	}
@@ -61,13 +60,38 @@ func (h *HssEntity) CoreProcessor(ctx context.Context, in, up, down chan *module
 	}
 }
 
+func (h *HssEntity) UserAuthorizationRequestF(ctx context.Context, p *modules.Package, up, down chan *modules.Package) error {
+	defer modules.Recover(ctx)
+
+	logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(p.GetData()))
+	table := modules.StrLineUnmarshal(p.GetData())
+	user := table["UserName"]
+	alloc := ServerAllocTable{
+		SipUserName: user,
+		ServerAddr:  config.Elements["SCSCF"].VirtualAddr,
+		BindT:       time.Now(),
+		Ctime:       time.Now(),
+		Utime:       time.Now(),
+	}
+	err := CreateAllocServerRecord(ctx, h.dbclient, &alloc)
+	if err != nil {
+		return err
+	}
+	response := map[string]string{
+		"S-CSCF":   config.Elements["SCSCF"].ActualAddr,
+		"UserName": user,
+	}
+	p.SetShortConn(config.Elements["ICSCF"].ActualAddr)
+	p.Construct(modules.EPCPROTOCAL, modules.UserAuthorizationAnswer, modules.StrLineMarshal(response))
+	return nil
+}
+
 func (h *HssEntity) MultimediaAuthorizationRequestF(ctx context.Context, p *modules.Package, up, down chan *modules.Package) error {
 	defer modules.Recover(ctx)
 
 	logger.Info("[%v] Receive From S-CSCF: \n%v", ctx.Value("Entity"), string(p.GetData()))
 	table := modules.StrLineUnmarshal(p.GetData())
 	un := table["UserName"]
-	host := table["Host"]
 	user, err := GetUserBySipUserName(ctx, h.dbclient, un)
 	if err != nil {
 		return err
@@ -85,7 +109,7 @@ func (h *HssEntity) MultimediaAuthorizationRequestF(ctx context.Context, p *modu
 		AV_IK:      hex.EncodeToString(IK),
 	}
 	// 在接收消息的步骤中已经设置同步连接
-	p.SetFixedConn(host)
+	p.SetShortConn(config.Elements["SCSCF"].ActualAddr)
 	p.Construct(modules.EPCPROTOCAL, modules.MultiMediaAuthenticationAnswer, modules.StrLineMarshal(response))
 	modules.Send(p, down)
 	return nil
@@ -173,6 +197,30 @@ func xor(a []byte, b []byte) []byte {
  *
  *
  */
+
+type ServerAllocTable struct {
+	ID          int64     `gorm:"column:id"`
+	SipUserName string    `gorm:"column:sip_username" json:"sip_username"`
+	ServerAddr  string    `gorm:"column:scscf_addr"`
+	BindT       time.Time `gorm:"column:bind_t"`
+	UnBindT     time.Time `gorm:"column:unbind_t"`
+	Ctime       time.Time `gorm:"column:ctime"`
+	Utime       time.Time `gorm:"column:utime"`
+}
+
+func (ServerAllocTable) TableName() string {
+	return "server_alloc"
+}
+
+func CreateAllocServerRecord(ctx context.Context, db *gorm.DB, alloc *ServerAllocTable) error {
+	err := db.Create(alloc).Error
+	if err != nil {
+		logger.Error("[%v] HSS创建SCSCF分配记录失败,USER=%v,ERR=%v", ctx.Value("Entity"), *alloc, err)
+		return err
+	}
+	return nil
+}
+
 type UserTable struct {
 	ID          int64     `gorm:"column:id"`
 	IMSI        string    `gorm:"column:imsi" json:"imsi"`

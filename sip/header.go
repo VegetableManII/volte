@@ -27,7 +27,8 @@ type Header struct {
 	UserAgent         string      // (可选) UAC的信息
 	Authorization     string      // (可选) 用户认证信息
 	WWWAuthenticate   string      // (可选) 支持的认证方式和适用realm的参数的拒绝原因
-	UnsupportLines    []string    // 暂不支持的行
+	ServiceRoute      string
+	UnsupportLines    []string // 暂不支持的行
 }
 
 // 设置To的标签为From标签
@@ -73,6 +74,10 @@ func (h Header) String() (result string) {
 	}
 	if len(h.AccessNetworkInfo) > 0 {
 		result += h.lineString(HeaderFieldAccessNetworkInfo.Name, h.AccessNetworkInfo)
+	}
+	if len(h.ServiceRoute) > 0 {
+		result += h.lineString(HeaderFieldServiceRoute.Name, h.ServiceRoute)
+
 	}
 	for _, line := range h.UnsupportLines {
 		result += h.emptyLineString(line)
@@ -128,6 +133,8 @@ func (h *Header) parse(line string) (err error) {
 		h.WWWAuthenticate = value
 	case HeaderFieldAccessNetworkInfo.LowerName():
 		h.AccessNetworkInfo = value
+	case HeaderFieldServiceRoute.LowerName():
+		h.ServiceRoute = value
 	default:
 		h.UnsupportLines = append(h.UnsupportLines, line)
 	}

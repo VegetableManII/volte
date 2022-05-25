@@ -28,6 +28,7 @@ var (
 	HeaderFieldAuthorization     = HeaderFieldItem{"Authorization", ""}
 	HeaderFieldWWWAuthenticate   = HeaderFieldItem{"WWW-Authenticate", ""}
 	HeaderFieldAccessNetworkInfo = HeaderFieldItem{"P-Access-Network-Info", ""}
+	HeaderFieldServiceRoute      = HeaderFieldItem{"Service-Route", ""}
 )
 
 func (f HeaderFieldItem) LowerName() string {

@@ -43,6 +43,7 @@ func NewResponse(code StatusCodeItem, req *Message) *Message {
 			Route:             req.Header.Route,
 			RecordRoute:       req.Header.RecordRoute,
 			UserAgent:         req.Header.UserAgent,
+			ServiceRoute:      req.Header.ServiceRoute,
 		},
 		Body: "",
 	}

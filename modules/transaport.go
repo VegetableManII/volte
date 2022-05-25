@@ -43,14 +43,14 @@ func ReceiveMessage(ctx context.Context, conn *net.UDPConn, in chan *Package) {
 				// 心跳兼容
 				if data[0] == 0x0F && data[1] == 0x0F && data[2] == 0x0F && data[3] == 0x0F {
 					pkg := &Package{
-						CommonMsg: CommonMsg{
+						msg: CommonMsg{
 							_protocal: 0x0F,
 							_method:   0x0F,
 							_size:     0x0F0F,
 						},
-						FixedConn: FixedConn(data[4:n]),
+						shortc: ShortConn(data[4:n]),
 					}
-					pkg.SetDynamicAddr(ra)
+					pkg.SetLongAddr(ra)
 					in <- pkg
 					continue
 				}
@@ -73,17 +73,17 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 			logger.Warn("[%v] 发送下行消息协程退出", ctx.Value("Entity"))
 			return
 		case pkg := <-down:
-			host := string(pkg.FixedConn)
+			host := string(pkg.shortc)
 			var err error
-			if pkg._protocal == EPCPROTOCAL {
+			if pkg.msg._protocal == EPCPROTOCAL {
 				// 使用下游固定地址 或 使用下游连接
 				if host == "" {
-					n, err := pkg.conn.WriteToUDP(pkg.GetEpcMessage(), pkg.remoteAddr)
+					n, err := pkg.longc.conn.WriteToUDP(pkg.msg.GetEpcMessage(), pkg.longc.remoteAddr)
 					if err != nil || n == 0 {
-						logger.Error("[%v] 向下行连接发送数据失败 err: %v, down: %v", ctx.Value("Entity"), err, pkg.remoteAddr)
+						logger.Error("[%v] 向下行连接发送数据失败 err: %v, down: %v", ctx.Value("Entity"), err, pkg.longc.remoteAddr)
 					}
 				} else { // 使用固定连接
-					err = sendUDPMessage(ctx, host, pkg.GetEpcMessage())
+					err = sendUDPMessage(ctx, host, pkg.msg.GetEpcMessage())
 					if err != nil {
 						logger.Error("[%v] 向下行固定网络地址发送数据失败 err: %v, dowm: %v", ctx.Value("Entity"), err, host)
 					}
@@ -91,12 +91,12 @@ func ProcessDownStreamData(ctx context.Context, down chan *Package) {
 
 			} else {
 				if host == "" {
-					n, err := pkg.conn.WriteToUDP(pkg.GetSipMessage(), pkg.remoteAddr)
+					n, err := pkg.longc.conn.WriteToUDP(pkg.msg.GetSipMessage(), pkg.longc.remoteAddr)
 					if err != nil || n == 0 {
-						logger.Error("[%v] 向下行连接发送数据失败 err: %v, down: %v", ctx.Value("Entity"), err, pkg.remoteAddr)
+						logger.Error("[%v] 向下行连接发送数据失败 err: %v, down: %v", ctx.Value("Entity"), err, pkg.longc.remoteAddr)
 					}
 				} else {
-					err = sendUDPMessage(ctx, host, pkg.GetSipMessage())
+					err = sendUDPMessage(ctx, host, pkg.msg.GetSipMessage())
 					if err != nil {
 						logger.Error("[%v] 向下行固定网络地址发送数据失败 err: %v, dowm: %v", ctx.Value("Entity"), err, host)
 					}
@@ -114,15 +114,15 @@ func ProcessUpStreamData(ctx context.Context, up chan *Package) {
 			logger.Warn("[%v] 与上行节点通信协程退出...", ctx.Value("Entity"))
 			return
 		case pkt := <-up:
-			host := string(pkt.FixedConn)
+			host := string(pkt.shortc)
 			var err error
-			if pkt._protocal == EPCPROTOCAL {
-				err = sendUDPMessage(ctx, host, pkt.GetEpcMessage())
+			if pkt.msg._protocal == EPCPROTOCAL {
+				err = sendUDPMessage(ctx, host, pkt.msg.GetEpcMessage())
 				if err != nil {
 					logger.Error("[%v] 向上行节点发送数据失败 err: %v, up: %v", ctx.Value("Entity"), err, host)
 				}
 			} else {
-				err = sendUDPMessage(ctx, host, pkt.GetSipMessage())
+				err = sendUDPMessage(ctx, host, pkt.msg.GetSipMessage())
 				if err != nil {
 					logger.Error("[%v] 向上行节点发送数据失败 err: %v, up: %v", ctx.Value("Entity"), err, host)
 				}
@@ -134,39 +134,6 @@ func ProcessUpStreamData(ctx context.Context, up chan *Package) {
 func Send(pkg *Package, out chan *Package) {
 	out <- pkg
 }
-
-// func SyncRequest(ctx context.Context, pkg *Package) (*Package, error) {
-// 	logger.Error("[%v] 同步请求", ctx.Value("Entity"))
-// 	host := pkg.GetFixedConn()
-// 	ra, err := net.Dial("udp4", host)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	ra.SetReadDeadline(time.Now().Add(time.Second * 5))
-// 	defer ra.Close()
-// 	err = binary.Write(ra, binary.BigEndian, pkg.CommonMsg)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	data := make([]byte, 65535)
-// 	n, err := ra.Read(data)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	if n == 0 {
-// 		logger.Error("[%v] 同步请求,响应数据结果为空", ctx.Value("Entity"))
-// 		return nil, errors.New("ErrEmptyResponse")
-// 	}
-// 	pkg0 := new(Package)
-// 	err = pkg0.Init(data)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	// 同步响应忽略数据来源
-// 	// pkg0.SetDynamicAddr()
-// 	// pkg0.SetDynamicConn()
-// 	return pkg0, nil
-// }
 
 // 需要向其他功能实体发送数据是的通用方法，异步接收
 func sendUDPMessage(ctx context.Context, host string, data []byte) (err error) {
@@ -191,8 +158,8 @@ func distribute(ctx context.Context, data []byte, ra *net.UDPAddr, conn *net.UDP
 	if err != nil {
 		logger.Error("[%v] 消息分发失败, Error: %v", ctx.Value("Entity"), err)
 	} else {
-		pkg.SetDynamicAddr(ra)   // 默认携带请求对端地址，用于判断是上行还是下行
-		pkg.SetDynamicConn(conn) // 默认信息包都携带自身连接conn，用于需要时进行动态连接响应
+		pkg.SetLongAddr(ra)   // 默认携带请求对端地址，用于判断是上行还是下行
+		pkg.SetLongConn(conn) // 默认信息包都携带自身连接conn，用于需要时进行动态连接响应
 		c <- pkg
 	}
 }

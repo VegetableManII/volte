@@ -57,7 +57,7 @@ func GenerateSipBranch() int64 {
 
 // 判断Package包中是否存在连接
 func ConnectionExist(p *Package) bool {
-	return p.remoteAddr != nil && p.conn != nil
+	return p.longc.remoteAddr != nil && p.longc.conn != nil
 }
 
 // 判断sip消息的是请求还是响应

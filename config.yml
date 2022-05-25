@@ -12,28 +12,48 @@ eNodeB:
 hebeiyidong:
   # epc 网络功能实体
   enb.id: "100231511300031"
-  pgw.host: 127.0.0.1:54320
-  pgw.dhcp : 10.0.1.0/24
+  pgw:
+    host: 45.195.8.180:12348
+    vip: 10.0.1.20:5055
+    dhcp : 10.0.1.0/24
   # ims 网络功能实体
-  p-cscf.host: 127.0.0.1:54321
-  i-cscf.host: 127.0.0.1:54322
-  s-cscf.host: 127.0.0.1:54323
+  p-cscf:
+    host: 127.0.0.1:54321
+    vip: 10.0.1.21:5055
+  i-cscf:
+    host: 127.0.0.1:54322
+    vip: 10.0.1.22:5055
+  s-cscf:
+    host: 127.0.0.1:54323
+    vip: 10.0.1.23:5055
+  # 归属地查询服务器
+  hss:
+    host: 127.0.0.1:6666
+    vip: 10.0.1.24:5055
   domain: hebeiyidong.3gpp.net
 chongqingdianxin:
   # epc 网络功能实体
   enb.id: "100231511300032"
-  pgw.host: 192.168.0.129:12347
-  pgw.dhcp : 10.0.2.0/24
+  pgw:
+    host: 45.195.8.180:12347
+    vip: 10.0.2.20:5055
+    dhcp : 10.0.2.0/24
   # ims 网络功能实体
-  p-cscf.host: 192.168.0.129:44321
-  i-cscf.host: 127.0.0.1:44322
-  s-cscf.host: 127.0.0.1:44323
+  p-cscf:
+    host: 127.0.0.1:44321
+    vip: 10.0.2.21:5055
+  i-cscf:
+    host: 127.0.0.1:44322
+    vip: 10.0.2.22:5055
+  s-cscf:
+    host: 127.0.0.1:44323
+    vip: 10.0.2.23:5055
+  # 归属地查询服务器
+  hss:
+    host: 127.0.0.1:7777
+    vip: 10.0.2.24:5055
   domain: chongqingdianxin.3gpp.net
 
-# 归属地查询服务器
-hss:
-  host: 127.0.0.1:7777
 # 数据库配置信息
-mysql:
-  host: "root:@tcp(127.0.0.1:3306)/volte?charset=utf8&parseTime=True&loc=Local"
+mysql: "root:@tcp(127.0.0.1:3306)/volte?charset=utf8&parseTime=True&loc=Local"
 
