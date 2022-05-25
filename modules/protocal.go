@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"net"
-
-	"github.com/wonderivan/logger"
 )
 
 const CRLF = "\r\n"
@@ -75,9 +73,6 @@ SIP Header 格式如下
 */
 // 接收消息时通过字节流创建Package
 func (p *Package) Init(data []byte) error {
-
-	logger.Error("_________________%v_________________", data)
-
 	// 填充消息字节数据
 	if data[0] == EPCPROTOCAL {
 		l := binary.BigEndian.Uint16(data[2:4])
@@ -142,7 +137,6 @@ func (p *Package) IsBeatHeart() bool {
 }
 
 func (p *Package) GetRoute() [2]byte {
-	logger.Error("_________________%v:%v_________________", p.msg._protocal, p.msg._method)
 	return [2]byte{p.msg._protocal, p.msg._method}
 }
 
