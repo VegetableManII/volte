@@ -65,7 +65,8 @@ func (p *PgwEntity) CoreProcessor(ctx context.Context, in, up, down chan *module
 		case pkg := <-in:
 			// 兼容心跳包
 			if pkg.IsBeatHeart() {
-				p.pCache.updateAddress(AddrPrefix+string(pkg.GetData()), pkg.GetLongConnAddr())
+				p.pCache.updateAddress(AddrPrefix+strings.Trim(string(pkg.GetData()), " "), pkg.GetLongConnAddr())
+				logger.Info("心跳%v", AddrPrefix+string(pkg.GetData()))
 			} else {
 				f, ok := p.router[pkg.GetRoute()]
 				if !ok {
@@ -115,6 +116,7 @@ func (p *PgwEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up, d
 	logger.Info("接入点 %v", utran)
 	raddr := p.pCache.getAddress(AddrPrefix + utran)
 	// 判断来自上游节点还是下游节点
+	logger.Info("%v %v %v", AddrPrefix+utran, pkg.GetLongConnAddr().String(), raddr.String())
 	if pkg.GetLongConnAddr().String() != raddr.String() {
 		// 来自上游节点，向下游转发
 		logger.Info("[%v] Receive From PCSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
