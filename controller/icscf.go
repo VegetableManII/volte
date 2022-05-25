@@ -8,6 +8,7 @@ package controller
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -54,7 +55,7 @@ func (i *I_CscfEntity) CoreProcessor(ctx context.Context, in, up, down chan *mod
 			}
 			err := f(ctx, pkg, up, down)
 			if err != nil {
-				logger.Error("[%v] P-CSCF消息处理失败 %x %v %v", ctx.Value("Entity"), pkg.GetRoute(), string(pkg.GetData()), err)
+				logger.Error("[%v] I-CSCF消息处理失败 %x %v %v", ctx.Value("Entity"), pkg.GetRoute(), string(pkg.GetData()), err)
 			}
 		case <-ctx.Done():
 			// 释放资源
@@ -78,8 +79,11 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 	sipreq.Header.Via.AddServerInfo()
 	switch sipreq.RequestLine.Method {
 	case sip.MethodRegister:
+		logger.Info("[%v] Receive From P-CSCF: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
 		//根据Request-URI获取对应域，向HSS询问对应域的cscf的IP地址
 		user := sipreq.Header.From.Username()
+		// 先缓存请求
+		i.iCache.setUserRegistReq(UARegPrefix+user, &sipreq)
 		// 向HSS发起UAR，查询信息
 		table := map[string]string{
 			"UserName": user,
@@ -95,10 +99,45 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 
 func (i *I_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, up, down chan *modules.Package) error {
 	defer modules.Recover(ctx)
+
+	// 解析SIP消息
+	sipresp, err := sip.NewMessage(bytes.NewReader(pkg.GetData()))
+	if err != nil {
+		// TODO 错误处理
+		return err
+	}
+	// 删除第一个Via头部信息
+	sipresp.Header.Via.RemoveFirst()
+	sipresp.Header.MaxForwards.Reduce()
+	via, _ := sipresp.Header.Via.FirstAddrInfo()
+	// 判断下一跳是否是s-cscf
+	if strings.Contains(via, "s-cscf") {
+		// 跨域
+		return nil
+	}
+	logger.Info("[%v][%v] Receive From SCSCF: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
+	pkg.SetShortConn(config.Elements["PCSCF"].ActualAddr)
+	pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
+	modules.Send(pkg, down)
+
 	return nil
 }
 
 func (i *I_CscfEntity) UserAuthorizationAnswerF(ctx context.Context, pkg *modules.Package, up, down chan *modules.Package) error {
 	defer modules.Recover(ctx)
+
+	logger.Info("[%v] Receive From HSS: \n%v", ctx.Value("Entity"), string(pkg.GetData()))
+	resp := modules.StrLineUnmarshal(pkg.GetData())
+	scscf := resp["S-CSCF"]
+	user := resp["UserName"]
+	sipreq, ok := i.iCache.getUserRegistReq(UARegPrefix + user)
+	if !ok {
+		logger.Info("[%v] %s's REGISTER Message Not Found or Expired.", ctx.Value("Entity"), user)
+		return errors.New("RequestNotFound")
+	}
+	// 转发给S-CSCF
+	pkg.SetShortConn(scscf)
+	pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
+	modules.Send(pkg, up)
 	return nil
 }

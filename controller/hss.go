@@ -78,7 +78,8 @@ func (h *HssEntity) UserAuthorizationRequestF(ctx context.Context, p *modules.Pa
 		return err
 	}
 	response := map[string]string{
-		"S-CSCF": config.Elements["SCSCF"].ActualAddr,
+		"S-CSCF":   config.Elements["SCSCF"].ActualAddr,
+		"UserName": user,
 	}
 	p.SetShortConn(config.Elements["ICSCF"].ActualAddr)
 	p.Construct(modules.EPCPROTOCAL, modules.UserAuthorizationAnswer, modules.StrLineMarshal(response))

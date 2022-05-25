@@ -73,7 +73,7 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		sipreq.Header.Via.AddServerInfo()
 		// 检查头部内容是否首次注册
 		if strings.Contains(sipreq.Header.Authorization, "response") { // 包含响应内容则为第二次注册请求
-			pkg.SetShortConn(config.Elements["SCSCF"].ActualAddr)
+			pkg.SetShortConn(config.Elements["ICSCF"].ActualAddr)
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, up)
 		} else {
@@ -90,7 +90,7 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		}
 	case sip.MethodInvite, sip.MethodPrack, sip.MethodUpdate:
 		via, _ := sipreq.Header.Via.FirstAddrInfo()
-		if strings.Contains(via, "s-cscf") { // INVITE请求来自ICSCF
+		if strings.Contains(via, "s-cscf") { // INVITE请求来自SCSCF
 			logger.Info("[%v][%v] Receive From SCSCF: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
 			// 向下行转发请求
 			sipreq.Header.Via.AddServerInfo()
@@ -101,7 +101,7 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			logger.Info("[%v][%v] Receive From PGW: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
 			sipreq.Header.Via.AddServerInfo()
 			// 向上行转发请求
-			pkg.SetShortConn(config.Elements["PGW"].ActualAddr)
+			pkg.SetShortConn(config.Elements["SCSCF"].ActualAddr)
 			pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 			modules.Send(pkg, up)
 			// 向主叫响应trying

@@ -42,7 +42,8 @@ type Base interface {
 }
 
 var defExpire time.Duration = 120 * time.Second
-var ReqPrefix = "req:"
+var UARegPrefix = "ua:"
+var MARegPrefix = "ma:"
 var AddrPrefix = "addr:"
 var UeInfoPrefix = "uinfo:"
 
@@ -78,9 +79,9 @@ func (p *Cache) getAddress(key string) *net.UDPAddr {
 	return ra.(*net.UDPAddr)
 }
 
-// ICSCF 查看用户请求是否存在
-func (i *Cache) getUserRegistReq(key string) (*sip.Message, bool) {
-	m, ok := i.Get(key)
+// 查看缓存的用户请求是否存在
+func (c *Cache) getUserRegistReq(key string) (*sip.Message, bool) {
+	m, ok := c.Get(key)
 	if !ok {
 		return nil, false
 	}
@@ -88,15 +89,33 @@ func (i *Cache) getUserRegistReq(key string) (*sip.Message, bool) {
 	return rc.Req, true
 }
 
-// ICSCF 添加用户注册请求，默认2分钟后过期
-func (i *Cache) setUserRegistReq(key string, msg *sip.Message) {
+// 缓存用户注册请求，默认2分钟后过期，等待HSS返回
+func (c *Cache) setUserRegistReq(key string, msg *sip.Message) {
 	rc := new(RegistCombine)
 	rc.Req = msg
 	rc.XRES = "NONE"
-	i.Set(key, rc, defExpire)
+	c.Set(key, rc, defExpire)
 }
 
-// ICSCF 添加用户注册请求对应鉴权向量
+// // ICSCF 查看缓存的用户请求是否存在
+// func (i *Cache) getUserRegistReq(key string) (*sip.Message, bool) {
+// 	m, ok := i.Get(key)
+// 	if !ok {
+// 		return nil, false
+// 	}
+// 	rc := m.(*RegistCombine)
+// 	return rc.Req, true
+// }
+
+// // ICSCF 缓存用户注册请求，默认2分钟后过期，等待HSS返回
+// func (i *Cache) setUserRegistReq(key string, msg *sip.Message) {
+// 	rc := new(RegistCombine)
+// 	rc.Req = msg
+// 	rc.XRES = "NONE"
+// 	i.Set(key, rc, defExpire)
+// }
+
+// SCSCF 添加用户注册请求对应鉴权向量
 func (i *Cache) setUserRegistXRES(key string, val string) error {
 	// 首先查看是否存在请求
 	m, expire, ok := i.GetWithExpiration(key)
@@ -110,9 +129,9 @@ func (i *Cache) setUserRegistXRES(key string, val string) error {
 	return nil
 }
 
-// ICSCF 查看用户注册请求对应鉴权向量
-func (i *Cache) getUserRegistXRES(key string) string {
-	m, ok := i.Get(key)
+// SCSCF 查看用户注册请求对应鉴权向量
+func (s *Cache) getUserRegistXRES(key string) string {
+	m, ok := s.Get(key)
 	if !ok {
 		return ""
 	}
@@ -123,14 +142,14 @@ func (i *Cache) getUserRegistXRES(key string) string {
 	return rc.XRES
 }
 
-// ICSCF 删除用户注册请求和鉴权向量
-func (i *Cache) delUserRegistReqXRES(key string) {
-	i.Delete(key)
+// SCSCF 删除用户注册请求和鉴权向量
+func (s *Cache) delUserRegistReqXRES(key string) {
+	s.Delete(key)
 }
 
-// ICSCF 添加用户信息到系统
-func (i *Cache) updateUserInfo(key string, val *User) {
-	i.Set(key, val, cache.NoExpiration)
+// SCSCF 添加用户信息到系统
+func (s *Cache) updateUserInfo(key string, val *User) {
+	s.Set(key, val, cache.NoExpiration)
 }
 
 // ICSCF/SCSCF 查询用户信息
