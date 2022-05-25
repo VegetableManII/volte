@@ -66,6 +66,15 @@ func init() {
 	pgwv := viper.GetString(Domain + ".pgw.vip")
 	pgwa := viper.GetString(Domain + ".pgw.host")
 	Elements["PGW"] = &Node{VirtualAddr: pgwv, ActualAddr: pgwa}
+	if Domain == "hebeiyidong" {
+		icscfv := viper.GetString("chongqingdianxin.i-cscf.vip")
+		icscfa := viper.GetString("chongqingdianxin.i-cscf.host")
+		Elements["OTHER"] = &Node{VirtualAddr: icscfv, ActualAddr: icscfa}
+	} else {
+		icscfv := viper.GetString("hebeiyidong.i-cscf.vip")
+		icscfa := viper.GetString("hebeiyidong.i-cscf.host")
+		Elements["ICSCF"] = &Node{VirtualAddr: icscfv, ActualAddr: icscfa}
+	}
 
 }
 

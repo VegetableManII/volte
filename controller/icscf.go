@@ -92,7 +92,11 @@ func (i *I_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 		pkg.Construct(modules.EPCPROTOCAL, modules.UserAuthorizationRequest, modules.StrLineMarshal(table))
 		modules.Send(pkg, up)
 	case sip.MethodInvite, sip.MethodPrack, sip.MethodUpdate:
-
+		// 收到来自其他域的请求
+		logger.Info("[%v][%v] Receive From Other Domain: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
+		pkg.SetShortConn(config.Elements["SCSCF"].ActualAddr)
+		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipreq.String())
+		modules.Send(pkg, down)
 	}
 	return nil
 }
@@ -113,6 +117,10 @@ func (i *I_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 	// 判断下一跳是否是s-cscf
 	if strings.Contains(via, "s-cscf") {
 		// 跨域
+		logger.Info("[%v][%v] Receive From SCSCF: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
+		pkg.SetShortConn(config.Elements["OTHER"].ActualAddr)
+		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
+		modules.Send(pkg, down)
 		return nil
 	}
 	logger.Info("[%v][%v] Receive From SCSCF: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
