@@ -165,7 +165,7 @@ func (s *S_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 				pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 				modules.Send(pkg, down)
 			} else { // 不同域 查询对应域的ICSCF网络地址,向对应域发起请求
-				pkg.SetShortConn(config.Elements["OTHER"].ActualAddr)
+				pkg.SetShortConn(config.Elements["OTHER-ICSCF"].ActualAddr)
 				pkg.Construct(modules.SIPPROTOCAL, modules.SipRequest, sipreq.String())
 				modules.Send(pkg, up)
 			}
