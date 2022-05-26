@@ -69,11 +69,17 @@ func init() {
 	if Domain == "hebeiyidong" {
 		icscfv := viper.GetString("chongqingdianxin.i-cscf.vip")
 		icscfa := viper.GetString("chongqingdianxin.i-cscf.host")
-		Elements["OTHER"] = &Node{VirtualAddr: icscfv, ActualAddr: icscfa}
+		Elements["OTHER-ICSCF"] = &Node{VirtualAddr: icscfv, ActualAddr: icscfa}
+		scscfv := viper.GetString("chongqingdianxin.s-cscf.vip")
+		scscfa := viper.GetString("chongqingdianxin.s-cscf.host")
+		Elements["OTHER-SCSCF"] = &Node{VirtualAddr: scscfv, ActualAddr: scscfa}
 	} else {
 		icscfv := viper.GetString("hebeiyidong.i-cscf.vip")
 		icscfa := viper.GetString("hebeiyidong.i-cscf.host")
-		Elements["OTHER"] = &Node{VirtualAddr: icscfv, ActualAddr: icscfa}
+		Elements["OTHER-ICSCF"] = &Node{VirtualAddr: icscfv, ActualAddr: icscfa}
+		scscfv := viper.GetString("hebeiyidong.s-cscf.vip")
+		scscfa := viper.GetString("hebeiyidong.s-cscf.host")
+		Elements["OTHER-SCSCF"] = &Node{VirtualAddr: scscfv, ActualAddr: scscfa}
 	}
 
 }

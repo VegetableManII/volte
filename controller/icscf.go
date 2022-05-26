@@ -118,7 +118,7 @@ func (i *I_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 	if strings.Contains(via, "s-cscf") {
 		// 跨域
 		logger.Info("[%v][%v] Receive From SCSCF: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
-		pkg.SetShortConn(config.Elements["OTHER"].ActualAddr)
+		pkg.SetShortConn(config.Elements["OTHER-SCSCF"].ActualAddr)
 		pkg.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
 		modules.Send(pkg, down)
 		return nil
