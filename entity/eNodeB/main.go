@@ -147,7 +147,7 @@ func tunneling(ctx context.Context, coreConn *CoreNetConnection, bConn *net.UDPC
 		return
 	}
 	// 向mme和pgw发送心跳包，让对端知道自己的公网IP和端口
-	// go heartbeat(ctx, coreConn.PgwConn, coreConn.beatheart)
+	go heartbeat(ctx, coreConn.PgwConn, coreConn.beatheart)
 	go forwardMsgFromNetToUe(ctx, coreConn.PgwConn, bConn, bAddr)
 	go forwardMsgFromUeToNet(ctx, bConn, coreConn)
 }

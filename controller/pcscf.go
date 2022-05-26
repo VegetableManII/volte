@@ -97,6 +97,7 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			modules.Send(pkg, down)
 		} else { // INVITE请求来自PGW
 			logger.Info("[%v][%v] Receive From PGW: \n%v", ctx.Value("Entity"), sip.ServerDomain, string(pkg.GetData()))
+			sipresp := sip.NewResponse(sip.StatusTrying, &sipreq)
 			sipreq.Header.Via.AddServerInfo()
 			// 向上行转发请求
 			pkg.SetShortConn(config.Elements["SCSCF"].ActualAddr)
@@ -104,7 +105,6 @@ func (p *P_CscfEntity) SIPREQUESTF(ctx context.Context, pkg *modules.Package, up
 			modules.Send(pkg, up)
 			// 向主叫响应trying
 			if sipreq.RequestLine.Method == sip.MethodInvite {
-				sipresp := sip.NewResponse(sip.StatusTrying, &sipreq)
 				pkg0 := new(modules.Package)
 				pkg0.SetShortConn(config.Elements["PGW"].ActualAddr)
 				pkg0.Construct(modules.SIPPROTOCAL, modules.SipResponse, sipresp.String())
