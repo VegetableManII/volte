@@ -73,7 +73,7 @@ func init() {
 	} else {
 		icscfv := viper.GetString("hebeiyidong.i-cscf.vip")
 		icscfa := viper.GetString("hebeiyidong.i-cscf.host")
-		Elements["ICSCF"] = &Node{VirtualAddr: icscfv, ActualAddr: icscfa}
+		Elements["OTHER"] = &Node{VirtualAddr: icscfv, ActualAddr: icscfa}
 	}
 
 }

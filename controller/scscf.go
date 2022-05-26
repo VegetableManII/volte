@@ -188,8 +188,8 @@ func (s *S_CscfEntity) SIPRESPONSEF(ctx context.Context, pkg *modules.Package, u
 	sipresp.Header.Via.RemoveFirst()
 	sipresp.Header.MaxForwards.Reduce()
 	via2, _ := sipresp.Header.Via.FirstAddrInfo()
-	// 当前跳为s-cscf，下一跳不是s-cscf，则说明响应来自另一个域,更新无线接入点
-	if strings.Contains(via1, "s-cscf") && !strings.Contains(via2, "s-cscf") {
+	// 当前跳为s-cscf，下一跳是p-cscf，则说明响应来自另一个域,更新无线接入点
+	if strings.Contains(via1, "s-cscf") && strings.Contains(via2, "p-cscf") {
 		caller := sipresp.Header.To.URI.Username
 		logger.Warn("主叫%v", caller)
 		user := s.sCache.getUserInfo(UeInfoPrefix + caller)
